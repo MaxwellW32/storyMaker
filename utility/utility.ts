@@ -1,4 +1,10 @@
-import { unknown } from "zod/v4";
+export function deepClone<T>(object: T): T {
+    return JSON.parse(JSON.stringify(object))
+}
+
+export function spaceCamelCase(seenString: string) {
+    return seenString.replace(/([A-Z])/g, ' $1').replace(/^./, function (str) { return str.toUpperCase(); })
+}
 
 export function getPathname(fullUrl: string, base = "http://localhost") {
     try {
@@ -28,4 +34,12 @@ export function retreiveFromLocalStorage(keyName: string): any {
 
 export function removeFromLocalStorage(keyName: string): any {
     localStorage.removeItem(keyName);
+}
+
+export function formatLocalDateTime(seenDate: Date) {
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+
+    //@ts-expect-error type
+    const customDateTime = seenDate.toLocaleString('en-US', options);
+    return customDateTime
 }

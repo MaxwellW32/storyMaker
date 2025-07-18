@@ -5,13 +5,17 @@ export const dateSchma = z.preprocess((val) => {
     return val;
 }, z.date())
 
-export const emotionsSchema = z.enum(["excited", "happy"])
-export type emotionsType = z.infer<typeof emotionsSchema>
+
+
+
+//keep in line with db
+export const typeEmotionsSchema = z.enum(["excited", "happy"])
+export type typeEmotionsType = z.infer<typeof typeEmotionsSchema>
 
 export const dialogueSchema = z.object({
     characterId: z.string().min(1),
     sentence: z.string(),
-    emotions: emotionsSchema.nullable(),
+    emotions: typeEmotionsSchema.nullable(),
 })
 export type dialogueType = z.infer<typeof dialogueSchema>
 
@@ -22,6 +26,9 @@ export const sceneSchema = z.object({
     backgroundImageSrc: z.string().min(1).nullable(),
 })
 export type sceneType = z.infer<typeof sceneSchema>
+
+
+
 
 export const gptStoryResponseSchema = z.object({
     scenes: sceneSchema.array(),
@@ -316,7 +323,6 @@ export const gptApiResponseExample = {
         ]
     }
 }
-
 export const scenesExample: sceneType[] = [
     {
         id: "1",
@@ -391,6 +397,21 @@ export const scenesExample: sceneType[] = [
 
 
 
+export type projectFilterType = {
+    [key in keyof projectType]?: projectType[key]
+}
+export type allFilterType = projectFilterType
+
+
+//handle search component with limits/offsets
+export type searchObjType<T> = {
+    searchItems: T[],
+    loading?: true,
+    limit?: number, //how many
+    offset?: number, //increaser
+    incrementOffsetBy?: number, //how much to increase by
+    refreshAll?: boolean
+}
 
 
 
@@ -403,15 +424,64 @@ export const scenesExample: sceneType[] = [
 
 
 
+
+
+
+
+
+
+
+export const projectSchema = z.object({
+    //defaults
+    id: z.string().min(1),
+    dateCreated: dateSchma,
+
+    //regular
+    name: z.string().min(1),
+
+    //null
+})
+export type projectType = z.infer<typeof projectSchema> & {
+}
+
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true })
+export type newProjectType = z.infer<typeof newProjectSchema>
+
+export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true })
+export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 
 
 
 export const characterSchema = z.object({
-    //defaults
     id: z.string().min(1),
-    //null
-    name: z.string().min(1).nullable(),
+    name: z.string().min(1),
+    age: z.number(),
 })
 export type characterType = z.infer<typeof characterSchema> & {
+    charactersToEmotions?: characterToEmotionType[],
+}
+
+
+
+
+export const emotionSchema = z.object({
+    type: typeEmotionsSchema,
+})
+export type emotionType = z.infer<typeof emotionSchema> & {
+    charactersToEmotions?: characterToEmotionType[],
+}
+
+
+
+
+export const characterToEmotionSchema = z.object({
+    id: z.string().min(1),
+
+    characterId: characterSchema.shape.id,
+    emotionType: typeEmotionsSchema,
+})
+export type characterToEmotionType = z.infer<typeof characterToEmotionSchema> & {
+    character?: characterType,
+    emotion?: emotionType,
 }

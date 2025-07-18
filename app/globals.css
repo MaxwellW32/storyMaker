@@ -67,7 +67,6 @@ body {
   line-height: 1.6;
   font-size: var(--fontSizeR);
   padding: var(--spacingL);
-  place-items: center;
 }
 
 svg {
@@ -75,6 +74,12 @@ svg {
   aspect-ratio: 1/1;
   transition: scale 400ms;
   fill: var(--textC1);
+}
+
+main {
+  display: grid;
+  align-content: flex-start;
+  gap: var(--spacingR);
 }
 
 section {
@@ -256,4 +261,9 @@ footer {
 
 .largeIcon {
   font-size: var(--sizeL);
+}
+
+.errorText {
+  color: var(--c1);
+  font-size: var(--fontSizeS);
 }
