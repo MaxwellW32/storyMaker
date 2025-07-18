@@ -1,0 +1,1 @@
+export const baseInstructionsVar = "write incredible short children stories."
