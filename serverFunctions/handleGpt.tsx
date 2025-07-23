@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
 import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType } from "@/types";
+import { v4 as uuidV4 } from "uuid"
 
 dotenv.config({ path: ".env.local" });
 
@@ -32,7 +33,14 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
     //     }
     // });
 
-    return gptStoryResponseSchema.parse(response.output_parsed)
+    const seenGptStoryResponse = gptStoryResponseSchema.parse(response.output_parsed)
+    seenGptStoryResponse.scenes = seenGptStoryResponse.scenes.map(eachScene => {
+        eachScene.id = uuidV4()
+
+        return eachScene
+    })
+
+    return seenGptStoryResponse
 }
 
 export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType, referenceScenes: sceneType[]): Promise<gptAlterSceneResponseType> {

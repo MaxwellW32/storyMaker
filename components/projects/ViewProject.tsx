@@ -1,149 +1,136 @@
 "use client"
-
 import ShowMore from "@/components/showMore/ShowMore"
-import { baseInstructionsVar } from "@/lib/gptPrompts"
+import { baseInstructionsPromptFile } from "@/lib/dirPaths"
 import { alterScene, makeStory } from "@/serverFunctions/handleGpt"
-import { alterScenesObjSchema, alterScenesObjType, projectType, sceneSchema, scenesExample, sceneType } from "@/types"
+import { updateProjects } from "@/serverFunctions/handleProjects"
+import { alterScenesObjType, projectType, sceneType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
-import { retreiveFromLocalStorage, saveToLocalStorage } from "@/utility/utility"
+import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
+import defaultImg from "@/public/default.jpg"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts
 //how does after effects integration work - layers, importing, images, audio
 
-type savedSceneInfoType = {
-    scenes: sceneType[],
-    alterScenesObj: alterScenesObjType
-}
-
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
-    const [baseIntructions, baseIntructionsSet] = useState(baseInstructionsVar)
-    const [prompt, promptSet] = useState("Write a story about a dragon and a lost kitten.")
+    const project = useRef<projectType>({ ...seenProject })
+    const baseInstructions = useRef<string | undefined>(undefined)
+    const projectSaveDebounce = useRef<NodeJS.Timeout | undefined>(undefined)
+    const storyLoading = useRef(false)
 
-    const [scenes, scenesSet] = useState<sceneType[]>([...scenesExample])
-    const [alterScenesObj, alterScenesObjSet] = useState<alterScenesObjType>({})
+    console.log(`$project`, project);
 
-    const [loading, setLoading] = useState(false)
-    const [checkedForSave, checkedForSaveSet] = useState(false)
+    const [refresher, refresherSet] = useState(false)
+    // const loading = useRef(false)
 
-    //read save from storage
+    //load base instructions
     useEffect(() => {
-        checkedForSaveSet(true)
+        const loadInstructions = async () => {
+            try {
+                const seenText = await fetchMainFolderFile(baseInstructionsPromptFile, "text");
+                baseInstructions.current = seenText;
+                refresh()
 
-        const seenSavedSceneInfo: savedSceneInfoType | null = retreiveFromLocalStorage("savedSceneInfo")
-        if (seenSavedSceneInfo === null) return
+            } catch (error) {
+                consoleAndToastError(error);
+            }
+        };
 
+        loadInstructions();
+    }, []);
+
+    //respond to project changes
+    useEffect(() => {
+        handleProjectSave()
+
+    }, [refresher])
+
+    async function handleProjectSave() {
         try {
-            sceneSchema.array().parse(seenSavedSceneInfo.scenes)
-            scenesSet(seenSavedSceneInfo.scenes)
+            if (projectSaveDebounce.current) clearTimeout(projectSaveDebounce.current)
 
-            alterScenesObjSchema.parse(seenSavedSceneInfo.alterScenesObj)
-            alterScenesObjSet(seenSavedSceneInfo.alterScenesObj)
+            projectSaveDebounce.current = setTimeout(() => {
+                const validatedProject = updateProjectSchema.parse(project.current)
+
+                console.log(`$saved project.current`, project.current);
+
+                //send to server
+                updateProjects(seenProject.id, validatedProject)
+            }, 10_000);
 
         } catch (error) {
             consoleAndToastError(error)
         }
-    }, [])
+    }
 
-    //save form to storage
-    useEffect(() => {
-        if (!checkedForSave) return
-
-        const newSavedSceneInfo: savedSceneInfoType = {
-            scenes: scenes,
-            alterScenesObj: alterScenesObj
-        }
-
-        saveToLocalStorage("savedSceneInfo", newSavedSceneInfo)
-
-    }, [scenes, alterScenesObj])
+    function refresh() {
+        refresherSet(prev => !prev)
+    }
 
     async function handleGenerateStory() {
         try {
+            if (baseInstructions.current === undefined) return
+
             //loading
-            setLoading(true)
-            scenesSet([])
+            storyLoading.current = true
+            project.current.scenes = []
 
             toast.success("Generating story...")
 
-            const response = await makeStory(prompt, baseIntructions)
-            scenesSet(response.scenes)
+            const storyResponse = await makeStory(project.current.prompt, baseInstructions.current)
+            project.current.scenes = storyResponse.scenes
 
         } catch (error) {
             consoleAndToastError(error)
         }
 
-        setLoading(false)
+        storyLoading.current = false
+        refresh()
     }
 
     async function handleAlterScene(scenePrompt: string, sceneToReplace: sceneType, referencedSceneIds: string) {
         try {
+            if (baseInstructions.current === undefined) return
+            if (project.current.alterScenesObj[sceneToReplace.id] === undefined) return
+
             //loading
-            alterScenesObjSet(prevAlterScenesObj => {
-                const newAlterScenesObj = { ...prevAlterScenesObj }
-                if (newAlterScenesObj[sceneToReplace.id] === undefined) return prevAlterScenesObj
-
-                newAlterScenesObj[sceneToReplace.id].loading = true
-
-                return newAlterScenesObj
-            })
+            project.current.alterScenesObj[sceneToReplace.id].loading = true
 
             //get scenes referenced for context
             const referencedScenesIdArr: sceneType["id"][] = referencedSceneIds !== "" ? referencedSceneIds.split(",") : []
 
             const referenceScenes = referencedScenesIdArr.map(eachReferenceId => {
-                const foundScene = scenes.find(eachScene => eachScene.id === eachReferenceId.trim())
+                const foundScene = project.current.scenes.find(eachScene => eachScene.id === eachReferenceId.trim())
                 if (foundScene === undefined) throw new Error("not seeing scene with id specified")
                 return foundScene
             })
 
-            const newAlteredSceneResponse = await alterScene(scenePrompt, baseIntructions, sceneToReplace, referenceScenes)
+            const newAlteredSceneResponse = await alterScene(scenePrompt, baseInstructions.current, sceneToReplace, referenceScenes)
 
             const newReplacedScene = { ...newAlteredSceneResponse.scene, id: sceneToReplace.id }
 
             //save scenes to variations - old and new
-            alterScenesObjSet(prevAlterScenesObj => {
-                const newAlterScenesObj = { ...prevAlterScenesObj }
-                if (newAlterScenesObj[sceneToReplace.id] === undefined) return prevAlterScenesObj
-
-                //add onto array
-                newAlterScenesObj[sceneToReplace.id].variations = [...newAlterScenesObj[sceneToReplace.id].variations, sceneToReplace, newReplacedScene]
-
-                return newAlterScenesObj
-            })
+            project.current.alterScenesObj[sceneToReplace.id].variations = [...project.current.alterScenesObj[sceneToReplace.id].variations, sceneToReplace, newReplacedScene]
 
             //replace the scene
-            scenesSet(prevScenesSet => {
-                const newScenesSet = [...prevScenesSet].map(eachScene => {
-                    if (eachScene.id === sceneToReplace.id) {
-                        //keep og id
-                        eachScene = newReplacedScene
-                    }
+            project.current.scenes = project.current.scenes.map(eachScene => {
+                if (eachScene.id === sceneToReplace.id) {
+                    //keep og id
+                    eachScene = newReplacedScene
+                }
 
-                    return eachScene
-                })
-
-                return newScenesSet
+                return eachScene
             })
 
             //finished loading
-            alterScenesObjSet(prevAlterScenesObj => {
-                const newAlterScenesObj = { ...prevAlterScenesObj }
-                if (newAlterScenesObj[sceneToReplace.id] === undefined) return prevAlterScenesObj
-
-                newAlterScenesObj[sceneToReplace.id].loading = false
-
-                return newAlterScenesObj
-            })
+            project.current.alterScenesObj[sceneToReplace.id].loading = false
 
         } catch (error) {
             consoleAndToastError(error)
         }
-
-        setLoading(false)
     }
 
     function setDefaultAlterScenesObj(): alterScenesObjType["key"] {
@@ -157,11 +144,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
 
     function handleSceneVariationSwitch(sceneId: sceneType["id"], option: "next" | "prev") {
-        if (alterScenesObj[sceneId] === undefined) throw new Error("not seeing alter scenes obj for scene id")
-        const seenVariations = alterScenesObj[sceneId].variations
+        if (project.current.alterScenesObj[sceneId] === undefined) throw new Error("not seeing alter scenes obj for scene id")
+        const seenVariations = project.current.alterScenesObj[sceneId].variations
 
         //get index
-        let seenIndex = alterScenesObj[sceneId].variationIndex
+        let seenIndex = project.current.alterScenesObj[sceneId].variationIndex
 
         if (option === "next") {
             seenIndex++
@@ -183,27 +170,16 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         //set new scene
         const newScene: sceneType = seenVariations[seenIndex]
 
-        //update index in variations obj
-        alterScenesObjSet(prevAlterScenesObj => {
-            const newAlterScenesObj = { ...prevAlterScenesObj }
-            if (newAlterScenesObj[sceneId] === undefined) return prevAlterScenesObj
-
-            newAlterScenesObj[sceneId].variationIndex = seenIndex
-
-            return newAlterScenesObj
-        })
+        //update vriation index
+        project.current.alterScenesObj[sceneId].variationIndex = seenIndex
 
         //update scene array
-        scenesSet(prevScenesSet => {
-            const newScenesSet = [...prevScenesSet].map(eachScene => {
-                if (eachScene.id === sceneId) {
-                    eachScene = { ...newScene }
-                }
+        project.current.scenes = project.current.scenes.map(eachScene => {
+            if (eachScene.id === sceneId) {
+                eachScene = { ...newScene }
+            }
 
-                return eachScene
-            })
-
-            return newScenesSet
+            return eachScene
         })
     }
 
@@ -216,8 +192,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     label='general behaviour'
                     content={
                         <textarea
-                            value={baseIntructions}
-                            onChange={(e) => baseIntructionsSet(e.target.value)}
+                            value={baseInstructions.current}
+                            onChange={(e) => {
+                                baseInstructions.current = e.target.value
+                                refresh()
+                            }}
                             placeholder="Describe how the gpt works..."
                             rows={5}
                         />
@@ -228,8 +207,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     label='Story idea'
                     content={
                         <textarea
-                            value={prompt}
-                            onChange={(e) => promptSet(e.target.value)}
+                            value={project.current.prompt}
+                            onChange={(e) => {
+                                project.current.prompt = e.target.value
+                                refresh()
+                            }}
                             placeholder="Describe your story idea..."
                             rows={5}
                         />
@@ -239,20 +221,20 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                 <button
                     onClick={handleGenerateStory}
-                    disabled={loading}
+                    disabled={storyLoading.current}
                     className="button1"
                 >
-                    {loading ? "Generating..." : "Generate Story"}
+                    {storyLoading.current ? "Generating..." : "Generate Story"}
                 </button>
             </section>
 
             <section>
-                {loading && (<p>loading...</p>)}
+                {storyLoading.current && (<p>loading...</p>)}
 
-                {scenes.length > 0 ? (
+                {project.current.scenes.length > 0 ? (
                     <>
-                        {scenes.map((eachScene, eachSceneIndex) => {
-                            const seenAlterScenesObj: alterScenesObjType["key"] | undefined = alterScenesObj[eachScene.id]
+                        {project.current.scenes.map((eachScene, eachSceneIndex) => {
+                            const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[eachScene.id]
 
                             return <div key={eachScene.id} className="container" style={{ backgroundColor: "var(--bg2)" }}>
                                 <div style={{ display: "flex", alignItems: "center" }}>
@@ -280,16 +262,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                     <textarea
                                                         value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.prompt : ""}
                                                         onChange={(e) => {
-                                                            alterScenesObjSet(prevAlterScenesObj => {
-                                                                const newAlterScenesObj = { ...prevAlterScenesObj }
-                                                                if (newAlterScenesObj[eachScene.id] === undefined) {
-                                                                    newAlterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
-                                                                }
+                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) {
+                                                                project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                            }
 
-                                                                newAlterScenesObj[eachScene.id].prompt = e.target.value
+                                                            project.current.alterScenesObj[eachScene.id].prompt = e.target.value
 
-                                                                return newAlterScenesObj
-                                                            })
+                                                            refresh()
                                                         }}
                                                         placeholder="How would you like to alter this scene..."
                                                         rows={5}
@@ -302,16 +281,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                 content={
                                                     <input type="text" value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.referencedScenes : ""}
                                                         onChange={(e) => {
-                                                            alterScenesObjSet(prevAlterScenesObj => {
-                                                                const newAlterScenesObj = { ...prevAlterScenesObj }
-                                                                if (newAlterScenesObj[eachScene.id] === undefined) {
-                                                                    newAlterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
-                                                                }
+                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) {
+                                                                project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                            }
 
-                                                                newAlterScenesObj[eachScene.id].referencedScenes = e.target.value
+                                                            project.current.alterScenesObj[eachScene.id].referencedScenes = e.target.value
 
-                                                                return newAlterScenesObj
-                                                            })
+                                                            refresh()
                                                         }}
                                                         placeholder="Enter other scene id's that set the context for this scene, comma separated"
                                                     />
@@ -324,7 +300,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                         onClick={() => {
                                                             handleAlterScene(seenAlterScenesObj.prompt, eachScene, seenAlterScenesObj.referencedScenes)
                                                         }}
-                                                        disabled={loading}
+                                                        disabled={seenAlterScenesObj.loading}
                                                         className="button1"
                                                     >
                                                         {seenAlterScenesObj.loading ? "loading..." : "alter scene"}
@@ -352,7 +328,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                 />
 
                                 {eachScene.backgroundImageSrc && (
-                                    <Image alt={`Scene ${eachSceneIndex + 1} Background`} src={eachScene.backgroundImageSrc} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+                                    <Image alt={`Scene ${eachSceneIndex + 1} Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
                                 )}
 
                                 <div className="container">

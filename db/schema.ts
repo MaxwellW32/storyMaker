@@ -1,11 +1,15 @@
+import { alterScenesObjType, sceneType, typeEmotionsOptions } from "@/types";
 import { relations } from "drizzle-orm";
-import { index, integer, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core"
+import { index, integer, json, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 // type chT = typeof characters.$inferInsert
 
 export const projects = pgTable("projects", {
     //defaults
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     dateCreated: timestamp("dateCreated", { mode: "date" }).notNull().defaultNow(),
+    prompt: text("prompt").notNull().default("what story should we generate?"),
+    scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
+    alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
 
     //regular
     name: text("name").notNull(),
@@ -36,7 +40,7 @@ export const charactersRelations = relations(characters, ({ many }) => ({
 
 
 
-export const typeEmotionsEnum = pgEnum("typeEmotions", ["excited", "happy"]);
+export const typeEmotionsEnum = pgEnum("typeEmotions", typeEmotionsOptions);
 
 export const emotions = pgTable("emotions", {
     type: typeEmotionsEnum().primaryKey(),

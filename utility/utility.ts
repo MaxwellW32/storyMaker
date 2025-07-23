@@ -1,3 +1,5 @@
+import { textFileApiResponseSchema } from "@/types";
+
 export function deepClone<T>(object: T): T {
     return JSON.parse(JSON.stringify(object))
 }
@@ -42,4 +44,18 @@ export function formatLocalDateTime(seenDate: Date) {
     //@ts-expect-error type
     const customDateTime = seenDate.toLocaleString('en-US', options);
     return customDateTime
+}
+
+type fileTypeOption = "text" | "image"
+export async function fetchMainFolderFile(filePath: string, option: fileTypeOption) {
+    const response = await fetch(`/api/mainFolder/view?filePath=${filePath}`)
+    if (option === "text") {
+        const content = await response.json()
+        const seenTextFileApiResponse = textFileApiResponseSchema.parse(content)
+
+        return seenTextFileApiResponse.fileContent
+
+    } else if (option === "image") {
+
+    } else throw new Error("not an option")
 }

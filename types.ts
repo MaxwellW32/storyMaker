@@ -5,11 +5,17 @@ export const dateSchma = z.preprocess((val) => {
     return val;
 }, z.date())
 
+export const textFileApiResponseSchema = z.object({
+    fileContent: z.string(),
+})
+export type textFileApiResponseType = z.infer<typeof textFileApiResponseSchema>
+
 
 
 
 //keep in line with db
-export const typeEmotionsSchema = z.enum(["excited", "happy"])
+export const typeEmotionsOptions = ["excited", "happy"] as const
+export const typeEmotionsSchema = z.enum(typeEmotionsOptions)
 export type typeEmotionsType = z.infer<typeof typeEmotionsSchema>
 
 export const dialogueSchema = z.object({
@@ -435,6 +441,9 @@ export const projectSchema = z.object({
     //defaults
     id: z.string().min(1),
     dateCreated: dateSchma,
+    prompt: z.string().min(1),
+    scenes: sceneSchema.array(),
+    alterScenesObj: alterScenesObjSchema,
 
     //regular
     name: z.string().min(1),
@@ -444,7 +453,7 @@ export const projectSchema = z.object({
 export type projectType = z.infer<typeof projectSchema> & {
 }
 
-export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true })
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
 export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true })

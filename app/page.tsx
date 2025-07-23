@@ -41,9 +41,11 @@ export default function Page() {
                         {projectsSearchObj.searchItems.map(eachProject => {
                             return (
                                 <div key={eachProject.id} style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingR)" }}>
-                                    <h2>{eachProject.name}</h2>
-
                                     <p>{formatLocalDateTime(eachProject.dateCreated)}</p>
+
+                                    <Link href={`projects/view/${eachProject.id}`}>
+                                        <h2>{eachProject.name}</h2>
+                                    </Link>
                                 </div>
                             )
                         })}
