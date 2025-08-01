@@ -4,7 +4,7 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  /* border: 1px solid red !important; */
+  border: 1px solid red !important;
 }
 
 :root {
@@ -60,13 +60,46 @@ body {
   height: 100%;
   overflow: auto;
   display: grid;
-  align-content: stretch;
+  align-content: flex-start;
   background-color: var(--bg1);
   color: var(--textC1);
   font-family: var(--roboto);
   line-height: 1.6;
   font-size: var(--fontSizeR);
   padding: var(--spacingL);
+}
+
+h1 {
+  font-family: var(--rubik);
+  font-size: var(--fontSizeM);
+  font-weight: 500;
+  margin-bottom: var(--spacingM);
+  color: var(--textC3);
+  text-transform: capitalize;
+}
+
+h2 {
+  font-family: var(--raleway);
+  font-size: var(--fontSizeL);
+  font-weight: 700;
+  margin-bottom: var(--spacingR);
+  color: var(--c1);
+}
+
+h3 {
+  font-family: var(--rubik);
+  font-size: var(--fontSizeR);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--textC1);
+  text-transform: uppercase;
+}
+
+p {
+  font-family: var(--rubik);
+  font-size: var(--fontSizeR);
+  margin-bottom: 1rem;
+  max-width: 60ch;
 }
 
 svg {
@@ -113,31 +146,10 @@ textarea:focus {
   text-transform: initial;
 }
 
-nav ul {
-  display: flex;
-  gap: var(--spacingR);
-  padding: 0;
-}
-
-nav a {
-  text-decoration: none;
-  color: var(--textC1);
-  font-weight: 500;
-  transition: color var(--transitionTimeS) ease;
-}
-
-nav a:hover {
-  color: var(--c1);
-}
-
-
-button {
-  cursor: pointer;
-  transition: all var(--transitionTimeS) ease;
-}
-
 .button1 {
-  display: block;
+  display: flex;
+  gap: var(--spacingS);
+  justify-content: center;
   background-color: var(--c1);
   color: var(--textC2);
   padding: var(--spacingS) var(--spacingR);
@@ -161,63 +173,22 @@ button {
 }
 
 
-/* ===== Header ===== */
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacingR) 0;
-  margin-bottom: var(--spacingL);
-}
 
-/* ===== Hero Section ===== */
-.hero {
-  display: grid;
-  gap: var(--spacingM);
-  text-align: center;
-  padding: var(--spacingL) var(--spacingR);
-  background-color: var(--bg1);
-  border-radius: var(--borderRadiusR);
-}
 
-.hero h1 {
-  font-size: var(--fontSizeTitle);
-  font-family: var(--raleway);
-  color: var(--c4);
-  margin: 0;
-}
 
-.hero p {
-  font-size: var(--fontSizeM);
-  color: var(--textC3);
-  margin: 0 auto;
-}
 
-/* ===== Call-to-Action Button ===== */
-.cta {
-  margin-top: var(--spacingR);
-}
 
-/* ===== Footer ===== */
-footer {
-  margin-top: var(--spacingL);
-  padding: var(--spacingM) 0;
-  font-size: var(--fontSizeS);
-  text-align: center;
-  color: var(--textC3);
-}
 
-/* ===== Responsive ===== */
-@media (max-width: 768px) {
-  .hero h1 {
-    font-size: var(--fontSizeEL);
-  }
 
-  nav ul {
-    flex-direction: column;
-    gap: var(--spacingS);
-  }
-}
+
+
+
+
+
+
+
+
+
 
 /* custom classes */
 .material-symbols-outlined {
@@ -239,12 +210,15 @@ footer {
   display: grid;
   align-content: flex-start;
   gap: var(--spacingR);
-  padding: var(--spacingR);
   border-radius: var(--borderRadiusR);
 }
 
 .textResetMargin>* {
   margin: 0;
+}
+
+.visibilityCheckbox {
+  display: none !important;
 }
 
 .visibilityCheckbox:not(:checked)+* {
@@ -266,4 +240,8 @@ footer {
 .errorText {
   color: var(--c1);
   font-size: var(--fontSizeS);
+}
+
+.noPadding {
+  padding: 0;
 }

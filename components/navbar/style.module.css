@@ -1,0 +1,178 @@
+.mainNav {
+    background-color: var(--bg1);
+    color: var(--textC1);
+    padding: 0rem var(--spacingR);
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    justify-content: space-between;
+    align-items: center;
+    text-transform: capitalize;
+    z-index: 999;
+}
+
+.mainMenu {
+    display: grid;
+    justify-content: center;
+    grid-auto-flow: column;
+    white-space: nowrap;
+    background-color: var(--bg1);
+}
+
+.mainMenuItem {
+    position: relative;
+    cursor: pointer;
+}
+
+
+
+.mainMenuItem:hover>div>a,
+.mainMenuItem:hover>div>svg {
+    color: var(--color1);
+    fill: var(--color1);
+}
+
+.subMenu {
+    display: none;
+    align-content: flex-start;
+    position: absolute;
+    left: 0;
+    background-color: var(--bg1);
+}
+
+.subMenuItem {
+    padding: var(--spacingR);
+    cursor: pointer;
+}
+
+.subMenuItem:hover>div>a,
+.subMenuItem:hover>div>svg {
+    color: var(--color1);
+    fill: var(--color1);
+}
+
+.subSubMenu {
+    display: none;
+    align-content: flex-start;
+    position: absolute;
+    top: 0;
+    right: 0;
+    translate: 100% 0;
+    background-color: var(--bg1);
+}
+
+.subSubMenuItem {
+    padding: var(--spacingR);
+    cursor: pointer;
+}
+
+.subSubMenuItem:hover>a,
+.subSubMenuItem:hover>svg {
+    color: var(--color1);
+    fill: var(--color1);
+}
+
+.mobileMenu {
+    display: none;
+}
+
+.contDiv {
+    display: grid;
+    position: relative;
+    align-items: center;
+}
+
+.moreItemsMenu {
+    padding: .5rem;
+    display: grid;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: min(300px, 100vw);
+    background-color: var(--bg1);
+}
+
+.moreIntemsItem {
+    padding: .5rem;
+    transition: color 400ms, background-color 400ms;
+    cursor: pointer;
+}
+
+.moreIntemsItem:hover {
+    background-color: hsl(from var(--bg1) h s calc(l - 5))
+}
+
+/* desktop  */
+@media only screen and (min-width: 901px) {
+    .mainMenuItem:hover>.subMenu {
+        display: grid;
+    }
+
+    .subMenuItem:hover>.subSubMenu {
+        display: grid;
+    }
+}
+
+/* mobile */
+@media only screen and (max-width: 900px) {
+    .desktopMenu {
+        display: none !important;
+    }
+
+    .mobileMenu {
+        display: grid;
+        justify-self: flex-start;
+    }
+
+    .mainNav {
+        position: relative;
+    }
+
+    .mainMenu {
+        display: grid;
+        justify-content: stretch;
+        grid-auto-flow: row;
+        height: auto;
+        max-height: 60vh;
+        overflow-y: auto;
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        translate: -50% 0%;
+        width: 100%;
+        border: 1px solid var(--textC1);
+    }
+
+    .mainMenuItem {
+        position: relative;
+        padding: var(--spacingR);
+        border-bottom: 1px solid var(--textC1);
+    }
+
+    .mainMenuItem>div:first-of-type {
+        padding: 0;
+    }
+
+    .subMenu {
+        display: grid;
+        position: relative;
+        top: 0rem;
+        left: 0rem;
+    }
+
+    .subMenuItem>div:first-of-type {
+        padding: 0;
+    }
+
+    .subSubMenu {
+        display: grid;
+        position: relative;
+        top: 0rem;
+        left: 0rem;
+        translate: 0px 0px;
+    }
+
+    .subSubMenuItem {
+        padding: var(--spacingR);
+    }
+}

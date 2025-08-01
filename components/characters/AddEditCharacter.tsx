@@ -1,39 +1,36 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newProjectSchema, newProjectType, projectSchema, projectType, updateProjectSchema } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema } from '@/types'
 import toast from 'react-hot-toast'
-import { addProject, updateProject } from '@/serverFunctions/handleProjects'
+import { addCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
 import TextInput from '../inputs/textInput/TextInput'
 import { deepClone } from '@/utility/utility'
-import { useRouter } from 'next/navigation'
 
-export default function AddEditProject({ sentProject, submissionAction }: { sentProject?: projectType, submissionAction?: () => void }) {
-    const router = useRouter()
-
-    const initialFormObj: newProjectType = {
+export default function AddEditCharacter({ sentCharacter, submissionAction }: { sentCharacter?: characterType, submissionAction?: () => void }) {
+    const initialFormObj: newCharacterType = {
         name: "",
-        userId: "dummyData",
+        age: 20,
+        userId: "dummyData"
     }
 
     //assign either a new form, or the safe values on an update form
-    const [formObj, formObjSet] = useState<Partial<projectType>>(deepClone(sentProject === undefined ? initialFormObj : updateProjectSchema.parse(sentProject)))
+    const [formObj, formObjSet] = useState<Partial<characterType>>(deepClone(sentCharacter === undefined ? initialFormObj : updateCharacterSchema.parse(sentCharacter)))
 
-    type projectKeys = keyof projectType
-    const [formErrors, formErrorsSet] = useState<Partial<{ [key in projectKeys]: string }>>({})
+    const [formErrors, formErrorsSet] = useState<Partial<{ [key in keyof characterType]: string }>>({})
 
     //handle changes from above
     useEffect(() => {
-        if (sentProject === undefined) return
+        if (sentCharacter === undefined) return
 
-        formObjSet(deepClone(updateProjectSchema.parse(sentProject)))
+        formObjSet(deepClone(updateCharacterSchema.parse(sentCharacter)))
 
-    }, [sentProject])
+    }, [sentCharacter])
 
-    function checkIfValid(seenFormObj: Partial<projectType>, seenName: keyof projectType) {
+    function checkIfValid(seenFormObj: Partial<characterType>, seenName: keyof characterType) {
         // @ts-expect-error type
-        const testSchema = projectSchema.pick({ [seenName]: true }).safeParse(seenFormObj);
+        const testSchema = characterSchema.pick({ [seenName]: true }).safeParse(seenFormObj);
 
         if (testSchema.success) {//worked
             formErrorsSet(prevObj => {
@@ -64,28 +61,24 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
         try {
             toast.success("submittting")
 
-            //new project
-            if (sentProject === undefined) {
-                const validatedNewProject = newProjectSchema.parse(formObj)
+            //new character
+            if (sentCharacter === undefined) {
+                const validatedNewCharacter = newCharacterSchema.parse(formObj)
 
                 //send up to server
-                const addedProject = await addProject(validatedNewProject)
+                await addCharacter(validatedNewCharacter)
 
                 toast.success("submitted")
                 formObjSet(deepClone(initialFormObj))
 
-                setTimeout(() => {
-                    router.push(`/projects/view/${addedProject.id}`)
-                }, 1000);
-
             } else {
                 //validate
-                const validatedUpdatedProject = updateProjectSchema.parse(formObj)
+                const validatedUpdatedCharacter = updateCharacterSchema.parse(formObj)
 
                 //update
-                await updateProject(sentProject.id, validatedUpdatedProject)
+                await updateCharacter(sentCharacter.id, validatedUpdatedCharacter)
 
-                toast.success("project updated")
+                toast.success("character updated")
             }
 
             if (submissionAction !== undefined) {
@@ -105,7 +98,7 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
                         name={"name"}
                         value={formObj.name}
                         type={"text"}
-                        label={"project name"}
+                        label={"character name"}
                         placeHolder={"enter project name"}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             formObjSet(prevFormObj => {
@@ -123,9 +116,36 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
                 </>
             )}
 
+            {formObj.age !== undefined && (
+                <>
+                    <TextInput
+                        name={"age"}
+                        value={`${formObj.age}`}
+                        type={"text"}
+                        label={"character age"}
+                        placeHolder={"enter character age"}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            formObjSet(prevFormObj => {
+                                const newFormObj = { ...prevFormObj }
+                                if (newFormObj.age === undefined) return prevFormObj
+
+                                const seenNum = parseFloat(e.target.value)
+                                if (isNaN(seenNum)) return prevFormObj
+
+                                newFormObj.age = seenNum
+
+                                return newFormObj
+                            })
+                        }}
+                        onBlur={() => { checkIfValid(formObj, "age") }}
+                        errors={formErrors["age"]}
+                    />
+                </>
+            )}
+
             <button className='button1' style={{ justifySelf: "center" }}
                 onClick={handleSubmit}
-            >{sentProject !== undefined ? "update" : "submit"}</button>
+            >{sentCharacter !== undefined ? "update" : "submit"}</button>
         </form>
     )
 }

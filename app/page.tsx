@@ -1,10 +1,11 @@
 "use client"
 import Search from '@/components/search/Search'
-import { getProjects } from '@/serverFunctions/handleProjects'
 import { projectType, searchObjType } from '@/types'
 import { formatLocalDateTime } from '@/utility/utility'
 import Link from 'next/link'
 import React, { useState } from 'react'
+import styles from "./page.module.css"
+import { getProjects } from '@/serverFunctions/handleProjects'
 
 export default function Page() {
     const [projectsSearchObj, projectsSearchObjSet] = useState<searchObjType<projectType>>({
@@ -12,7 +13,7 @@ export default function Page() {
     })
 
     return (
-        <main>
+        <main className={styles.main}>
             <h1>Projects</h1>
 
             <Link href={"/projects/new"} style={{ justifySelf: "flex-end" }}>
@@ -23,7 +24,7 @@ export default function Page() {
                 searchObj={projectsSearchObj}
                 searchObjSet={projectsSearchObjSet}
                 searchFunc={async (seenFilters) => {
-                    return await getProjects({ ...seenFilters }, projectsSearchObj.limit, projectsSearchObj.offset)
+                    return await getProjects({ ...seenFilters }, {}, projectsSearchObj.limit, projectsSearchObj.offset)
                 }}
                 showPage={true}
                 searchFilters={{

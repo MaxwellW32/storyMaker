@@ -13,7 +13,7 @@ export type textFileApiResponseType = z.infer<typeof textFileApiResponseSchema>
 
 
 
-//keep in line with db
+//refresh db on change
 export const typeEmotionsOptions = ["excited", "happy"] as const
 export const typeEmotionsSchema = z.enum(typeEmotionsOptions)
 export type typeEmotionsType = z.infer<typeof typeEmotionsSchema>
@@ -422,6 +422,9 @@ export type searchObjType<T> = {
 
 
 
+export type tableFilterTypes<T> = {
+    [key in keyof T]?: T[key]
+}
 
 
 
@@ -433,6 +436,35 @@ export type searchObjType<T> = {
 
 
 
+
+
+
+
+
+
+
+
+export const userSchema = z.object({
+    //defaults
+    id: z.string().min(1),
+
+    //null
+    name: z.string().min(1).nullable(),
+    email: z.string().email().nullable(),
+    emailVerified: dateSchma.nullable(),
+    image: z.string().min(1).nullable(),
+
+    //regular
+})
+export type userType = z.infer<typeof userSchema> & {
+    projects?: projectType[],
+}
+
+export const newUserSchema = userSchema.omit({ id: true })
+export type newUserType = z.infer<typeof newUserSchema>
+
+export const updateUserSchema = userSchema.omit({ id: true })
+export type updateUserType = z.infer<typeof updateUserSchema>
 
 
 
@@ -445,12 +477,14 @@ export const projectSchema = z.object({
     scenes: sceneSchema.array(),
     alterScenesObj: alterScenesObjSchema,
 
+    //null
+
     //regular
     name: z.string().min(1),
-
-    //null
+    userId: z.string().min(1),
 })
 export type projectType = z.infer<typeof projectSchema> & {
+    fromUser?: userType
 }
 
 export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true })
@@ -464,12 +498,21 @@ export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 export const characterSchema = z.object({
     id: z.string().min(1),
+
     name: z.string().min(1),
     age: z.number(),
+    userId: z.string().min(1),
 })
 export type characterType = z.infer<typeof characterSchema> & {
     charactersToEmotions?: characterToEmotionType[],
+    fromUser?: userType
 }
+
+export const newCharacterSchema = characterSchema.omit({ id: true })
+export type newCharacterType = z.infer<typeof newCharacterSchema>
+
+export const updateCharacterSchema = characterSchema.omit({ id: true })
+export type updateCharacterType = z.infer<typeof updateCharacterSchema>
 
 
 

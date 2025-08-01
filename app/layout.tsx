@@ -3,6 +3,9 @@ import "./globals.css";
 import { Raleway, Manrope, Roboto, Rubik } from "next/font/google"
 import { Toaster } from "react-hot-toast";
 import localFont from "next/font/local";
+import { auth } from "@/auth/auth";
+import { SessionProvider } from "next-auth/react";
+import Navbar from "@/components/navbar/Navbar";
 
 const roboto = Roboto({
   variable: "--roboto",
@@ -47,11 +50,24 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth()
+
   return (
     <html lang="en">
       <body className={`${raleway.variable} ${manrope.variable} ${roboto.variable} ${rubik.variable} ${materialSymbolsOutlined.variable} ${materialSymbolsRounded.variable} ${materialSymbolsSharp.variable} antialiased`}>
-        <Toaster position="top-center" reverseOrder={false} />
-        {children}
+        <SessionProvider session={session}>
+          <Toaster position="top-center" reverseOrder={false} />
+          <Navbar
+            menuInfoArr={[
+              {
+                title: "home",
+                link: "/",
+              },
+            ]}
+          />
+
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

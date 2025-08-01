@@ -1,12 +1,18 @@
 "use server"
 import { db } from "@/db";
 import { projects } from "@/db/schema";
-import { newProjectSchema, newProjectType, projectFilterType, projectSchema, projectType, updateProjectType } from "@/types";
-import { and, desc, eq, ne, sql, SQLWrapper } from "drizzle-orm";
+import { newProjectSchema, newProjectType, projectSchema, projectType, tableFilterTypes, updateProjectType } from "@/types";
+import { makeWhereClauses } from "@/utility/utility";
+import { and, desc, eq, SQLWrapper } from "drizzle-orm";
+import { sessionCheck } from "./handleAuth";
 
-export async function addProjects(newProjectObj: newProjectType): Promise<projectType> {
+export async function addProject(newProjectObj: newProjectType): Promise<projectType> {
+    const session = await sessionCheck()
+
     //security check  
     newProjectSchema.parse(newProjectObj)
+
+    newProjectObj.userId = session.user.id
 
     //add new
     const [addedProject] = await db.insert(projects).values({
@@ -16,33 +22,27 @@ export async function addProjects(newProjectObj: newProjectType): Promise<projec
     return addedProject
 }
 
-export async function getProjects(filter: projectFilterType, limit = 50, offset = 0): Promise<projectType[]> {
-    // Collect conditions dynamically
-    const whereClauses: SQLWrapper[] = []
-
-    if (filter.id !== undefined) {
-        whereClauses.push(eq(projects.id, filter.id))
-    }
-
-    if (filter.name !== undefined) {
-        whereClauses.push(eq(projects.name, filter.name))
-    }
+export async function getProjects(filter: tableFilterTypes<projectType>, getWith?: { [key in keyof projectType]?: true }, limit = 50, offset = 0,): Promise<projectType[]> {
+    //compile filters into proper where clauses
+    const whereClauses: SQLWrapper[] = makeWhereClauses(projectSchema.partial(), filter, projects)
 
     const results = await db.query.projects.findMany({
         where: and(...whereClauses),
-        limit: limit,
-        offset: offset,
+        limit,
+        offset,
+        with: getWith === undefined ? undefined : {
+            fromUser: getWith.fromUser
+        },
         orderBy: [desc(projects.dateCreated)],
     });
 
-    return results
+    return results;
 }
 
-export async function updateProjects(projectId: projectType["id"], projectObj: Partial<updateProjectType>): Promise<projectType> {
+export async function updateProject(projectId: projectType["id"], projectObj: Partial<updateProjectType>): Promise<projectType> {
     //validation
     projectSchema.partial().parse(projectObj)
 
-    console.log(`$server`, JSON.stringify(projectObj, null, 2));
     const [result] = await db.update(projects)
         .set({
             ...projectObj
@@ -52,7 +52,7 @@ export async function updateProjects(projectId: projectType["id"], projectObj: P
     return result
 }
 
-export async function getSpecificProjects(projectId: projectType["id"]): Promise<projectType | undefined> {
+export async function getSpecificProject(projectId: projectType["id"]): Promise<projectType | undefined> {
     projectSchema.shape.id.parse(projectId)
 
     const result = await db.query.projects.findFirst({
@@ -62,7 +62,7 @@ export async function getSpecificProjects(projectId: projectType["id"]): Promise
     return result
 }
 
-export async function deleteProjects(projectId: projectType["id"]) {
+export async function deleteProject(projectId: projectType["id"]) {
     //validation
     projectSchema.shape.id.parse(projectId)
 

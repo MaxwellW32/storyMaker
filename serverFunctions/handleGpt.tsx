@@ -14,6 +14,8 @@ const openai = new OpenAI({
 });
 
 export async function makeStory(prompt: string, baseInstructions: string): Promise<gptStoryResponseType> {
+    console.log(`$prompt`, prompt)
+
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -35,9 +37,7 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
 
     const seenGptStoryResponse = gptStoryResponseSchema.parse(response.output_parsed)
     seenGptStoryResponse.scenes = seenGptStoryResponse.scenes.map(eachScene => {
-        eachScene.id = uuidV4()
-
-        return eachScene
+        return addOntoScene({ scene: eachScene })
     })
 
     return seenGptStoryResponse
@@ -45,11 +45,9 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
 
 export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType, referenceScenes: sceneType[]): Promise<gptAlterSceneResponseType> {
     const input = `${prompt}
-please use the prompt to alter the current scene ${JSON.stringify(scene)}, 
+please use the prompt above to alter the current scene ${JSON.stringify(scene)}.
 
 ${referenceScenes.length > 0 ? `you can use these scenes as continuity reference context if needed ${JSON.stringify(referenceScenes)}` : ""}`
-
-    console.log(`$input`, input);
 
     const response = await openai.responses.parse({
         model: "gpt-4.1",
@@ -70,5 +68,15 @@ ${referenceScenes.length > 0 ? `you can use these scenes as continuity reference
     //     }
     // });
 
-    return gptAlterSceneResponseSchema.parse(response.output_parsed)
+    //keep same id
+    const seenGptAlterSceneResponse = gptAlterSceneResponseSchema.parse(response.output_parsed)
+    seenGptAlterSceneResponse.scene = addOntoScene({ scene: seenGptAlterSceneResponse.scene, sceneId: scene.id })
+
+    return seenGptAlterSceneResponse
+}
+
+function addOntoScene({ scene, sceneId }: { scene: sceneType, sceneId?: sceneType["id"] }) {
+    scene.id = sceneId !== undefined ? sceneId : uuidV4()
+
+    return scene
 }

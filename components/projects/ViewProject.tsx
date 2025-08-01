@@ -1,19 +1,27 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
-import { baseInstructionsPromptFile } from "@/lib/dirPaths"
+import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeStory } from "@/serverFunctions/handleGpt"
-import { updateProjects } from "@/serverFunctions/handleProjects"
-import { alterScenesObjType, projectType, sceneType, updateProjectSchema } from "@/types"
+import { updateProject } from "@/serverFunctions/handleProjects"
+import { alterScenesObjType, characterType, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
 import defaultImg from "@/public/default.jpg"
+import Search from "../search/Search"
+import { getCharacters } from "@/serverFunctions/handleCharacters"
+import ViewCharacter from "../characters/ViewCharacter"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts
 //how does after effects integration work - layers, importing, images, audio
+
+function condenseIntoPrompt({ prompt, characters }: { prompt: string, characters?: characterType[], }) {
+    return prompt +
+        `${characters !== undefined && characters.length > 0 ? `base the chracters in the story from this ${JSON.stringify(characters)}` : ""}`
+}
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
     const project = useRef<projectType>({ ...seenProject })
@@ -21,16 +29,20 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     const projectSaveDebounce = useRef<NodeJS.Timeout | undefined>(undefined)
     const storyLoading = useRef(false)
 
-    console.log(`$project`, project);
-
     const [refresher, refresherSet] = useState(false)
+
+    const [charactersSearchObj, charactersSearchObjSet] = useState<searchObjType<characterType>>({
+        searchItems: [],
+    })
+    const chosenCharacters = useRef<characterType[]>([])
+
     // const loading = useRef(false)
 
     //load base instructions
     useEffect(() => {
         const loadInstructions = async () => {
             try {
-                const seenText = await fetchMainFolderFile(baseInstructionsPromptFile, "text");
+                const seenText = await fetchMainFolderFile(baseInstructionsPromptFilepath, "text");
                 baseInstructions.current = seenText;
                 refresh()
 
@@ -58,7 +70,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 console.log(`$saved project.current`, project.current);
 
                 //send to server
-                updateProjects(seenProject.id, validatedProject)
+                updateProject(seenProject.id, validatedProject)
             }, 10_000);
 
         } catch (error) {
@@ -80,7 +92,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
             toast.success("Generating story...")
 
-            const storyResponse = await makeStory(project.current.prompt, baseInstructions.current)
+            const storyResponse = await makeStory(condenseIntoPrompt({ prompt: project.current.prompt, characters: chosenCharacters.current }), baseInstructions.current)
             project.current.scenes = storyResponse.scenes
 
         } catch (error) {
@@ -108,7 +120,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 return foundScene
             })
 
-            const newAlteredSceneResponse = await alterScene(scenePrompt, baseInstructions.current, sceneToReplace, referenceScenes)
+            const newAlteredSceneResponse = await alterScene(condenseIntoPrompt({ prompt: scenePrompt, characters: chosenCharacters.current }), baseInstructions.current, sceneToReplace, referenceScenes)
 
             const newReplacedScene = { ...newAlteredSceneResponse.scene, id: sceneToReplace.id }
 
@@ -184,8 +196,57 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
 
     return (
-        <main className="container">
+        <div className="container" style={{ margin: "0 auto" }}>
             <section>
+                <ShowMore
+                    label='chracters'
+                    startShowing={true}
+                    content={(
+                        <div className='container'>
+                            <Search
+                                searchObj={charactersSearchObj}
+                                searchObjSet={charactersSearchObjSet}
+                                searchFunc={async (seenFilters) => {
+                                    return await getCharacters({ ...seenFilters, userId: seenProject.userId }, {}, charactersSearchObj.limit, charactersSearchObj.offset)
+                                }}
+                                showPage={true}
+                                searchFilters={{
+                                    name: {
+                                        value: "",
+                                    }
+                                }}
+                            />
+
+                            {charactersSearchObj.searchItems.length > 0 && (
+                                <div className="container">
+                                    {charactersSearchObj.searchItems.map(eachCharacter => {
+                                        return (
+                                            <ViewCharacter key={eachCharacter.id} seenCharacter={eachCharacter}
+                                                selectionAction={() => {
+                                                    const inArr = chosenCharacters.current.find(eachCharacterFind => eachCharacterFind.id === eachCharacter.id) !== undefined
+                                                    if (!inArr) {
+                                                        chosenCharacters.current.push(eachCharacter)
+                                                        toast.success("selected user")
+                                                    } else {
+                                                        chosenCharacters.current = chosenCharacters.current.filter(eachChosenCharacterFilter => eachChosenCharacterFilter.id !== eachCharacter.id)
+                                                        toast.success("de-selected user")
+                                                    }
+
+                                                    refresh()
+                                                }}
+                                            />
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                />
+
+
+
+
+
                 <h2>Story Prompt</h2>
 
                 <ShowMore
@@ -232,127 +293,135 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 {storyLoading.current && (<p>loading...</p>)}
 
                 {project.current.scenes.length > 0 ? (
-                    <>
-                        {project.current.scenes.map((eachScene, eachSceneIndex) => {
-                            const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[eachScene.id]
+                    <div className="container">
+                        <ShowMore
+                            label="scenes"
+                            startShowing={true}
+                            content={(
+                                <div className="container noPadding">
+                                    {project.current.scenes.map((eachScene, eachSceneIndex) => {
+                                        const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[eachScene.id]
 
-                            return <div key={eachScene.id} className="container" style={{ backgroundColor: "var(--bg2)" }}>
-                                <div style={{ display: "flex", alignItems: "center" }}>
-                                    <h3>{eachScene.title}</h3>
+                                        return <div key={eachScene.id} className="container" style={{ backgroundColor: "var(--bg2)" }}>
+                                            <div style={{ display: "flex", alignItems: "center" }}>
+                                                <h3>{eachScene.title}</h3>
 
-                                    <button style={{ marginLeft: "auto" }}
-                                        onClick={() => {
-                                            toast.success("copied scene id")
-                                            navigator.clipboard.writeText(eachScene.id);
-                                        }}
-                                    >
-                                        <span className="material-symbols-outlined">
-                                            content_copy
-                                        </span>
-                                    </button>
-                                </div>
-
-                                <ShowMore
-                                    label="alter scene"
-                                    content={(
-                                        <div className="container">
-                                            <ShowMore
-                                                label="prompt"
-                                                content={
-                                                    <textarea
-                                                        value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.prompt : ""}
-                                                        onChange={(e) => {
-                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) {
-                                                                project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
-                                                            }
-
-                                                            project.current.alterScenesObj[eachScene.id].prompt = e.target.value
-
-                                                            refresh()
-                                                        }}
-                                                        placeholder="How would you like to alter this scene..."
-                                                        rows={5}
-                                                    />
-                                                }
-                                            />
+                                                <button style={{ marginLeft: "auto" }}
+                                                    onClick={() => {
+                                                        toast.success("copied scene id")
+                                                        navigator.clipboard.writeText(eachScene.id);
+                                                    }}
+                                                >
+                                                    <span className="material-symbols-outlined">
+                                                        content_copy
+                                                    </span>
+                                                </button>
+                                            </div>
 
                                             <ShowMore
-                                                label="referenced scene id's"
-                                                content={
-                                                    <input type="text" value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.referencedScenes : ""}
-                                                        onChange={(e) => {
-                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) {
-                                                                project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                label="alter scene"
+                                                content={(
+                                                    <div className="container">
+                                                        <ShowMore
+                                                            label="prompt"
+                                                            content={
+                                                                <textarea
+                                                                    value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.prompt : ""}
+                                                                    onChange={(e) => {
+                                                                        if (project.current.alterScenesObj[eachScene.id] === undefined) {
+                                                                            project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                                        }
+
+                                                                        project.current.alterScenesObj[eachScene.id].prompt = e.target.value
+
+                                                                        refresh()
+                                                                    }}
+                                                                    placeholder="How would you like to alter this scene..."
+                                                                    rows={5}
+                                                                />
                                                             }
+                                                        />
 
-                                                            project.current.alterScenesObj[eachScene.id].referencedScenes = e.target.value
+                                                        <ShowMore
+                                                            label="referenced scene id's"
+                                                            content={
+                                                                <input type="text" value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.referencedScenes : ""}
+                                                                    onChange={(e) => {
+                                                                        if (project.current.alterScenesObj[eachScene.id] === undefined) {
+                                                                            project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                                        }
 
-                                                            refresh()
-                                                        }}
-                                                        placeholder="Enter other scene id's that set the context for this scene, comma separated"
-                                                    />
-                                                }
+                                                                        project.current.alterScenesObj[eachScene.id].referencedScenes = e.target.value
+
+                                                                        refresh()
+                                                                    }}
+                                                                    placeholder="Enter other scene id's that set the context for this scene, comma separated"
+                                                                />
+                                                            }
+                                                        />
+
+                                                        {seenAlterScenesObj !== undefined && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleAlterScene(seenAlterScenesObj.prompt, eachScene, seenAlterScenesObj.referencedScenes)
+                                                                    }}
+                                                                    disabled={seenAlterScenesObj.loading}
+                                                                    className="button1"
+                                                                >
+                                                                    {seenAlterScenesObj.loading ? "loading..." : "alter scene"}
+                                                                </button>
+
+                                                                {seenAlterScenesObj.variations.length > 0 && (
+                                                                    <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
+                                                                        <button className="button2"
+                                                                            onClick={() => {
+                                                                                handleSceneVariationSwitch(eachScene.id, "prev")
+                                                                            }}
+                                                                        >prev</button>
+
+                                                                        <button className="button2"
+                                                                            onClick={() => {
+                                                                                handleSceneVariationSwitch(eachScene.id, "next")
+                                                                            }}
+                                                                        >next</button>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
                                             />
 
-                                            {seenAlterScenesObj !== undefined && (
-                                                <>
-                                                    <button
-                                                        onClick={() => {
-                                                            handleAlterScene(seenAlterScenesObj.prompt, eachScene, seenAlterScenesObj.referencedScenes)
-                                                        }}
-                                                        disabled={seenAlterScenesObj.loading}
-                                                        className="button1"
-                                                    >
-                                                        {seenAlterScenesObj.loading ? "loading..." : "alter scene"}
-                                                    </button>
-
-                                                    {seenAlterScenesObj.variations.length > 0 && (
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
-                                                            <button className="button2"
-                                                                onClick={() => {
-                                                                    handleSceneVariationSwitch(eachScene.id, "prev")
-                                                                }}
-                                                            >prev</button>
-
-                                                            <button className="button2"
-                                                                onClick={() => {
-                                                                    handleSceneVariationSwitch(eachScene.id, "next")
-                                                                }}
-                                                            >next</button>
-                                                        </div>
-                                                    )}
-                                                </>
+                                            {eachScene.backgroundImageSrc && (
+                                                <Image alt={`Scene ${eachSceneIndex + 1} Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
                                             )}
+
+                                            <div className="container">
+                                                {eachScene.diologue.map((line, lineIndex) => (
+                                                    <div key={lineIndex}>
+                                                        <span>{line.characterId}:</span>{" "}
+
+                                                        <span>{line.sentence}</span>{" "}
+
+                                                        {line.emotions && (
+                                                            <span>
+                                                                ({line.emotions})
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    )}
-                                />
-
-                                {eachScene.backgroundImageSrc && (
-                                    <Image alt={`Scene ${eachSceneIndex + 1} Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
-                                )}
-
-                                <div className="container">
-                                    {eachScene.diologue.map((line, lineIndex) => (
-                                        <div key={lineIndex}>
-                                            <span>{line.characterId}:</span>{" "}
-
-                                            <span>{line.sentence}</span>{" "}
-
-                                            {line.emotions && (
-                                                <span>
-                                                    ({line.emotions})
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))}
+                                    })}
                                 </div>
-                            </div>
-                        })}
-                    </>
+                            )}
+                        />
+                    </div>
                 ) : (
                     <p>Your generated scenes will appear here.</p>
                 )}
             </section>
-        </main>
+        </div>
     )
 }
