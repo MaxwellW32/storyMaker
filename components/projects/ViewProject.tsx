@@ -30,12 +30,10 @@ import TextInput from "../inputs/textInput/TextInput"
 //scenes
 //big updater function - key name - pick that value send it
 
-//now i can call general refresh with empty array
-//now i can bulk update on server
-
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
     const project = useRef<projectType>({ ...seenProject })
     const charactersInProject = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(each => each !== undefined) : []
+    const [projectFormErrors, projectFormErrorsSet] = useState<{ [key: string]: string | undefined }>({})
 
     const baseInstructions = useRef<string | undefined>(undefined)
     const projectSaveDebounce = useRef<{ [key: string]: NodeJS.Timeout | undefined }>({})
@@ -46,12 +44,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     const [charactersSearchObj, charactersSearchObjSet] = useState<searchObjType<characterType>>({
         searchItems: [],
     })
-
-    const [projectFormErrors, projectFormErrorsSet] = useState<{ [key: string]: string | undefined }>({})
-
-    // const chosenCharacters = useRef<characterType[]>([])
-
-    // const loading = useRef(false)
 
     //handle changes from above
     useEffect(() => {
@@ -512,13 +504,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                 return (
                                                     <div key={eachDiologueIndex}>
                                                         {foundCharacter !== undefined && (
-                                                            <span>{foundCharacter.name}</span>
+                                                            <b>{foundCharacter.name} </b>
                                                         )}
 
                                                         <span>{eachDiologue.sentence}</span>
 
                                                         {eachDiologue.emotions && (
-                                                            <span>({eachDiologue.emotions})</span>
+                                                            <b> ({eachDiologue.emotions})</b>
                                                         )}
                                                     </div>
                                                 )
