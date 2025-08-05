@@ -41,7 +41,7 @@ export const gptAlterSceneResponseSchema = z.object({
 export type gptAlterSceneResponseType = z.infer<typeof gptAlterSceneResponseSchema>
 
 export const alterScenesObjSchema = z.record(z.string(), z.object({
-    prompt: z.string().min(1),
+    prompt: z.string().min(1, "prompt needs to be present to change scene"),
     loading: z.boolean(),
     referencedScenes: z.string(),
     variationIndex: z.number(),

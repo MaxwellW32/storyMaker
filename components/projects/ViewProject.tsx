@@ -3,7 +3,7 @@ import ShowMore from "@/components/showMore/ShowMore"
 import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterScenesObjType, characterType, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterScenesObjType, characterType, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { condenseIntoPrompt, fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
@@ -16,24 +16,39 @@ import ViewCharacter from "../characters/ViewCharacter"
 import styles from "./style.module.css"
 import ViewItems from "../items/ViewItem"
 import { addCharacterToProject, deleteCharacterInProject, getSpecificCharacterInProject } from "@/serverFunctions/handleCharactersToProjects"
+import TextArea from "../inputs/textArea/TextArea"
+import TextInput from "../inputs/textInput/TextInput"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts
 //how does after effects integration work - layers, importing, images, audio
+
+//exists on server - big object
+//copied to client
+//each key value pair is updated - only that update sent to server
+//name
+//scenes
+//big updater function - key name - pick that value send it
+
+//now i can call general refresh with empty array
+//now i can bulk update on server
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
     const project = useRef<projectType>({ ...seenProject })
     const charactersInProject = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(each => each !== undefined) : []
 
     const baseInstructions = useRef<string | undefined>(undefined)
-    const projectSaveDebounce = useRef<NodeJS.Timeout | undefined>(undefined)
+    const projectSaveDebounce = useRef<{ [key: string]: NodeJS.Timeout | undefined }>({})
     const storyLoading = useRef(false)
 
-    const [refresher, refresherSet] = useState(false)
+    const [projectRefresher, projectRefresherSet] = useState<{ [key in keyof projectType]?: boolean }>({})
 
     const [charactersSearchObj, charactersSearchObjSet] = useState<searchObjType<characterType>>({
         searchItems: [],
     })
+
+    const [projectFormErrors, projectFormErrorsSet] = useState<{ [key: string]: string | undefined }>({})
+
     // const chosenCharacters = useRef<characterType[]>([])
 
     // const loading = useRef(false)
@@ -51,7 +66,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             try {
                 const seenText = await fetchMainFolderFile(baseInstructionsPromptFilepath, "text");
                 baseInstructions.current = seenText;
-                refresh()
+
+                //general refresh
+                refreshProject([])
 
             } catch (error) {
                 consoleAndToastError(error);
@@ -61,53 +78,67 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         loadInstructions();
     }, []);
 
-    //respond to project changes
+    //respond to project changes by key
     useEffect(() => {
-        handleProjectSave()
+        const allTrueProjectKeys = Object.entries(projectRefresher).filter(eachEntry => eachEntry[1]).map(eachEntry => eachEntry[0]) as (keyof projectType)[]
+        if (allTrueProjectKeys.length < 1) return
 
-    }, [refresher])
+        //send off to save
+        handleProjectSave(project.current, allTrueProjectKeys)
 
-    //load up chosenCharacters
-    useEffect(() => {
-        const search = async () => {
+        //reset to false
+        projectRefresherSet(prevProjectRefresher => {
+            const newProjectRefresher = { ...prevProjectRefresher }
+
+            allTrueProjectKeys.forEach(eachProjectKey => {
+                newProjectRefresher[eachProjectKey] = false
+            })
+
+            return newProjectRefresher
+        })
+
+    }, [projectRefresher])
+
+    async function handleProjectSave(latestProject: Partial<projectType>, specificKeys: (keyof projectType)[] = []) {
+        const debounceKey = specificKeys.length > 0 ? specificKeys.join(",") : "default"
+        if (projectSaveDebounce.current[debounceKey]) clearTimeout(projectSaveDebounce.current[debounceKey])
+
+        //send off one batch update
+        projectSaveDebounce.current[debounceKey] = setTimeout(() => {
             try {
-                const seenText = await fetchMainFolderFile(baseInstructionsPromptFilepath, "text");
-                baseInstructions.current = seenText;
-                refresh()
+                const pickShape = Object.fromEntries(
+                    specificKeys.map(key => [key, true])
+                ) as { [K in keyof typeof updateProjectSchema.shape]?: true };
 
-            } catch (error) {
-                consoleAndToastError(error);
-            }
-        };
+                checkProjectErrors(latestProject)
+                const validatedProject = specificKeys.length > 0 ? updateProjectSchema.pick(pickShape).parse(latestProject) : updateProjectSchema.parse(latestProject)
 
-        search();
-    }, []);
-
-    async function handleProjectSave() {
-        try {
-            if (projectSaveDebounce.current) clearTimeout(projectSaveDebounce.current)
-
-            projectSaveDebounce.current = setTimeout(() => {
-                const validatedProject = updateProjectSchema.parse(project.current)
-
-                console.log(`$saved project.current`, project.current);
+                console.log(`$validated project`, validatedProject);
 
                 //send to server
                 updateProject(seenProject.id, validatedProject)
-            }, 10_000);
 
-        } catch (error) {
-            consoleAndToastError(error)
-        }
+            } catch (error) {
+                consoleAndToastError(error)
+            }
+        }, 5_000);
     }
 
-    function refresh() {
-        refresherSet(prev => !prev)
+    function refreshProject(projectKeys: (keyof projectType)[]) {
+        projectRefresherSet(prevProjectRefresher => {
+            const newProjectRefresher = { ...prevProjectRefresher }
+
+            projectKeys.forEach(eachProjectKey => {
+                newProjectRefresher[eachProjectKey] = true
+            })
+
+            return newProjectRefresher
+        })
     }
 
     async function handleGenerateStory() {
         try {
-            if (baseInstructions.current === undefined) return
+            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
 
             //loading
             storyLoading.current = true
@@ -118,20 +149,25 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             const finalPrompt = condenseIntoPrompt({ prompt: project.current.prompt, characters: charactersInProject })
             console.log(`$finalPrompt`, finalPrompt);
             const storyResponse = await makeStory(finalPrompt, baseInstructions.current)
+
             project.current.scenes = storyResponse.scenes
+
+            //refresh
+            refreshProject(["scenes"])
 
         } catch (error) {
             consoleAndToastError(error)
-        }
 
-        storyLoading.current = false
-        refresh()
+        } finally {
+            storyLoading.current = false
+
+        }
     }
 
     async function handleAlterScene(scenePrompt: string, sceneToReplace: sceneType, referencedSceneIds: string) {
         try {
-            if (baseInstructions.current === undefined) return
-            if (project.current.alterScenesObj[sceneToReplace.id] === undefined) return
+            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
+            if (project.current.alterScenesObj[sceneToReplace.id] === undefined) throw new Error("not seeing scene to replace")
 
             //loading
             project.current.alterScenesObj[sceneToReplace.id].loading = true
@@ -166,12 +202,15 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             //finished loading
             project.current.alterScenesObj[sceneToReplace.id].loading = false
 
+            //refresh
+            refreshProject(["scenes", "alterScenesObj"])
+
         } catch (error) {
             consoleAndToastError(error)
         }
     }
 
-    function setDefaultAlterScenesObj(): alterScenesObjType["key"] {
+    function makeDefaultAlterScenesObj(): alterScenesObjType["key"] {
         return {
             loading: false,
             prompt: "",
@@ -219,6 +258,30 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
             return eachScene
         })
+    }
+
+    function checkProjectErrors(seenFormObj: Partial<projectType>) {
+        projectFormErrorsSet({})
+
+        const testSchema = projectSchema.partial().safeParse(seenFormObj);
+
+        if (testSchema.success) {
+            return false
+
+        } else {
+            testSchema.error.issues.map(eachIssue => {
+                projectFormErrorsSet(prevObj => {
+                    const newObj = { ...prevObj }
+                    const seenPath = eachIssue.path.join("/")
+
+                    newObj[seenPath] = eachIssue.message
+
+                    return newObj
+                })
+            })
+
+            return true
+        }
     }
 
     return (
@@ -283,14 +346,17 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 <ShowMore
                     label='general behaviour'
                     content={
-                        <textarea
-                            value={baseInstructions.current}
+                        <TextArea
+                            name="baseInstructions"
+                            value={baseInstructions.current !== undefined ? baseInstructions.current : ""}
+                            placeHolder="Describe how the gpt works..."
                             onChange={(e) => {
                                 baseInstructions.current = e.target.value
-                                refresh()
+
+                                //general refresh
+                                refreshProject([])
                             }}
-                            placeholder="Describe how the gpt works..."
-                            rows={5}
+                            onBlur={() => checkProjectErrors(project.current)}
                         />
                     }
                 />
@@ -298,14 +364,18 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 <ShowMore
                     label='Story idea'
                     content={
-                        <textarea
+                        <TextArea
+                            name="prompt"
                             value={project.current.prompt}
+                            placeHolder="Describe your story idea..."
                             onChange={(e) => {
                                 project.current.prompt = e.target.value
-                                refresh()
+
+                                //refresh
+                                refreshProject(["prompt"])
                             }}
-                            placeholder="Describe your story idea..."
-                            rows={5}
+                            onBlur={() => checkProjectErrors(project.current)}
+                            errors={projectFormErrors["prompt"]}
                         />
                     }
                     startShowing={true}
@@ -355,19 +425,22 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                     <ShowMore
                                                         label="prompt"
                                                         content={
-                                                            <textarea
+                                                            <TextArea
+                                                                name="alterScenePrompt"
                                                                 value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.prompt : ""}
+                                                                placeHolder="How would you like to alter this scene..."
                                                                 onChange={(e) => {
                                                                     if (project.current.alterScenesObj[eachScene.id] === undefined) {
-                                                                        project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                                        project.current.alterScenesObj[eachScene.id] = makeDefaultAlterScenesObj()
                                                                     }
 
                                                                     project.current.alterScenesObj[eachScene.id].prompt = e.target.value
 
-                                                                    refresh()
+                                                                    //refresh
+                                                                    refreshProject(["alterScenesObj"])
                                                                 }}
-                                                                placeholder="How would you like to alter this scene..."
-                                                                rows={5}
+                                                                onBlur={() => checkProjectErrors(project.current)}
+                                                                errors={projectFormErrors[`alterScenesObj/${eachScene.id}/prompt`]}
                                                             />
                                                         }
                                                     />
@@ -375,17 +448,22 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                     <ShowMore
                                                         label="referenced scene id's"
                                                         content={
-                                                            <input type="text" value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.referencedScenes : ""}
+                                                            <TextInput
+                                                                name="alterSceneReferencedScenes"
+                                                                value={seenAlterScenesObj !== undefined ? seenAlterScenesObj.referencedScenes : ""}
+                                                                placeHolder="Enter other scene id's. e.g ID1, ID2"
                                                                 onChange={(e) => {
                                                                     if (project.current.alterScenesObj[eachScene.id] === undefined) {
-                                                                        project.current.alterScenesObj[eachScene.id] = setDefaultAlterScenesObj()
+                                                                        project.current.alterScenesObj[eachScene.id] = makeDefaultAlterScenesObj()
                                                                     }
 
                                                                     project.current.alterScenesObj[eachScene.id].referencedScenes = e.target.value
 
-                                                                    refresh()
+                                                                    //refresh
+                                                                    refreshProject(["alterScenesObj"])
                                                                 }}
-                                                                placeholder="Enter other scene id's. e.g ID1, ID2"
+                                                                onBlur={() => checkProjectErrors(project.current)}
+                                                                errors={projectFormErrors[`alterScenesObj/${eachScene.id}/referencedScenes`]}
                                                             />
                                                         }
                                                     />
