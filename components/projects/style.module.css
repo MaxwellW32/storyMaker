@@ -1,3 +1,14 @@
+.main {
+    overflow: auto;
+    scroll-snap-type: y mandatory;
+    grid-auto-rows: 100%;
+}
+
+.main>section {
+    overflow: auto;
+    scroll-snap-align: start;
+}
+
 .form {
     display: grid;
     align-content: flex-start;

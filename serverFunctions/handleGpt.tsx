@@ -14,8 +14,6 @@ const openai = new OpenAI({
 });
 
 export async function makeStory(prompt: string, baseInstructions: string): Promise<gptStoryResponseType> {
-    console.log(`$prompt`, prompt)
-
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -25,18 +23,9 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
         },
     });
 
-    // logJSON("scenes log", response)
-    // console.log(response.output_text);
-
-    // const response = await client.responses.create({
-    //     prompt: {
-    //         "id": "pmpt_68798eb3bc348196a69ae2cfc5b3f9c90b3b26c268ad9b89",
-    //         "version": "1"
-    //     }
-    // });
-
     const seenGptStoryResponse = gptStoryResponseSchema.parse(response.output_parsed)
     seenGptStoryResponse.scenes = seenGptStoryResponse.scenes.map(eachScene => {
+        //ensure id stays the same
         return addOntoScene({ scene: eachScene })
     })
 

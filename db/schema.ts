@@ -1,4 +1,4 @@
-import { alterScenesObjType, sceneType, typeEmotionsOptions } from "@/types";
+import { alterScenesObjType, characterType, sceneType, typeEmotionsOptions } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgEnum, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -42,7 +42,8 @@ export const projects = pgTable("projects", {
             projectNameIndex: index("projectNameIndex").on(t.name),
         };
     })
-export const projectsRelations = relations(projects, ({ one }) => ({
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+    charactersToProjects: many(charactersToProjects),
     fromUser: one(users, {
         fields: [projects.userId],
         references: [users.id]
@@ -59,6 +60,7 @@ export const characters = pgTable("characters", {
     userId: text("userId").notNull().references(() => users.id),
 })
 export const charactersRelations = relations(characters, ({ one, many }) => ({
+    charactersToProjects: many(charactersToProjects),
     charactersToEmotions: many(charactersToEmotions),
     fromUser: one(users, {
         fields: [characters.userId],
@@ -100,6 +102,32 @@ export const charactersToEmotionsRelations = relations(charactersToEmotions, ({ 
     emotion: one(emotions, {
         fields: [charactersToEmotions.emotionType],
         references: [emotions.type],
+    }),
+}));
+
+
+
+
+export const charactersToProjects = pgTable("charactersToProjects", {
+    id: text("id").notNull().$defaultFn(() => crypto.randomUUID()),
+
+    characterId: text("characterId").notNull().references(() => characters.id),
+    projectId: text("projectId").notNull().references(() => projects.id),
+},
+    (t) => {
+        return {
+            primaryKey: primaryKey({ columns: [t.characterId, t.projectId] }),
+            projectIdIndex: index("projectIdIndex").on(t.projectId),
+        };
+    })
+export const charactersToProjectsRelations = relations(charactersToProjects, ({ one }) => ({
+    character: one(characters, {
+        fields: [charactersToProjects.characterId],
+        references: [characters.id],
+    }),
+    project: one(projects, {
+        fields: [charactersToProjects.projectId],
+        references: [projects.id],
     }),
 }));
 

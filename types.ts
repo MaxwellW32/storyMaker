@@ -10,9 +10,6 @@ export const textFileApiResponseSchema = z.object({
 })
 export type textFileApiResponseType = z.infer<typeof textFileApiResponseSchema>
 
-
-
-
 //refresh db on change
 export const typeEmotionsOptions = ["excited", "happy"] as const
 export const typeEmotionsSchema = z.enum(typeEmotionsOptions)
@@ -32,9 +29,6 @@ export const sceneSchema = z.object({
     backgroundImageSrc: z.string().min(1).nullable(),
 })
 export type sceneType = z.infer<typeof sceneSchema>
-
-
-
 
 export const gptStoryResponseSchema = z.object({
     scenes: sceneSchema.array(),
@@ -400,14 +394,10 @@ export const scenesExample: sceneType[] = [
     }
 ]
 
-
-
-
 export type projectFilterType = {
     [key in keyof projectType]?: projectType[key]
 }
 export type allFilterType = projectFilterType
-
 
 //handle search component with limits/offsets
 export type searchObjType<T> = {
@@ -419,12 +409,13 @@ export type searchObjType<T> = {
     refreshAll?: boolean
 }
 
-
-
-
 export type tableFilterTypes<T> = {
     [key in keyof T]?: T[key]
 }
+
+export type withId = {
+    id: string | number;
+} & Record<string, unknown>
 
 
 
@@ -484,6 +475,7 @@ export const projectSchema = z.object({
     userId: z.string().min(1),
 })
 export type projectType = z.infer<typeof projectSchema> & {
+    charactersToProjects?: characterToProjectType[],
     fromUser?: userType
 }
 
@@ -504,6 +496,7 @@ export const characterSchema = z.object({
     userId: z.string().min(1),
 })
 export type characterType = z.infer<typeof characterSchema> & {
+    charactersToProjects?: characterToProjectType[],
     charactersToEmotions?: characterToEmotionType[],
     fromUser?: userType
 }
@@ -537,3 +530,23 @@ export type characterToEmotionType = z.infer<typeof characterToEmotionSchema> & 
     character?: characterType,
     emotion?: emotionType,
 }
+
+
+
+
+export const characterToProjectSchema = z.object({
+    id: z.string().min(1),
+
+    projectId: projectSchema.shape.id,
+    characterId: characterSchema.shape.id,
+})
+export type characterToProjectType = z.infer<typeof characterToProjectSchema> & {
+    character?: characterType,
+    project?: projectType,
+}
+
+export const newCharacterToProjectSchema = characterToProjectSchema.omit({ id: true })
+export type newCharacterToProjectType = z.infer<typeof newCharacterToProjectSchema>
+
+export const updateCharacterToProjectSchema = characterToProjectSchema.omit({ id: true })
+export type updateCharacterToProjectType = z.infer<typeof updateCharacterToProjectSchema>

@@ -57,33 +57,34 @@ html {
 }
 
 body {
-  height: 100%;
-  overflow: auto;
   display: grid;
   align-content: flex-start;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+  overflow: auto;
   background-color: var(--bg1);
   color: var(--textC1);
   font-family: var(--roboto);
   line-height: 1.6;
   font-size: var(--fontSizeR);
-  padding: var(--spacingL);
 }
 
 h1 {
   font-family: var(--rubik);
-  font-size: var(--fontSizeM);
-  font-weight: 500;
+  font-size: var(--fontSizeL);
+  font-weight: 700;
   margin-bottom: var(--spacingM);
-  color: var(--textC3);
+  color: var(--textC1);
   text-transform: capitalize;
 }
 
 h2 {
   font-family: var(--raleway);
-  font-size: var(--fontSizeL);
-  font-weight: 700;
-  margin-bottom: var(--spacingR);
+  font-size: var(--fontSizeM);
+  margin-bottom: var(--spacingS);
   color: var(--c1);
+  font-weight: 700;
+  text-transform: capitalize;
 }
 
 h3 {
@@ -93,13 +94,6 @@ h3 {
   margin-bottom: 0.5rem;
   color: var(--textC1);
   text-transform: uppercase;
-}
-
-p {
-  font-family: var(--rubik);
-  font-size: var(--fontSizeR);
-  margin-bottom: 1rem;
-  max-width: 60ch;
 }
 
 svg {
@@ -118,8 +112,6 @@ main {
 section {
   display: grid;
   align-content: flex-start;
-  gap: var(--spacingR);
-  padding-block: var(--spacingR);
 }
 
 label {
@@ -213,10 +205,6 @@ textarea:focus {
   border-radius: var(--borderRadiusR);
 }
 
-.textResetMargin>* {
-  margin: 0;
-}
-
 .visibilityCheckbox {
   display: none !important;
 }
@@ -244,4 +232,21 @@ textarea:focus {
 
 .noPadding {
   padding: 0;
+}
+
+.snap {
+  scroll-snap-type: x mandatory;
+}
+
+.snap>* {
+  scroll-snap-align: start;
+}
+
+.gridColumns {
+  display: grid;
+  align-content: flex-start;
+  grid-auto-flow: column;
+  gap: var(--spacingR);
+  grid-auto-columns: min(50%, 350px);
+  overflow: auto;
 }

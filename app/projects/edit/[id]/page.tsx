@@ -9,8 +9,6 @@ export default async function Page({ params }: { params: Promise<{ id: projectTy
     if (seenProject === undefined) return (<p>not seeing specific project</p>)
 
     return (
-        <main>
-            <AddEditProject sentProject={seenProject} />
-        </main>
+        <AddEditProject sentProject={seenProject} />
     )
 }

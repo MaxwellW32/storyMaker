@@ -1,5 +1,5 @@
 import z from "zod"
-import { textFileApiResponseSchema } from "@/types";
+import { characterType, textFileApiResponseSchema } from "@/types";
 import { eq, gte, sql, SQLWrapper } from "drizzle-orm";
 import { PgNumeric, PgInteger, PgTableWithColumns, PgEnumColumn } from 'drizzle-orm/pg-core'
 
@@ -114,4 +114,9 @@ export function makeWhereClauses<T extends Object>(schema: z.Schema, filter: T, 
     }
 
     return whereClauses
+}
+
+export function condenseIntoPrompt({ prompt, characters }: { prompt: string, characters?: characterType[], }) {
+    return prompt +
+        `\n\n${characters !== undefined && characters.length > 0 ? `please base the chracters in the story from this ${JSON.stringify(characters)}` : ""}`
 }

@@ -5,6 +5,7 @@ import { newProjectSchema, newProjectType, projectSchema, projectType, tableFilt
 import { makeWhereClauses } from "@/utility/utility";
 import { and, desc, eq, SQLWrapper } from "drizzle-orm";
 import { sessionCheck } from "./handleAuth";
+import { revalidatePath } from "next/cache";
 
 export async function addProject(newProjectObj: newProjectType): Promise<projectType> {
     const session = await sessionCheck()
@@ -22,7 +23,7 @@ export async function addProject(newProjectObj: newProjectType): Promise<project
     return addedProject
 }
 
-export async function getProjects(filter: tableFilterTypes<projectType>, getWith?: { [key in keyof projectType]?: true }, limit = 50, offset = 0,): Promise<projectType[]> {
+export async function getProjects(filter: tableFilterTypes<projectType>, getWith: { [key in keyof projectType]?: true } = {}, limit = 50, offset = 0,): Promise<projectType[]> {
     //compile filters into proper where clauses
     const whereClauses: SQLWrapper[] = makeWhereClauses(projectSchema.partial(), filter, projects)
 
@@ -30,8 +31,8 @@ export async function getProjects(filter: tableFilterTypes<projectType>, getWith
         where: and(...whereClauses),
         limit,
         offset,
-        with: getWith === undefined ? undefined : {
-            fromUser: getWith.fromUser
+        with: {
+            ...getWith,
         },
         orderBy: [desc(projects.dateCreated)],
     });
@@ -52,11 +53,19 @@ export async function updateProject(projectId: projectType["id"], projectObj: Pa
     return result
 }
 
-export async function getSpecificProject(projectId: projectType["id"]): Promise<projectType | undefined> {
+export async function getSpecificProject(projectId: projectType["id"], getWith: { [key in keyof projectType]?: true } = {},): Promise<projectType | undefined> {
     projectSchema.shape.id.parse(projectId)
 
     const result = await db.query.projects.findFirst({
         where: eq(projects.id, projectId),
+        with: {
+            ...getWith,
+            charactersToProjects: getWith.charactersToProjects === undefined ? {
+                with: {
+                    character: true
+                }
+            } : getWith.charactersToProjects
+        },
     });
 
     return result
@@ -69,4 +78,10 @@ export async function deleteProject(projectId: projectType["id"]) {
     //more logic for file deletion
 
     await db.delete(projects).where(eq(projects.id, projectId));
+}
+
+export async function refreshProjectPath(projectId: projectType["id"]) {
+    projectSchema.shape.id.parse(projectId)
+
+    revalidatePath(`/projects/view/${projectId}`)
 }
