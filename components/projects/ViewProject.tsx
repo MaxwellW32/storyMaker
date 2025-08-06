@@ -3,7 +3,7 @@ import ShowMore from "@/components/showMore/ShowMore"
 import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterScenesObjType, characterType, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterScenesObjType, characterType, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { condenseIntoPrompt, fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
@@ -22,13 +22,6 @@ import TextInput from "../inputs/textInput/TextInput"
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts
 //how does after effects integration work - layers, importing, images, audio
-
-//exists on server - big object
-//copied to client
-//each key value pair is updated - only that update sent to server
-//name
-//scenes
-//big updater function - key name - pick that value send it
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
     const project = useRef<projectType>({ ...seenProject })
@@ -278,6 +271,61 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     return (
         <main className={styles.main}>
+            <section>
+                <button className="button1"
+                    onClick={async () => {
+                        try {
+                            toast.success("clicked")
+
+                            const seenCharacters = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(eachCharacter => eachCharacter !== undefined) : []
+                            if (seenCharacters.length < 1) throw new Error("not seeing characters")
+
+                            let combinedDiologue = ""
+
+                            const idNumArr: string[] = []
+                            function addToIdNumArr(key: string) {
+                                if (!idNumArr.includes(key)) {
+                                    idNumArr.push(key)
+                                }
+
+                                const foundIndex = idNumArr.indexOf(key)
+
+                                return foundIndex !== -1 ? foundIndex + 1 : foundIndex
+                            }
+
+                            project.current.scenes.map(eachScene => {
+                                eachScene.diologue.map(eachDiologue => {
+                                    combinedDiologue += `Speaker ${addToIdNumArr(eachDiologue.characterId)}: [${eachDiologue.emotions}] ${eachDiologue.sentence}\n`
+                                })
+                            })
+
+                            console.log(`$combinedDiologue`, combinedDiologue);
+
+                            const newMakeAudioBody: makeAudioBodyType = {
+                                text: combinedDiologue,
+                                projectId: seenProject.id,
+                                characters: seenCharacters
+                            }
+
+                            const response = await fetch(`/api/makeAudio`, {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json"
+                                },
+                                body: JSON.stringify(newMakeAudioBody)
+                            })
+                            const makeAudioResponsePre = await response.json()
+                            const makeAudioResponse = makeAudioResponseSchema.parse(makeAudioResponsePre)
+
+                            console.log(`$makeAudioResponse`, makeAudioResponse);
+
+                        } catch (error) {
+                            consoleAndToastError(error)
+                        }
+                    }}
+                >click</button>
+            </section>
+
             <section>
                 <ShowMore
                     label='chracters'

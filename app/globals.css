@@ -148,6 +148,7 @@ textarea:focus {
   border-radius: var(--borderRadiusES);
   text-transform: uppercase;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .button1:hover {
@@ -162,6 +163,7 @@ textarea:focus {
   border-radius: var(--borderRadiusES);
   text-transform: capitalize;
   font-size: var(--fontSizeS);
+  cursor: pointer;
 }
 
 

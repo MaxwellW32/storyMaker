@@ -417,6 +417,34 @@ export type withId = {
     id: string | number;
 } & Record<string, unknown>
 
+export const makeAudioBodySchema = z.object({
+    text: z.string().min(1),
+    projectId: z.lazy(() => projectSchema.shape.id),
+    characters: z.lazy(() => characterSchema.array()),
+})
+export type makeAudioBodyType = z.infer<typeof makeAudioBodySchema>
+
+export const makeAudioResponseSchema = z.object({
+    filePath: z.string().min(1)
+})
+export type makeAudioResponseType = z.infer<typeof makeAudioResponseSchema>
+
+export const projectResourceDirOptions = ["audio", "images"] as const
+export type projectResourceDirOptionsType = typeof projectResourceDirOptions[number]
+
+export type writeFileOptions =
+    {
+        type: "text",
+        text: string,
+    } | {
+        type: "audio",
+        audioFile: ReadableStream<Uint8Array<ArrayBufferLike>>,
+
+    } | {
+        type: "image",
+        imageFile: string,
+    }
+
 
 
 
@@ -482,7 +510,7 @@ export type projectType = z.infer<typeof projectSchema> & {
 export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
-export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true })
+export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true, userId: true })
 export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 
