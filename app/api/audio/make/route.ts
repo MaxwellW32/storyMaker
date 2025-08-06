@@ -12,23 +12,22 @@ dotenv.config({ path: ".env.local" });
 
 const apiKey = process.env.ELEVENLABS_API_KEY
 
+const elevenlabs = new ElevenLabsClient({
+    apiKey: apiKey
+});
+
 export async function POST(request: Request) {
-    const seenAudioBody = makeAudioBodySchema.parse(await request.json())
+    const seenMakeAudioBody = makeAudioBodySchema.parse(await request.json())
 
-    const elevenlabs = new ElevenLabsClient({
-        apiKey: apiKey
-    });
-
-    const audio = await elevenlabs.textToSpeech.convert('JBFqnCBsd6RMkjVDRZzb', {
-        text: seenAudioBody.text,
+    const audio = await elevenlabs.textToSpeech.convert(seenMakeAudioBody.character.voiceId, {
+        text: seenMakeAudioBody.line,
         modelId: 'eleven_multilingual_v2',
         outputFormat: 'mp3_44100_128',
     });
 
     //write the audio to the server
-    const dirPath = path.join(projectAudioDir, seenAudioBody.projectId)
+    const dirPath = path.join(projectAudioDir, seenMakeAudioBody.projectId)
     await ensureDirectoryExists(dirPath)
-
 
     const stream = audio as ReadableStream;
     const reader = stream.getReader();
@@ -41,14 +40,14 @@ export async function POST(request: Request) {
     }
     const buffer = Buffer.concat(chunks);
 
-    const audioFileName = `audio_${uudiv4()}.mp3`
-    const filePath = path.join(dirPath, audioFileName)
+    const audioFileName = `${seenMakeAudioBody.dialogueId}____${uudiv4()}.mp3`
+    const audioFilePath = path.join(dirPath, audioFileName)
 
-    await fs.writeFile(filePath, buffer)
+    await fs.writeFile(audioFilePath, buffer)
 
     // Return the image file in the response
     const newAudioResponse: makeAudioResponseType = {
-        filePath: filePath
+        dialogueAudioFileName: audioFileName
     }
     makeAudioResponseSchema.parse(newAudioResponse)
 

@@ -3,7 +3,7 @@ import ShowMore from "@/components/showMore/ShowMore"
 import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterScenesObjType, characterType, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterDialogueObjType, alterScenesObjType, characterType, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { condenseIntoPrompt, fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
@@ -20,7 +20,7 @@ import TextArea from "../inputs/textArea/TextArea"
 import TextInput from "../inputs/textInput/TextInput"
 
 //how does gpt api work...
-//how does eleven labs api work - multi/single tts
+//how does eleven labs api work - multi/single tts...
 //how does after effects integration work - layers, importing, images, audio
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
@@ -195,6 +195,30 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         }
     }
 
+    function checkProjectErrors(seenFormObj: Partial<projectType>) {
+        projectFormErrorsSet({})
+
+        const testSchema = projectSchema.partial().safeParse(seenFormObj);
+
+        if (testSchema.success) {
+            return false
+
+        } else {
+            testSchema.error.issues.map(eachIssue => {
+                projectFormErrorsSet(prevObj => {
+                    const newObj = { ...prevObj }
+                    const seenPath = eachIssue.path.join("/")
+
+                    newObj[seenPath] = eachIssue.message
+
+                    return newObj
+                })
+            })
+
+            return true
+        }
+    }
+
     function makeDefaultAlterScenesObj(): alterScenesObjType["key"] {
         return {
             loading: false,
@@ -204,7 +228,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             variations: []
         }
     }
-
     function handleSceneVariationSwitch(sceneId: sceneType["id"], option: "next" | "prev") {
         if (project.current.alterScenesObj[sceneId] === undefined) throw new Error("not seeing alter scenes obj for scene id")
         const seenVariations = project.current.alterScenesObj[sceneId].variations
@@ -245,87 +268,95 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         })
     }
 
-    function checkProjectErrors(seenFormObj: Partial<projectType>) {
-        projectFormErrorsSet({})
+    function makeDefaultAlterDialogueObj(): alterDialogueObjType["key"] {
+        return {
+            loading: false,
+            audioFileNameArray: [],
+            variationIndex: 0
+        }
+    }
+    function handleDialogueVariationSwitch(dialogueId: dialogueType["id"], option: "next" | "prev") {
+        if (project.current.alterDialogueObj[dialogueId] === undefined) throw new Error("not seeing alter dialogue obj for dialogue id")
+        const seenVariations = project.current.alterDialogueObj[dialogueId].audioFileNameArray
 
-        const testSchema = projectSchema.partial().safeParse(seenFormObj);
+        //get index
+        let seenIndex = project.current.alterDialogueObj[dialogueId].variationIndex
 
-        if (testSchema.success) {
-            return false
+        if (option === "next") {
+            seenIndex++
+
+            //keep in bounds
+            if (seenIndex > seenVariations.length - 1) {
+                seenIndex = 0
+            }
 
         } else {
-            testSchema.error.issues.map(eachIssue => {
-                projectFormErrorsSet(prevObj => {
-                    const newObj = { ...prevObj }
-                    const seenPath = eachIssue.path.join("/")
+            seenIndex--
 
-                    newObj[seenPath] = eachIssue.message
+            //keep in bounds
+            if (seenIndex < 0) {
+                seenIndex = seenVariations.length - 1
+            }
+        }
 
-                    return newObj
-                })
+        //update vriation index
+        project.current.alterDialogueObj[dialogueId].variationIndex = seenIndex
+    }
+    async function handleDialogueAudio(eachDialogue: dialogueType, singleGeneration = true) {
+        try {
+            if (singleGeneration) toast.success("generating!")
+
+            const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
+            if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
+
+            //audio made for every dialogue line
+            //audip received for each dialogue line
+
+            //start alterFialogueObj
+            if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
+                project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
+            }
+
+            //start loading
+            project.current.alterDialogueObj[eachDialogue.id].loading = true
+
+            const newMakeAudioBody: makeAudioBodyType = {
+                line: eachDialogue.sentence,
+                projectId: seenProject.id,
+                dialogueId: eachDialogue.id,
+                character: foundCharacter
+            }
+            //validation
+            makeAudioBodySchema.parse(newMakeAudioBody)
+
+            const response = await fetch(`/api/audio/make`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(newMakeAudioBody)
             })
+            const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
 
-            return true
+            //add on audio fileName
+            console.log(`$got back`, makeAudioResponse.dialogueAudioFileName)
+            project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.push(makeAudioResponse.dialogueAudioFileName)
+
+            //finish loading
+            project.current.alterDialogueObj[eachDialogue.id].loading = false
+
+            //refresh
+            refreshProject(["alterDialogueObj"])
+
+            if (singleGeneration) toast.success("finished!")
+
+        } catch (error) {
+            consoleAndToastError(error)
         }
     }
 
     return (
         <main className={styles.main}>
-            <section>
-                <button className="button1"
-                    onClick={async () => {
-                        try {
-                            toast.success("clicked")
-
-                            const seenCharacters = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(eachCharacter => eachCharacter !== undefined) : []
-                            if (seenCharacters.length < 1) throw new Error("not seeing characters")
-
-                            let combinedDiologue = ""
-
-                            const idNumArr: string[] = []
-                            function addToIdNumArr(key: string) {
-                                if (!idNumArr.includes(key)) {
-                                    idNumArr.push(key)
-                                }
-
-                                const foundIndex = idNumArr.indexOf(key)
-
-                                return foundIndex !== -1 ? foundIndex + 1 : foundIndex
-                            }
-
-                            project.current.scenes.map(eachScene => {
-                                eachScene.diologue.map(eachDiologue => {
-                                    combinedDiologue += `Speaker ${addToIdNumArr(eachDiologue.characterId)}: [${eachDiologue.emotions}] ${eachDiologue.sentence}\n`
-                                })
-                            })
-
-                            console.log(`$combinedDiologue`, combinedDiologue);
-
-                            const newMakeAudioBody: makeAudioBodyType = {
-                                text: combinedDiologue,
-                                projectId: seenProject.id,
-                                characters: seenCharacters
-                            }
-
-                            const response = await fetch(`/api/makeAudio`, {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify(newMakeAudioBody)
-                            })
-                            const makeAudioResponsePre = await response.json()
-                            const makeAudioResponse = makeAudioResponseSchema.parse(makeAudioResponsePre)
-
-                            console.log(`$makeAudioResponse`, makeAudioResponse);
-
-                        } catch (error) {
-                            consoleAndToastError(error)
-                        }
-                    }}
-                >click</button>
-            </section>
-
             <section>
                 <ShowMore
                     label='chracters'
@@ -546,21 +577,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                         )}
 
                                         <div className="container">
-                                            {eachScene.diologue.map((eachDiologue, eachDiologueIndex) => {
-                                                const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDiologue.characterId)
-
+                                            {eachScene.dialogue.map(eachDialogue => {
                                                 return (
-                                                    <div key={eachDiologueIndex}>
-                                                        {foundCharacter !== undefined && (
-                                                            <b>{foundCharacter.name} </b>
-                                                        )}
-
-                                                        <span>{eachDiologue.sentence}</span>
-
-                                                        {eachDiologue.emotions && (
-                                                            <b> ({eachDiologue.emotions})</b>
-                                                        )}
-                                                    </div>
+                                                    <DisplayDialogue key={eachDialogue.id} dialogue={eachDialogue} usedCharacters={charactersInProject} />
                                                 )
                                             })}
                                         </div>
@@ -573,6 +592,96 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     <p>Your generated scenes will appear here.</p>
                 )}
             </section>
+
+            <section>
+                {project.current.scenes.length > 0 && (
+                    <>
+                        <h2>audio</h2>
+
+                        <button className="button1" style={{ justifySelf: "center" }}
+                            onClick={async () => {
+                                toast.success("generating all!")
+
+                                await Promise.all(project.current.scenes.map(async eachScene => {
+                                    return eachScene.dialogue.map(async eachDialogue => {
+                                        await handleDialogueAudio(eachDialogue, false)
+                                    })
+                                }))
+
+                                toast.success("finished!")
+                            }}
+                        >generate audio</button>
+
+                        <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)", marginTop: "var(--spacingR)" }}>
+                            {project.current.scenes.map((eachScene) => {
+
+                                return (
+                                    <div key={eachScene.id} className="container">
+                                        {eachScene.dialogue.map(eachDialogue => {
+                                            //ensure audio id mapped to dialogue
+                                            const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachDialogue.id]
+
+                                            return (
+                                                <div key={eachDialogue.id} className="container">
+                                                    <DisplayDialogue dialogue={eachDialogue} usedCharacters={charactersInProject} />
+
+                                                    <button className="button2"
+                                                        onClick={async () => {
+                                                            await handleDialogueAudio(eachDialogue)
+                                                        }}
+                                                    >regenerate</button>
+
+                                                    {seenAlterDialogueObj !== undefined && (
+                                                        <>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
+                                                                <audio controls>
+                                                                    <source src={`/api/audio/view?projectId=${seenProject.id}&fileName=${seenAlterDialogueObj.audioFileNameArray[seenAlterDialogueObj.variationIndex]}`} type="audio/mpeg" />
+                                                                </audio>
+
+                                                                <button className="button2"
+                                                                    onClick={() => {
+                                                                        handleDialogueVariationSwitch(eachDialogue.id, "prev")
+                                                                    }}
+                                                                >prev</button>
+
+                                                                <button className="button2"
+                                                                    onClick={() => {
+                                                                        handleDialogueVariationSwitch(eachDialogue.id, "next")
+                                                                    }}
+                                                                >next</button>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </>
+                )
+                }
+            </section>
         </main>
+    )
+}
+
+function DisplayDialogue({ dialogue, usedCharacters }: { dialogue: dialogueType, usedCharacters: characterType[] }) {
+    const foundCharacter = usedCharacters.find(eachCharacter => eachCharacter.id === dialogue.characterId)
+
+    return (
+        <div>
+            {foundCharacter !== undefined && (
+                <b>{foundCharacter.name} </b>
+            )}
+
+            <span>{dialogue.sentence}</span>
+
+            {dialogue.emotions && (
+                <b> ({dialogue.emotions})</b>
+            )}
+        </div>
+
     )
 }

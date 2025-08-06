@@ -12,7 +12,8 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
     const initialFormObj: newCharacterType = {
         name: "",
         age: 20,
-        userId: "dummyData"
+        userId: "dummyData",
+        voiceId: "",
     }
 
     //assign either a new form, or the safe values on an update form
@@ -99,7 +100,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                         value={formObj.name}
                         type={"text"}
                         label={"character name"}
-                        placeHolder={"enter project name"}
+                        placeHolder={"enter character name"}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             formObjSet(prevFormObj => {
                                 const newFormObj = { ...prevFormObj }
@@ -139,6 +140,30 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                         }}
                         onBlur={() => { checkIfValid(formObj, "age") }}
                         errors={formErrors["age"]}
+                    />
+                </>
+            )}
+
+            {formObj.voiceId !== undefined && (
+                <>
+                    <TextInput
+                        name={"voiceId"}
+                        value={formObj.voiceId}
+                        type={"text"}
+                        label={"character voiceId"}
+                        placeHolder={"enter character voiceId"}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            formObjSet(prevFormObj => {
+                                const newFormObj = { ...prevFormObj }
+                                if (newFormObj.voiceId === undefined) return prevFormObj
+
+                                newFormObj.voiceId = e.target.value
+
+                                return newFormObj
+                            })
+                        }}
+                        onBlur={() => { checkIfValid(formObj, "voiceId") }}
+                        errors={formErrors["voiceId"]}
                     />
                 </>
             )}

@@ -1,4 +1,4 @@
-import { alterScenesObjType, characterType, sceneType, typeEmotionsOptions } from "@/types";
+import { alterDialogueObjType, alterScenesObjType, characterType, sceneType, typeEmotionsOptions } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgEnum, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -30,6 +30,7 @@ export const projects = pgTable("projects", {
     prompt: text("prompt").notNull().default(""),
     scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
+    alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),
 
     //regular
     name: text("name").notNull(),
@@ -55,9 +56,11 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 
 export const characters = pgTable("characters", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+
     name: text("name").notNull(),
     age: integer("age").notNull(),
     userId: text("userId").notNull().references(() => users.id),
+    voiceId: text("voiceId").notNull(),
 })
 export const charactersRelations = relations(characters, ({ one, many }) => ({
     charactersToProjects: many(charactersToProjects),

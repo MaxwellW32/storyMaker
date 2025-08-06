@@ -12,6 +12,7 @@ export async function addCharacter(newCharacterObj: newCharacterType) {
     //security check  
     newCharacterSchema.parse(newCharacterObj)
 
+    //add on user id
     newCharacterObj.userId = session.user.id
 
     //add new

@@ -1,7 +1,9 @@
 //To Do
-//make characters
-//make audio
-//every signle dialogue  key maps to the audio src
+//rate limit audio generation
+//make non destructive - story makes scenes, can add scenes, scenes make audio, can regenerate for those not there
+//
+//
+//
 
 //ideas
 //naming
