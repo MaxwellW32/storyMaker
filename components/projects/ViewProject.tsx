@@ -18,12 +18,14 @@ import ViewItems from "../items/ViewItem"
 import { addCharacterToProject, deleteCharacterInProject, getSpecificCharacterInProject } from "@/serverFunctions/handleCharactersToProjects"
 import TextArea from "../inputs/textArea/TextArea"
 import TextInput from "../inputs/textInput/TextInput"
+import UseRateLimit from "../rateLimit/UseRateLimit"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
 //how does after effects integration work - layers, importing, images, audio
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
+    const { rateLimit } = UseRateLimit({})
     const project = useRef<projectType>({ ...seenProject })
     const charactersInProject = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(each => each !== undefined) : []
     const [projectFormErrors, projectFormErrorsSet] = useState<{ [key: string]: string | undefined }>({})
@@ -98,7 +100,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 checkProjectErrors(latestProject)
                 const validatedProject = specificKeys.length > 0 ? updateProjectSchema.pick(pickShape).parse(latestProject) : updateProjectSchema.parse(latestProject)
 
-                console.log(`$validated project`, validatedProject);
+                console.log(`$sending to server update`, validatedProject);
 
                 //send to server
                 updateProject(seenProject.id, validatedProject)
@@ -132,7 +134,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             toast.success("Generating story...")
 
             const finalPrompt = condenseIntoPrompt({ prompt: project.current.prompt, characters: charactersInProject })
-            console.log(`$finalPrompt`, finalPrompt);
             const storyResponse = await makeStory(finalPrompt, baseInstructions.current)
 
             project.current.scenes = storyResponse.scenes
@@ -266,6 +267,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
             return eachScene
         })
+
+        //general refresh
+        refreshProject([])
     }
 
     function makeDefaultAlterDialogueObj(): alterDialogueObjType["key"] {
@@ -301,58 +305,68 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
         //update vriation index
         project.current.alterDialogueObj[dialogueId].variationIndex = seenIndex
+
+        //general refresh
+        refreshProject([])
     }
     async function handleDialogueAudio(eachDialogue: dialogueType, singleGeneration = true) {
-        try {
-            if (singleGeneration) toast.success("generating!")
+        await new Promise(async resolve => {
+            rateLimit(async () => {
+                try {
+                    if (singleGeneration) toast.success("generating!")
 
-            const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
-            if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
+                    const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
+                    if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
 
-            //audio made for every dialogue line
-            //audip received for each dialogue line
+                    //audio made for every dialogue line
+                    //audip received for each dialogue line
 
-            //start alterFialogueObj
-            if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
-                project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
-            }
+                    //start alterFialogueObj
+                    if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
+                        project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
+                    }
 
-            //start loading
-            project.current.alterDialogueObj[eachDialogue.id].loading = true
+                    //start loading
+                    project.current.alterDialogueObj[eachDialogue.id].loading = true
 
-            const newMakeAudioBody: makeAudioBodyType = {
-                line: eachDialogue.sentence,
-                projectId: seenProject.id,
-                dialogueId: eachDialogue.id,
-                character: foundCharacter
-            }
-            //validation
-            makeAudioBodySchema.parse(newMakeAudioBody)
+                    const newMakeAudioBody: makeAudioBodyType = {
+                        line: eachDialogue.sentence,
+                        projectId: seenProject.id,
+                        dialogueId: eachDialogue.id,
+                        character: foundCharacter,
+                        variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
+                    }
+                    //validation
+                    makeAudioBodySchema.parse(newMakeAudioBody)
 
-            const response = await fetch(`/api/audio/make`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(newMakeAudioBody)
+                    const response = await fetch(`/api/audio/make`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(newMakeAudioBody)
+                    })
+                    const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
+
+                    //add on audio fileName
+                    project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.push(makeAudioResponse.dialogueAudioFileName)
+
+                    //finish loading
+                    project.current.alterDialogueObj[eachDialogue.id].loading = false
+
+                    //refresh
+                    refreshProject(["alterDialogueObj"])
+
+                    if (singleGeneration) toast.success("finished!")
+
+                } catch (error) {
+                    consoleAndToastError(error)
+
+                } finally {
+                    resolve(true)
+                }
             })
-            const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
-
-            //add on audio fileName
-            console.log(`$got back`, makeAudioResponse.dialogueAudioFileName)
-            project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.push(makeAudioResponse.dialogueAudioFileName)
-
-            //finish loading
-            project.current.alterDialogueObj[eachDialogue.id].loading = false
-
-            //refresh
-            refreshProject(["alterDialogueObj"])
-
-            if (singleGeneration) toast.success("finished!")
-
-        } catch (error) {
-            consoleAndToastError(error)
-        }
+        })
     }
 
     return (
@@ -617,6 +631,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                                 return (
                                     <div key={eachScene.id} className="container">
+                                        <h3>{eachScene.title}</h3>
+
                                         {eachScene.dialogue.map(eachDialogue => {
                                             //ensure audio id mapped to dialogue
                                             const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachDialogue.id]
@@ -633,11 +649,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                                                     {seenAlterDialogueObj !== undefined && (
                                                         <>
-                                                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
-                                                                <audio controls>
-                                                                    <source src={`/api/audio/view?projectId=${seenProject.id}&fileName=${seenAlterDialogueObj.audioFileNameArray[seenAlterDialogueObj.variationIndex]}`} type="audio/mpeg" />
-                                                                </audio>
+                                                            <ShowAudio seenAlterDialogueObj={seenAlterDialogueObj} seenProjectId={seenProject.id} />
 
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
                                                                 <button className="button2"
                                                                     onClick={() => {
                                                                         handleDialogueVariationSwitch(eachDialogue.id, "prev")
@@ -683,5 +697,19 @@ function DisplayDialogue({ dialogue, usedCharacters }: { dialogue: dialogueType,
             )}
         </div>
 
+    )
+}
+
+function ShowAudio({ seenAlterDialogueObj, seenProjectId }: { seenAlterDialogueObj: alterDialogueObjType["key"], seenProjectId: projectType["id"] }) {
+    return (
+        <div key={seenAlterDialogueObj.variationIndex} style={{ display: "flex", gap: "var(--spacingS)", alignItems: "center" }}>
+            <audio controls>
+                <source src={`/api/audio/view?projectId=${seenProjectId}&fileName=${seenAlterDialogueObj.audioFileNameArray[seenAlterDialogueObj.variationIndex]}`} type="audio/mpeg" />
+            </audio>
+
+            {seenAlterDialogueObj.variationIndex !== 0 && (
+                <p>v{seenAlterDialogueObj.variationIndex + 1}</p>
+            )}
+        </div>
     )
 }

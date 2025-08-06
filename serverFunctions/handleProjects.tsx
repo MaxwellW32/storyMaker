@@ -44,6 +44,8 @@ export async function updateProject(projectId: projectType["id"], projectObj: Pa
     //validation
     projectSchema.partial().parse(projectObj)
 
+    console.log(`$projectObj`, projectObj)
+
     const [result] = await db.update(projects)
         .set({
             ...projectObj

@@ -4,7 +4,7 @@ import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { ensureDirectoryExists } from "@/utility/manageFiles";
 import path from "path";
 import { projectAudioDir } from "@/lib/dirPaths";
-import { v4 as uudiv4 } from "uuid"
+// import { v4 as uudiv4 } from "uuid"
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
 
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
     const buffer = Buffer.concat(chunks);
 
-    const audioFileName = `${seenMakeAudioBody.dialogueId}____${uudiv4()}.mp3`
+    const audioFileName = `${seenMakeAudioBody.dialogueId}__${seenMakeAudioBody.variationIndex}.mp3`
     const audioFilePath = path.join(dirPath, audioFileName)
 
     await fs.writeFile(audioFilePath, buffer)

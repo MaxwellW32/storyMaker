@@ -1,8 +1,7 @@
 //To Do
-//rate limit audio generation
 //make non destructive - story makes scenes, can add scenes, scenes make audio, can regenerate for those not there
-//
-//
+//allow more editing of text - dialogue...etc
+//make prompts more editable on the client side
 //
 
 //ideas

@@ -84,6 +84,7 @@ export const makeAudioBodySchema = z.object({
     line: z.string().min(1),
     projectId: z.lazy(() => projectSchema.shape.id),
     dialogueId: z.lazy(() => dialogueSchema.shape.id),
+    variationIndex: z.number(),
     character: z.lazy(() => characterSchema),
 })
 export type makeAudioBodyType = z.infer<typeof makeAudioBodySchema>
