@@ -17,7 +17,7 @@ export async function addCharacterToProject(newCharacterToProjectObj: newCharact
     return addedCharacterToProject
 }
 
-export async function getCharacterToProjects(filter: tableFilterTypes<characterToProjectType>, getWith?: { [key in keyof characterToProjectType]?: true }, limit = 50, offset = 0,): Promise<characterToProjectType[]> {
+export async function getCharacterToProjects(filter: tableFilterTypes<characterToProjectType>, getWith: { [key in keyof characterToProjectType]?: true } = {}, limit = 50, offset = 0,): Promise<characterToProjectType[]> {
     //compile filters into proper where clauses
     const whereClauses: SQLWrapper[] = makeWhereClauses(characterToProjectSchema.partial(), filter, charactersToProjects)
 
@@ -25,39 +25,31 @@ export async function getCharacterToProjects(filter: tableFilterTypes<characterT
         where: and(...whereClauses),
         limit,
         offset,
-        with: getWith === undefined ? undefined : {
-            character: getWith.character,
-            project: getWith.project,
+        with: {
+            ...getWith
         },
     });
 
     return results;
 }
 
-export async function updateCharacterToProject(characterToProjectId: characterToProjectType["id"], characterToProjectObj: Partial<updateCharacterToProjectType>): Promise<characterToProjectType> {
+export async function updateCharacterToProject({ characterId, projectId, characterToProjectObj }: { characterId: characterToProjectType["characterId"], projectId: characterToProjectType["projectId"], characterToProjectObj: Partial<updateCharacterToProjectType> }): Promise<characterToProjectType> {
     //validation
+    characterToProjectSchema.shape.characterId.parse(characterId)
+    characterToProjectSchema.shape.projectId.parse(projectId)
     characterToProjectSchema.partial().parse(characterToProjectObj)
 
     const [result] = await db.update(charactersToProjects)
         .set({
             ...characterToProjectObj
         })
-        .where(eq(charactersToProjects.id, characterToProjectId)).returning()
+        .where(and(eq(charactersToProjects.characterId, characterId), eq(charactersToProjects.projectId, projectId))).returning()
 
     return result
 }
 
-export async function getSpecificCharacterToProject(characterToProjectId: characterToProjectType["id"]): Promise<characterToProjectType | undefined> {
-    characterToProjectSchema.shape.id.parse(characterToProjectId)
-
-    const result = await db.query.charactersToProjects.findFirst({
-        where: eq(charactersToProjects.id, characterToProjectId),
-    });
-
-    return result
-}
-
-export async function getSpecificCharacterInProject({ characterId, projectId }: { characterId: characterToProjectType["characterId"], projectId: characterToProjectType["projectId"] }): Promise<characterToProjectType | undefined> {
+export async function getSpecificCharacterToProject({ characterId, projectId }: { characterId: characterToProjectType["characterId"], projectId: characterToProjectType["projectId"] }): Promise<characterToProjectType | undefined> {
+    //validation
     characterToProjectSchema.shape.characterId.parse(characterId)
     characterToProjectSchema.shape.projectId.parse(projectId)
 
@@ -68,21 +60,11 @@ export async function getSpecificCharacterInProject({ characterId, projectId }: 
     return result
 }
 
-export async function deleteCharacterToProject(characterToProjectId: characterToProjectType["id"]) {
-    //validation
-    characterToProjectSchema.shape.id.parse(characterToProjectId)
-
-    //more logic for file deletion
-
-    await db.delete(charactersToProjects).where(eq(charactersToProjects.id, characterToProjectId));
-}
-
-export async function deleteCharacterInProject({ characterId, projectId }: { characterId: characterToProjectType["characterId"], projectId: characterToProjectType["projectId"] }) {
+export async function deleteCharacterToProject({ characterId, projectId }: { characterId: characterToProjectType["characterId"], projectId: characterToProjectType["projectId"] }) {
     //validation
     characterToProjectSchema.shape.characterId.parse(characterId)
     characterToProjectSchema.shape.projectId.parse(projectId)
 
     //more logic for file deletion
-
     await db.delete(charactersToProjects).where(and(eq(charactersToProjects.characterId, characterId), eq(charactersToProjects.projectId, projectId)));
 }

@@ -1,7 +1,8 @@
-import { alterDialogueObjType, alterScenesObjType, characterType, sceneType, typeEmotionsOptions } from "@/types";
+import { alterDialogueObjType, alterScenesObjType, sceneType } from "@/types";
 import { relations } from "drizzle-orm";
-import { boolean, index, integer, json, pgEnum, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
+import { id } from "zod/v4/locales";
 // type chT = typeof characters.$inferInsert
 
 export const users = pgTable("users", {
@@ -55,16 +56,31 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
 
 
 export const characters = pgTable("characters", {
+    //default
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
 
+    //regular
     name: text("name").notNull(),
     age: integer("age").notNull(),
     userId: text("userId").notNull().references(() => users.id),
     voiceId: text("voiceId").notNull(),
+    personality: text("personality").notNull(), // e.g. "brooding and analytical", "cheerful and impulsive"
+    toneOfVoice: text("tone_of_voice").notNull(), // e.g. "sarcastic", "soft-spoken", "authoritative"
+    dialogueStyle: text("dialogue_style").notNull(), // e.g. "uses short, clipped sentences", "speaks in metaphors"
+    alignment: text("alignment").notNull(), // e.g. "Lawful Good", "Chaotic Neutral", or your own moral scale
+    goal: text("goal").notNull(), // What drives the character
+    fear: text("fear").notNull(), // What the character is afraid of
+    fatalFlaw: text("fatal_flaw").notNull(), // e.g. "trusts too easily", "overconfident"
+    backstory: text("backstory").notNull(), // Important past experiences
+    occupation: text("occupation").notNull(), // Their role in the story or world
+    location: text("location").notNull(), // Where they're usually found
+    appearance: text("appearance").notNull(), // Short description e.g. "tall, with silver hair and a jagged scar"
+    archetype: text("archetype").notNull(), // e.g. "The Hero", "The Trickster", "The Mentor"
 })
 export const charactersRelations = relations(characters, ({ one, many }) => ({
     charactersToProjects: many(charactersToProjects),
     charactersToEmotions: many(charactersToEmotions),
+    charactersToTags: many(charactersToTags),
     fromUser: one(users, {
         fields: [characters.userId],
         references: [users.id]
@@ -74,10 +90,8 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
 
 
 
-export const typeEmotionsEnum = pgEnum("typeEmotions", typeEmotionsOptions);
-
 export const emotions = pgTable("emotions", {
-    type: typeEmotionsEnum().primaryKey(),
+    type: text("type").primaryKey(),
 })
 export const emotionsRelations = relations(emotions, ({ many }) => ({
     charactersToEmotions: many(charactersToEmotions),
@@ -86,15 +100,27 @@ export const emotionsRelations = relations(emotions, ({ many }) => ({
 
 
 
-export const charactersToEmotions = pgTable("charactersToEmotions", {
+export const tags = pgTable("tags", {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull().unique(),
+})
+export const tagsRelations = relations(tags, ({ many }) => ({
+    charactersToTags: many(charactersToTags),
+}));
+
+
+
+
+export const charactersToEmotions = pgTable("charactersToEmotions", {
+    simpleId: text("simpleId").notNull().$defaultFn(() => crypto.randomUUID()),
 
     characterId: text("characterId").notNull().references(() => characters.id),
-    emotionType: typeEmotionsEnum().notNull().references(() => emotions.type),
+    emotionType: text("emotionType").notNull().references(() => emotions.type),
 },
     (t) => {
         return {
-            characterIdIndex: index("characterIdIndex").on(t.characterId),
+            pk: primaryKey({ columns: [t.characterId, t.emotionType] }),
+            charactersToEmotionsCharacterIdIndex: index("charactersToEmotionsCharacterIdIndex").on(t.characterId),
         };
     })
 export const charactersToEmotionsRelations = relations(charactersToEmotions, ({ one }) => ({
@@ -112,15 +138,15 @@ export const charactersToEmotionsRelations = relations(charactersToEmotions, ({ 
 
 
 export const charactersToProjects = pgTable("charactersToProjects", {
-    id: text("id").notNull().$defaultFn(() => crypto.randomUUID()),
+    simpleId: text("simpleId").notNull().$defaultFn(() => crypto.randomUUID()),
 
     characterId: text("characterId").notNull().references(() => characters.id),
     projectId: text("projectId").notNull().references(() => projects.id),
 },
     (t) => {
         return {
-            primaryKey: primaryKey({ columns: [t.characterId, t.projectId] }),
-            projectIdIndex: index("projectIdIndex").on(t.projectId),
+            pk: primaryKey({ columns: [t.characterId, t.projectId] }),
+            charactersToProjectsProjectIdIndex: index("charactersToProjectsProjectIdIndex").on(t.projectId),
         };
     })
 export const charactersToProjectsRelations = relations(charactersToProjects, ({ one }) => ({
@@ -131,6 +157,32 @@ export const charactersToProjectsRelations = relations(charactersToProjects, ({ 
     project: one(projects, {
         fields: [charactersToProjects.projectId],
         references: [projects.id],
+    }),
+}));
+
+
+
+
+export const charactersToTags = pgTable("charactersToTags", {
+    simpleId: text("simpleId").notNull().$defaultFn(() => crypto.randomUUID()),
+
+    characterId: text("characterId").notNull().references(() => characters.id),
+    tagId: text("tagId").notNull().references(() => tags.id),
+},
+    (t) => {
+        return {
+            pk: primaryKey({ columns: [t.characterId, t.tagId] }),
+            charactersToTagsCharacterIdIndex: index("charactersToTagsCharacterIdIndex").on(t.characterId),
+        };
+    })
+export const charactersToTagsRelations = relations(charactersToTags, ({ one }) => ({
+    character: one(characters, {
+        fields: [charactersToTags.characterId],
+        references: [characters.id],
+    }),
+    tag: one(tags, {
+        fields: [charactersToTags.tagId],
+        references: [tags.id],
     }),
 }));
 

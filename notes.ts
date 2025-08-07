@@ -1,16 +1,18 @@
 //To Do
 //remember sync env variables
 //
-//make non destructive - story makes scenes, can add scenes, scenes make audio, can regenerate for those not there
-//allow more editing of text - dialogue...etc
-//add plus scene option
-//ensure editing dialogue text makes audio want to refresh
-//unify references scenes getter
+//figure out after effects
+//delete scenes, add/edit/delete shuffle dialogue
+//trim down user object to gpt - refine over time
 
 
 
 
 //ideas
+//after effects
+//one folder to hold general - character images...etc
+//one live folder with everything else
+
 //naming
 //schema - plural
 //type - singular with Type added - e.g userType

@@ -4,7 +4,7 @@ import { projects } from "@/db/schema";
 import { newProjectSchema, newProjectType, projectSchema, projectType, tableFilterTypes, updateProjectType } from "@/types";
 import { makeWhereClauses } from "@/utility/utility";
 import { and, desc, eq, SQLWrapper } from "drizzle-orm";
-import { sessionCheck } from "./handleAuth";
+import { ensureCanAccessResource, sessionCheck } from "./handleAuth";
 import { revalidatePath } from "next/cache";
 
 export async function addProject(newProjectObj: newProjectType): Promise<projectType> {
@@ -44,6 +44,9 @@ export async function updateProject(projectId: projectType["id"], projectObj: Pa
     //validation
     projectSchema.partial().parse(projectObj)
 
+    //auth
+    await ensureCanAccessResource("projects", projectId)
+
     const [result] = await db.update(projects)
         .set({
             ...projectObj
@@ -62,7 +65,11 @@ export async function getSpecificProject(projectId: projectType["id"], getWith: 
             ...getWith,
             charactersToProjects: getWith.charactersToProjects === undefined ? {
                 with: {
-                    character: true
+                    character: {
+                        with: {
+                            charactersToEmotions: true
+                        }
+                    }
                 }
             } : getWith.charactersToProjects
         },
@@ -75,7 +82,8 @@ export async function deleteProject(projectId: projectType["id"]) {
     //validation
     projectSchema.shape.id.parse(projectId)
 
-    //more logic for file deletion
+    //auth
+    await ensureCanAccessResource("projects", projectId)
 
     await db.delete(projects).where(eq(projects.id, projectId));
 }

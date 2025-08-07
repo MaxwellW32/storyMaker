@@ -4,9 +4,9 @@ import { characters } from "@/db/schema";
 import { newCharacterSchema, newCharacterType, characterSchema, characterType, tableFilterTypes, updateCharacterType } from "@/types";
 import { makeWhereClauses } from "@/utility/utility";
 import { and, eq, SQLWrapper } from "drizzle-orm";
-import { sessionCheck } from "./handleAuth";
+import { ensureCanAccessResource, sessionCheck } from "./handleAuth";
 
-export async function addCharacter(newCharacterObj: newCharacterType) {
+export async function addCharacter(newCharacterObj: newCharacterType): Promise<characterType> {
     const session = await sessionCheck()
 
     //security check  
@@ -16,12 +16,14 @@ export async function addCharacter(newCharacterObj: newCharacterType) {
     newCharacterObj.userId = session.user.id
 
     //add new
-    await db.insert(characters).values({
+    const [result] = await db.insert(characters).values({
         ...newCharacterObj,
-    })
+    }).returning()
+
+    return result
 }
 
-export async function getCharacters(filter: tableFilterTypes<characterType>, getWith?: { [key in keyof characterType]?: true }, limit = 50, offset = 0,): Promise<characterType[]> {
+export async function getCharacters(filter: tableFilterTypes<characterType>, getWith: { [key in keyof characterType]?: true } = {}, limit = 50, offset = 0,): Promise<characterType[]> {
     //compile filters into proper where clauses
     const whereClauses: SQLWrapper[] = makeWhereClauses(characterSchema.partial(), filter, characters)
 
@@ -29,7 +31,10 @@ export async function getCharacters(filter: tableFilterTypes<characterType>, get
         where: and(...whereClauses),
         limit,
         offset,
-        with: getWith === undefined ? undefined : {
+        with: {
+            ...getWith,
+            charactersToEmotions: getWith.charactersToEmotions === undefined ? true : getWith.charactersToEmotions,
+            charactersToTags: getWith.charactersToTags === undefined ? true : getWith.charactersToTags
         },
     });
 
@@ -40,20 +45,28 @@ export async function updateCharacter(characterId: characterType["id"], characte
     //validation
     characterSchema.partial().parse(characterObj)
 
+    //auth
+    await ensureCanAccessResource("characters", characterId)
+
     const [result] = await db.update(characters)
         .set({
-            ...characterObj
+            ...characterObj,
         })
         .where(eq(characters.id, characterId)).returning()
 
     return result
 }
 
-export async function getSpecificCharacter(characterId: characterType["id"]): Promise<characterType | undefined> {
+export async function getSpecificCharacter(characterId: characterType["id"], getWith: { [key in keyof characterType]?: true } = {},): Promise<characterType | undefined> {
     characterSchema.shape.id.parse(characterId)
 
     const result = await db.query.characters.findFirst({
         where: eq(characters.id, characterId),
+        with: {
+            ...getWith,
+            charactersToEmotions: getWith.charactersToEmotions === undefined ? true : getWith.charactersToEmotions,
+            charactersToTags: getWith.charactersToTags === undefined ? true : getWith.charactersToTags
+        },
     });
 
     return result
@@ -63,7 +76,8 @@ export async function deleteCharacter(characterId: characterType["id"]) {
     //validation
     characterSchema.shape.id.parse(characterId)
 
-    //more logic for file deletion
+    //auth
+    await ensureCanAccessResource("characters", characterId)
 
     await db.delete(characters).where(eq(characters.id, characterId));
 }

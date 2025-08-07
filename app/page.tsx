@@ -6,8 +6,11 @@ import Link from 'next/link'
 import React, { useState } from 'react'
 import styles from "./page.module.css"
 import { getProjects } from '@/serverFunctions/handleProjects'
+import { useSession } from 'next-auth/react'
 
 export default function Page() {
+    const { data: session } = useSession()
+
     const [projectsSearchObj, projectsSearchObjSet] = useState<searchObjType<projectType>>({
         searchItems: [],
     })
@@ -24,7 +27,9 @@ export default function Page() {
                 searchObj={projectsSearchObj}
                 searchObjSet={projectsSearchObjSet}
                 searchFunc={async (seenFilters) => {
-                    return await getProjects({ ...seenFilters }, {}, projectsSearchObj.limit, projectsSearchObj.offset)
+                    if (session === null) throw new Error("not seeing session")
+
+                    return await getProjects({ ...seenFilters, userId: session.user.id }, {}, projectsSearchObj.limit, projectsSearchObj.offset)
                 }}
                 showPage={true}
                 searchFilters={{
@@ -37,8 +42,8 @@ export default function Page() {
             {projectsSearchObj.loading && (<p>loading...</p>)}
 
             {projectsSearchObj.searchItems.length > 0 && (
-                <div style={{ display: "grid", alignContent: "flex-start" }}>
-                    <div style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingR)", gridAutoFlow: "column", gridAutoColumns: "min(90%, 350px)", overflow: "auto" }} className='snap'>
+                <div className="container">
+                    <div className='gridColumns snap'>
                         {projectsSearchObj.searchItems.map(eachProject => {
                             return (
                                 <div key={eachProject.id} style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingR)" }}>

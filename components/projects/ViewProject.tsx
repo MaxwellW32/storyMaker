@@ -3,7 +3,7 @@ import ShowMore from "@/components/showMore/ShowMore"
 import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterDialogueObjType, alterScenesObjType, characterType, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterDialogueObjType, alterScenesObjType, characterSchema, characterType, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
@@ -15,10 +15,11 @@ import { getCharacters } from "@/serverFunctions/handleCharacters"
 import ViewCharacter from "../characters/ViewCharacter"
 import styles from "./style.module.css"
 import ViewItems from "../items/ViewItem"
-import { addCharacterToProject, deleteCharacterInProject, getSpecificCharacterInProject } from "@/serverFunctions/handleCharactersToProjects"
+import { addCharacterToProject, deleteCharacterToProject, getSpecificCharacterToProject } from "@/serverFunctions/handleCharactersToProjects"
 import TextArea from "../inputs/textArea/TextArea"
 import TextInput from "../inputs/textInput/TextInput"
 import UseRateLimit from "../rateLimit/UseRateLimit"
+import Select from "../inputs/select/Select"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
@@ -61,6 +62,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
         project.current = { ...seenProject }
         console.log(`$ran server change use effect`);
+
+        //general refresh
+        refreshProject([])
 
     }, [seenProject])
 
@@ -183,13 +187,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             makeScenesInstructionsObj.current.loading = true
 
             //get scenes referenced for context
-            const referencedScenesIdArr: sceneType["id"][] = referencedSceneIds !== "" ? referencedSceneIds.split(",") : []
-
-            const referencedScenes = referencedScenesIdArr.map(eachReferenceId => {
-                const foundScene = project.current.scenes.find(eachScene => eachScene.id === eachReferenceId.trim())
-                if (foundScene === undefined) throw new Error("not seeing scene with id specified")
-                return foundScene
-            })
+            const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
@@ -224,13 +222,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             project.current.alterScenesObj[sceneToReplace.id].loading = true
 
             //get scenes referenced for context
-            const referencedScenesIdArr: sceneType["id"][] = referencedSceneIds !== "" ? referencedSceneIds.split(",") : []
-
-            const referencedScenes = referencedScenesIdArr.map(eachReferenceId => {
-                const foundScene = project.current.scenes.find(eachScene => eachScene.id === eachReferenceId.trim())
-                if (foundScene === undefined) throw new Error("not seeing scene with id specified")
-                return foundScene
-            })
+            const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
@@ -266,7 +258,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     function addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string }, atTop = true) {
         //add on characters
-        seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(charactersInProject, null, 2))
+        seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(characterSchema.omit({}).parse(charactersInProject), null, 2))
 
         if (variables !== undefined) {
             if (variables.scene !== undefined) {
@@ -475,6 +467,23 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         }
     }
 
+    function getReferencedScenes(referencedSceneIds: string) {
+        //get scenes referenced for context
+        const referencedScenesIdArr: sceneType["id"][] = referencedSceneIds !== "" ? referencedSceneIds.split(",") : []
+
+        const referencedScenes = referencedScenesIdArr.map(eachReferenceId => {
+            const foundScene = project.current.scenes.find(eachScene => eachScene.id === eachReferenceId.trim())
+            if (foundScene === undefined) throw new Error("not seeing scene with id specified")
+
+            return foundScene
+        })
+
+        return referencedScenes
+    }
+
+    const seeingFixed = Object.entries(project.current.alterDialogueObj).filter(eachEntry => !eachEntry[1].audioEditable).length > 0
+    console.log(`$project.current`, project.current);
+
     return (
         <main className={styles.main}>
             <section>
@@ -499,24 +508,24 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                             {charactersSearchObj.searchItems.length > 0 && (
                                 <ViewItems
-                                    itemObjs={charactersSearchObj.searchItems.map(eachSeaarchItem => {
+                                    itemObjs={charactersSearchObj.searchItems.map(eachSearchItem => {
                                         return {
-                                            item: eachSeaarchItem,
-                                            Element: <ViewCharacter seenCharacter={eachSeaarchItem} />
+                                            item: eachSearchItem,
+                                            Element: <ViewCharacter seenCharacter={eachSearchItem} viewAll={false} />
                                         }
                                     })}
                                     selectedIds={charactersInProject.map(eachCharacterInProject => eachCharacterInProject.id)}
                                     selectionAction={async (eachCharacter) => {
                                         try {
                                             //server functions
-                                            const inProject = await getSpecificCharacterInProject({ characterId: eachCharacter.id, projectId: seenProject.id }) !== undefined
+                                            const inProject = await getSpecificCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id }) !== undefined
 
                                             if (!inProject) {
                                                 await addCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id })
                                                 toast.success("selected user")
 
                                             } else {
-                                                await deleteCharacterInProject({ characterId: eachCharacter.id, projectId: seenProject.id })
+                                                await deleteCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id })
                                                 toast.success("de-selected user")
                                             }
 
@@ -727,7 +736,36 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                         <div className="container">
                                             {eachScene.dialogue.map(eachDialogue => {
                                                 return (
-                                                    <DisplayDialogue key={eachDialogue.id} dialogue={eachDialogue} usedCharacters={charactersInProject} />
+                                                    <DisplayDialogue key={eachDialogue.id} dialogue={eachDialogue} usedCharacters={charactersInProject} editMode={true}
+                                                        updateDialogue={(seenText, seenKey) => {
+                                                            project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                                if (eachSceneMap.id === eachScene.id) {
+                                                                    eachSceneMap.dialogue = eachSceneMap.dialogue.map(eachDialogueMap => {
+                                                                        if (eachDialogueMap.id === eachDialogue.id) {
+                                                                            if (seenKey === "sentence") {
+                                                                                eachDialogueMap.sentence = seenText
+
+                                                                            } else if (seenKey === "emotions") {
+                                                                                eachDialogueMap.emotions = seenText
+                                                                            }
+
+                                                                            //make audio editable since dialogue changed
+                                                                            const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachDialogue.id]
+                                                                            if (seenAlterDialogueObj !== undefined) {
+                                                                                project.current.alterDialogueObj[eachDialogue.id].audioEditable = true
+                                                                            }
+                                                                        }
+
+                                                                        return eachDialogueMap
+                                                                    })
+                                                                }
+
+                                                                return eachSceneMap
+                                                            })
+
+                                                            refreshProject(["scenes"])
+                                                        }}
+                                                    />
                                                 )
                                             })}
                                         </div>
@@ -815,23 +853,44 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     <>
                         <h2>audio</h2>
 
-                        <button className="button1" style={{ justifySelf: "center" }}
-                            onClick={async () => {
-                                toast.success("generating all!")
+                        <div style={{ display: "flex", justifyContent: "center", gap: "var(--spacingS)" }}>
+                            <button className="button1"
+                                onClick={async () => {
+                                    toast.success("generating all!")
 
-                                await Promise.all(project.current.scenes.map(async eachScene => {
-                                    return eachScene.dialogue.map(async eachDialogue => {
-                                        await handleDialogueAudio(eachDialogue, false)
-                                    })
-                                }))
-                            }}
-                        >generate audio</button>
+                                    await Promise.all(project.current.scenes.map(async eachScene => {
+                                        return eachScene.dialogue.map(async eachDialogue => {
+                                            await handleDialogueAudio(eachDialogue, false)
+                                        })
+                                    }))
+                                }}
+                            >generate audio</button>
+
+                            {seeingFixed && (
+                                <button className="button2"
+                                    onClick={async () => {
+                                        Object.entries(project.current.alterDialogueObj).map(eachEntry => {
+                                            const eachKey = eachEntry[0]
+                                            const eachValue = eachEntry[1]
+
+                                            eachValue.audioEditable = true
+
+                                            project.current.alterDialogueObj[eachKey] = eachValue
+                                        })
+
+                                        toast.success("all audio now editable!")
+
+                                        refreshProject(["alterDialogueObj"])
+                                    }}
+                                >set all editable</button>
+                            )}
+                        </div>
 
                         <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)", marginTop: "var(--spacingR)" }}>
                             {project.current.scenes.map((eachScene) => {
 
                                 return (
-                                    <div key={eachScene.id} className="container">
+                                    <div key={eachScene.id} className="container" style={{ overflow: "auto" }}>
                                         <h3>{eachScene.title}</h3>
 
                                         {eachScene.dialogue.map(eachDialogue => {
@@ -891,26 +950,73 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 )
                 }
             </section>
+
+            <section>
+                <h2>Output {"(After Effects)"}</h2>
+
+            </section>
         </main>
     )
 }
 
-function DisplayDialogue({ dialogue, usedCharacters }: { dialogue: dialogueType, usedCharacters: characterType[] }) {
+function DisplayDialogue({ dialogue, usedCharacters, editMode = false, updateDialogue }: { dialogue: dialogueType, usedCharacters: characterType[], editMode?: boolean, updateDialogue?: (text: string, key: keyof dialogueType) => void }) {
     const foundCharacter = usedCharacters.find(eachCharacter => eachCharacter.id === dialogue.characterId)
 
     return (
-        <div>
-            {foundCharacter !== undefined && (
-                <b>{foundCharacter.name} </b>
-            )}
+        <div className="container">
+            {foundCharacter !== undefined ? (
+                <>
+                    <b>{foundCharacter.name}</b>
 
-            <span>{dialogue.sentence}</span>
+                    <TextArea
+                        name={`dialogueText_${dialogue.id}`}
+                        value={dialogue.sentence}
+                        placeHolder="Edit the dialogue..."
+                        onChange={(e) => {
+                            if (!editMode || updateDialogue === undefined) return
 
-            {dialogue.emotions && (
-                <b> ({dialogue.emotions})</b>
+                            updateDialogue(e.target.value, "sentence")
+                        }}
+                    />
+
+                    {editMode ? (
+                        <>
+                            {foundCharacter.charactersToEmotions !== undefined ? (
+                                <>
+                                    <Select
+                                        name={`dialogueEmotion_${dialogue.id}`}
+                                        value={dialogue.emotions !== null ? dialogue.emotions : ""}
+                                        valueOptions={foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)}
+                                        onChange={value => {
+                                            if (updateDialogue === undefined) return
+
+                                            updateDialogue(value, "emotions")
+                                        }}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <p>not seeing charactersToEmotions</p>
+                                </>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {dialogue.emotions && (
+                                <b>({dialogue.emotions})</b>
+                            )}
+                        </>
+                    )}
+
+                </>
+            ) : (
+                <>
+                    <p>not seeing character for dialogue</p>
+
+                    <button>pair character</button>
+                </>
             )}
         </div>
-
     )
 }
 

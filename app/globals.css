@@ -131,11 +131,12 @@ textarea:focus {
   outline: none;
 }
 
-::-webkit-input-placeholder,
-::-moz-placeholder {
+
+input::placeholder,
+textarea::placeholder {
   white-space: pre-line;
   position: relative;
-  text-transform: initial;
+  text-transform: capitalize;
 }
 
 .button1 {

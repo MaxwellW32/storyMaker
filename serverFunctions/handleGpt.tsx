@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptMakeScenesResponseSchema, gptMakeScenesResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType } from "@/types";
+import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptNewCharacterResponseSchema, gptNewCharacterResponseType, gptMakeScenesResponseSchema, gptMakeScenesResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 
 dotenv.config({ path: ".env.local" });
@@ -28,6 +28,13 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
         //ensure proper id
         eachScene.id = uuidV4()
 
+        //assign new ids to dialogue
+        eachScene.dialogue = eachScene.dialogue.map(eachDialogue => {
+            eachDialogue.id = uuidV4()
+
+            return eachDialogue
+        })
+
         return eachScene
     })
 
@@ -35,9 +42,6 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
 }
 
 export async function makeScenes(prompt: string, baseInstructions: string): Promise<gptMakeScenesResponseType> {
-    console.log(`$prompt`, prompt);
-    console.log(`$baseInstructions`, baseInstructions);
-
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -88,4 +92,19 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
     })
 
     return seenGptAlterSceneResponse
+}
+
+export async function makeCharacter(prompt: string, baseInstructions: string): Promise<gptNewCharacterResponseType> {
+    const response = await openai.responses.parse({
+        model: "gpt-4.1",
+        instructions: baseInstructions,
+        input: prompt,
+        text: {
+            format: zodTextFormat(gptNewCharacterResponseSchema, "gptNewCharacterResponseSchema"),
+        },
+    });
+
+    const seenGptNewCharacterResponse = gptNewCharacterResponseSchema.parse(response.output_parsed)
+
+    return seenGptNewCharacterResponse
 }

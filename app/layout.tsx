@@ -58,7 +58,20 @@ export default async function RootLayout({
         <SessionProvider session={session}>
           <Toaster position="top-center" reverseOrder={false} />
           <Navbar
-            menuInfoArr={[]}
+            menuInfoArr={[
+              {
+                title: "characters",
+                link: "/characters",
+              },
+              {
+                title: "emotions",
+                link: "/emotions",
+              },
+              {
+                title: "tags",
+                link: "/tags",
+              },
+            ]}
           />
 
           {children}

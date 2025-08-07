@@ -1,1 +1,1 @@
-write incredible short children stories. Please base the characters in the story from this [[characters]]
+write incredible short children stories. Please base the characters in the story from this [[characters]] emotions for each character in the dialogue must be taken from that character object only.

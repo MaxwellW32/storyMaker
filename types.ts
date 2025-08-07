@@ -1,4 +1,5 @@
 import { z } from "zod";
+import * as schema from "@/db/schema"
 
 export const dateSchma = z.preprocess((val) => {
     if (typeof val === "string" || typeof val === "number") return new Date(val);
@@ -10,16 +11,17 @@ export const textFileApiResponseSchema = z.object({
 })
 export type textFileApiResponseType = z.infer<typeof textFileApiResponseSchema>
 
-//refresh db on change
-export const typeEmotionsOptions = ["excited", "happy"] as const
-export const typeEmotionsSchema = z.enum(typeEmotionsOptions)
-export type typeEmotionsType = z.infer<typeof typeEmotionsSchema>
+export type schemaType = typeof schema
+export type tableNames = keyof schemaType
+
+
+
 
 export const dialogueSchema = z.object({
     id: z.string().min(1),
     characterId: z.string().min(1),
     sentence: z.string(),
-    emotions: typeEmotionsSchema.nullable(),
+    emotions: z.lazy(() => emotionSchema.shape.type.nullable())
 })
 export type dialogueType = z.infer<typeof dialogueSchema>
 
@@ -46,6 +48,17 @@ export const gptMakeScenesResponseSchema = z.object({
 })
 export type gptMakeScenesResponseType = z.infer<typeof gptMakeScenesResponseSchema>
 
+
+
+
+export const gptNewCharacterResponseSchema = z.object({
+    newCharacter: z.lazy(() => newCharacterSchema),
+})
+export type gptNewCharacterResponseType = z.infer<typeof gptNewCharacterResponseSchema>
+
+
+
+
 export const alterScenesObjSchema = z.record(z.string(), z.object({
     prompt: z.string().min(1, "prompt needs to be present to change scene"),
     baseInstructions: z.string().min(1, "base instructions needs to be present to change scene"),
@@ -63,11 +76,6 @@ export const alterDialogueObjSchema = z.record(z.string(), z.object({
     audioEditable: z.boolean(),
 }))
 export type alterDialogueObjType = z.infer<typeof alterDialogueObjSchema>
-
-export type projectFilterType = {
-    [key in keyof projectType]?: projectType[key]
-}
-export type allFilterType = projectFilterType
 
 //handle search component with limits/offsets
 export type searchObjType<T> = {
@@ -196,10 +204,23 @@ export const characterSchema = z.object({
     age: z.number(),
     userId: z.string().min(1),
     voiceId: z.string().min(1, "please provide a voice id from eleven labs"),
+    personality: z.string().min(1),
+    toneOfVoice: z.string(),
+    dialogueStyle: z.string(),
+    alignment: z.string(),
+    goal: z.string(),
+    fear: z.string(),
+    fatalFlaw: z.string(),
+    backstory: z.string(),
+    occupation: z.string(),
+    location: z.string(),
+    appearance: z.string(),
+    archetype: z.string(),
 })
 export type characterType = z.infer<typeof characterSchema> & {
     charactersToProjects?: characterToProjectType[],
     charactersToEmotions?: characterToEmotionType[],
+    charactersToTags?: characterToTagType[],
     fromUser?: userType
 }
 
@@ -213,31 +234,59 @@ export type updateCharacterType = z.infer<typeof updateCharacterSchema>
 
 
 export const emotionSchema = z.object({
-    type: typeEmotionsSchema,
+    type: z.string().min(1),
 })
 export type emotionType = z.infer<typeof emotionSchema> & {
     charactersToEmotions?: characterToEmotionType[],
 }
 
+export const newEmotionSchema = emotionSchema.omit({})
+export type newEmotionType = z.infer<typeof newEmotionSchema>
+
+export const updateEmotionSchema = emotionSchema.omit({})
+export type updateEmotionType = z.infer<typeof updateEmotionSchema>
+
+
+
+
+export const tagSchema = z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+})
+export type tagType = z.infer<typeof tagSchema> & {
+    charactersToTags?: characterToTagType[],
+}
+
+export const newTagSchema = tagSchema.omit({ id: true })
+export type newTagType = z.infer<typeof newTagSchema>
+
+export const updateTagSchema = tagSchema.omit({ id: true })
+export type updateTagType = z.infer<typeof updateTagSchema>
+
 
 
 
 export const characterToEmotionSchema = z.object({
-    id: z.string().min(1),
+    simpleId: z.string().min(1),
 
     characterId: characterSchema.shape.id,
-    emotionType: typeEmotionsSchema,
+    emotionType: emotionSchema.shape.type,
 })
 export type characterToEmotionType = z.infer<typeof characterToEmotionSchema> & {
     character?: characterType,
     emotion?: emotionType,
 }
 
+export const newCharacterToEmotionSchema = characterToEmotionSchema.omit({ simpleId: true })
+export type newCharacterToEmotionType = z.infer<typeof newCharacterToEmotionSchema>
+
+export const updateCharacterToEmotionSchema = characterToEmotionSchema.omit({ simpleId: true })
+export type updateCharacterToEmotionType = z.infer<typeof updateCharacterToEmotionSchema>
 
 
 
 export const characterToProjectSchema = z.object({
-    id: z.string().min(1),
+    simpleId: z.string().min(1),
 
     projectId: projectSchema.shape.id,
     characterId: characterSchema.shape.id,
@@ -247,8 +296,28 @@ export type characterToProjectType = z.infer<typeof characterToProjectSchema> & 
     project?: projectType,
 }
 
-export const newCharacterToProjectSchema = characterToProjectSchema.omit({ id: true })
+export const newCharacterToProjectSchema = characterToProjectSchema.omit({ simpleId: true })
 export type newCharacterToProjectType = z.infer<typeof newCharacterToProjectSchema>
 
-export const updateCharacterToProjectSchema = characterToProjectSchema.omit({ id: true })
+export const updateCharacterToProjectSchema = characterToProjectSchema.omit({ simpleId: true })
 export type updateCharacterToProjectType = z.infer<typeof updateCharacterToProjectSchema>
+
+
+
+
+export const characterToTagSchema = z.object({
+    simpleId: z.string().min(1),
+
+    characterId: characterSchema.shape.id,
+    tagId: tagSchema.shape.id,
+})
+export type characterToTagType = z.infer<typeof characterToTagSchema> & {
+    character?: characterType,
+    tag?: tagType,
+}
+
+export const newCharacterToTagSchema = characterToTagSchema.omit({ simpleId: true })
+export type newCharacterToTagType = z.infer<typeof newCharacterToTagSchema>
+
+export const updateCharacterToTagSchema = characterToTagSchema.omit({ simpleId: true })
+export type updateCharacterToTagType = z.infer<typeof updateCharacterToTagSchema>
