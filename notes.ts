@@ -1,8 +1,14 @@
 //To Do
+//remember sync env variables
+//
 //make non destructive - story makes scenes, can add scenes, scenes make audio, can regenerate for those not there
 //allow more editing of text - dialogue...etc
-//make prompts more editable on the client side
-//
+//add plus scene option
+//ensure editing dialogue text makes audio want to refresh
+//unify references scenes getter
+
+
+
 
 //ideas
 //naming

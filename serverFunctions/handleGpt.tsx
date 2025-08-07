@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { dialogueType, gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType } from "@/types";
+import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptMakeScenesResponseSchema, gptMakeScenesResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 
 dotenv.config({ path: ".env.local" });
@@ -25,53 +25,67 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
 
     const seenGptStoryResponse = gptStoryResponseSchema.parse(response.output_parsed)
     seenGptStoryResponse.scenes = seenGptStoryResponse.scenes.map(eachScene => {
-        eachScene.dialogue = eachScene.dialogue.map(eachDialogue => {
-            //ensure id stays the same
-            return addOnToDialogue({ dialogue: eachDialogue })
-        })
+        //ensure proper id
+        eachScene.id = uuidV4()
 
-        //ensure id stays the same
-        return addOnToScene({ scene: eachScene })
+        return eachScene
     })
 
     return seenGptStoryResponse
 }
 
-export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType, referenceScenes: sceneType[]): Promise<gptAlterSceneResponseType> {
-    const input = `${prompt}
-please use the prompt above to alter the current scene ${JSON.stringify(scene)}.
-
-${referenceScenes.length > 0 ? `you can use these scenes as continuity reference context if needed ${JSON.stringify(referenceScenes)}` : ""}`
+export async function makeScenes(prompt: string, baseInstructions: string): Promise<gptMakeScenesResponseType> {
+    console.log(`$prompt`, prompt);
+    console.log(`$baseInstructions`, baseInstructions);
 
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
-        input: input,
+        input: prompt,
         text: {
-            format: zodTextFormat(gptAlterSceneResponseSchema, "gptAlterSceneResponse"),
+            format: zodTextFormat(gptMakeScenesResponseSchema, "gptMakeScenesResponseSchema"),
         },
     });
 
-    //keep same id
-    const seenGptAlterSceneResponse = gptAlterSceneResponseSchema.parse(response.output_parsed)
-    seenGptAlterSceneResponse.scene = addOnToScene({ scene: seenGptAlterSceneResponse.scene, sceneId: scene.id })
+    const seenGptMakeScenesResponse = gptMakeScenesResponseSchema.parse(response.output_parsed)
 
+    seenGptMakeScenesResponse.scenes = seenGptMakeScenesResponse.scenes.map(eachScene => {
+        //make scene id
+        eachScene.id = uuidV4()
+
+        //assign new ids to dialogue
+        eachScene.dialogue = eachScene.dialogue.map(eachDialogue => {
+            eachDialogue.id = uuidV4()
+
+            return eachDialogue
+        })
+
+        return eachScene
+    })
+
+    return seenGptMakeScenesResponse
+}
+
+export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType): Promise<gptAlterSceneResponseType> {
+    const response = await openai.responses.parse({
+        model: "gpt-4.1",
+        instructions: baseInstructions,
+        input: prompt,
+        text: {
+            format: zodTextFormat(gptAlterSceneResponseSchema, "gptSceneResponseSchema"),
+        },
+    });
+
+    //keep same scene id
+    const seenGptAlterSceneResponse = gptAlterSceneResponseSchema.parse(response.output_parsed)
+    seenGptAlterSceneResponse.scene.id = scene.id
+
+    //assign new ids to dialogue
     seenGptAlterSceneResponse.scene.dialogue = seenGptAlterSceneResponse.scene.dialogue.map(eachDialogue => {
-        //ensure id stays the same
-        return addOnToDialogue({ dialogue: eachDialogue, dialogueId: eachDialogue.id })
+        eachDialogue.id = uuidV4()
+
+        return eachDialogue
     })
 
     return seenGptAlterSceneResponse
-}
-
-function addOnToScene({ scene, sceneId }: { scene: sceneType, sceneId?: sceneType["id"] }) {
-    scene.id = sceneId !== undefined ? sceneId : uuidV4()
-
-    return scene
-}
-
-function addOnToDialogue({ dialogue, dialogueId }: { dialogue: dialogueType, dialogueId?: dialogueType["id"] }) {
-    dialogue.id = dialogueId !== undefined ? dialogueId : uuidV4()
-
-    return dialogue
 }

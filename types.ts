@@ -41,8 +41,14 @@ export const gptAlterSceneResponseSchema = z.object({
 })
 export type gptAlterSceneResponseType = z.infer<typeof gptAlterSceneResponseSchema>
 
+export const gptMakeScenesResponseSchema = z.object({
+    scenes: sceneSchema.array()
+})
+export type gptMakeScenesResponseType = z.infer<typeof gptMakeScenesResponseSchema>
+
 export const alterScenesObjSchema = z.record(z.string(), z.object({
     prompt: z.string().min(1, "prompt needs to be present to change scene"),
+    baseInstructions: z.string().min(1, "base instructions needs to be present to change scene"),
     loading: z.boolean(),
     referencedScenes: z.string(),
     variationIndex: z.number(),
@@ -54,6 +60,7 @@ export const alterDialogueObjSchema = z.record(z.string(), z.object({
     audioFileNameArray: z.string().min(1).array(),
     variationIndex: z.number(),
     loading: z.boolean(),
+    audioEditable: z.boolean(),
 }))
 export type alterDialogueObjType = z.infer<typeof alterDialogueObjSchema>
 
