@@ -3,7 +3,7 @@ import ShowMore from "@/components/showMore/ShowMore"
 import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterDialogueObjType, alterScenesObjType, characterSchema, characterType, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterDialogueObjType, alterScenesObjType, characterSchema, characterType, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
@@ -20,6 +20,8 @@ import TextArea from "../inputs/textArea/TextArea"
 import TextInput from "../inputs/textInput/TextInput"
 import UseRateLimit from "../rateLimit/UseRateLimit"
 import Select from "../inputs/select/Select"
+import ConfirmationBox from "../confirmationBox/ConfirmationBox"
+import { v4 as uuidV4 } from "uuid"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
@@ -42,7 +44,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         searchItems: [],
     })
 
-    const makeScenesInstructionsObj = useRef<{
+    const makeScenesGenerateObj = useRef<{
         prompt: string,
         baseInstructions: string,
         referencedSceneIds: string,
@@ -53,6 +55,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         referencedSceneIds: "",
         loading: false
     })
+    const initialMakeScenesNewManualObj: sceneType = {
+        id: "",
+        title: "",
+        dialogue: [],
+        backgroundImageSrc: null,
+    }
+    const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
 
     //handle changes from above
     useEffect(() => {
@@ -175,16 +184,16 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     async function handleMakeScenes(referencedSceneIds: string) {
         try {
             if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
-            if (makeScenesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
-            if (makeScenesInstructionsObj.current.baseInstructions === "") throw new Error("not seeing base instructions")
+            if (makeScenesGenerateObj.current.prompt === "") throw new Error("not seeing prompt")
+            if (makeScenesGenerateObj.current.baseInstructions === "") throw new Error("not seeing base instructions")
 
             toast.success("making scenes")
 
-            const newScenePrompt = makeScenesInstructionsObj.current.prompt
-            const newSceneBaseInstructions = makeScenesInstructionsObj.current.baseInstructions
+            const newScenePrompt = makeScenesGenerateObj.current.prompt
+            const newSceneBaseInstructions = makeScenesGenerateObj.current.baseInstructions
 
             //loading
-            makeScenesInstructionsObj.current.loading = true
+            makeScenesGenerateObj.current.loading = true
 
             //get scenes referenced for context
             const referencedScenes = getReferencedScenes(referencedSceneIds)
@@ -197,7 +206,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             project.current.scenes = [...project.current.scenes, ...makeScenesResponse.scenes]
 
             //finished loading
-            makeScenesInstructionsObj.current.loading = false
+            makeScenesGenerateObj.current.loading = false
 
             //refresh
             refreshProject(["scenes"])
@@ -258,7 +267,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     function addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string }, atTop = true) {
         //add on characters
-        seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(characterSchema.omit({}).parse(charactersInProject), null, 2))
+        seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(charactersInProject, null, 2))
 
         if (variables !== undefined) {
             if (variables.scene !== undefined) {
@@ -267,6 +276,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             }
 
             if (variables.referencedScenes !== undefined) {
+                console.log(`$seen re`);
                 //add on reference Scenes
                 if (variables.referencedScenes.length > 0) {
                     seenBaseInstructions = seenBaseInstructions.replaceAll("[[referencedScenes]]", JSON.stringify(variables.referencedScenes, null, 2))
@@ -276,6 +286,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             if (variables.baseInstructions !== undefined) {
                 //prevent loop
                 if (atTop) {
+                    console.log(`$called here`);
                     //add on baseInstructions
                     seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
                 }
@@ -482,13 +493,12 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
 
     const seeingFixed = Object.entries(project.current.alterDialogueObj).filter(eachEntry => !eachEntry[1].audioEditable).length > 0
-    console.log(`$project.current`, project.current);
 
     return (
         <main className={styles.main}>
             <section>
                 <ShowMore
-                    label='chracters'
+                    label='characters'
                     startShowing={true}
                     content={(
                         <div className='container'>
@@ -604,7 +614,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                 const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[eachScene.id]
 
                                 return (
-                                    <div key={eachScene.id} className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto" }}>
+                                    <div key={eachScene.id} className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
                                         <div style={{ display: "flex", alignItems: "center" }}>
                                             <h3>{eachScene.title}</h3>
 
@@ -618,6 +628,14 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                     content_copy
                                                 </span>
                                             </button>
+
+                                            <ConfirmationBox text='' confirmationText='are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
+                                                runAction={async () => {
+                                                    project.current.scenes = project.current.scenes.filter(eachSceneFilter => eachSceneFilter.id !== eachScene.id)
+
+                                                    refreshProject(["scenes"])
+                                                }}
+                                            />
                                         </div>
 
                                         <ShowMore
@@ -777,7 +795,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                 <h2>Make scenes</h2>
 
                                 <ShowMore
-                                    label='Instructions'
+                                    label='generate'
                                     content={
                                         <div className="container">
                                             <ShowMore
@@ -785,10 +803,10 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                 content={
                                                     <TextArea
                                                         name="newSceneBaseInstructions"
-                                                        value={makeScenesInstructionsObj.current.baseInstructions}
+                                                        value={makeScenesGenerateObj.current.baseInstructions}
                                                         placeHolder="Set the base instructions for the new scenes."
                                                         onChange={(e) => {
-                                                            makeScenesInstructionsObj.current.baseInstructions = e.target.value
+                                                            makeScenesGenerateObj.current.baseInstructions = e.target.value
 
                                                             //general refresh
                                                             refreshProject([])
@@ -802,10 +820,10 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                 content={
                                                     <TextArea
                                                         name="newScenePrompt"
-                                                        value={makeScenesInstructionsObj.current.prompt}
+                                                        value={makeScenesGenerateObj.current.prompt}
                                                         placeHolder="Add a new scene(s) based on your prompt"
                                                         onChange={(e) => {
-                                                            makeScenesInstructionsObj.current.prompt = e.target.value
+                                                            makeScenesGenerateObj.current.prompt = e.target.value
 
                                                             //refresh
                                                             refreshProject([])
@@ -819,10 +837,10 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                 content={
                                                     <TextInput
                                                         name="newSceneReferencedSceneIds"
-                                                        value={makeScenesInstructionsObj.current.referencedSceneIds}
+                                                        value={makeScenesGenerateObj.current.referencedSceneIds}
                                                         placeHolder="Enter other scene id's. e.g ID1, ID2"
                                                         onChange={(e) => {
-                                                            makeScenesInstructionsObj.current.referencedSceneIds = e.target.value
+                                                            makeScenesGenerateObj.current.referencedSceneIds = e.target.value
 
                                                             //general refresh
                                                             refreshProject([])
@@ -833,12 +851,68 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                                             <button className="button1"
                                                 onClick={() => {
-                                                    handleMakeScenes(makeScenesInstructionsObj.current.referencedSceneIds)
+                                                    handleMakeScenes(makeScenesGenerateObj.current.referencedSceneIds)
                                                 }}
                                             >make</button>
                                         </div>
                                     }
                                     startShowing={true}
+                                />
+
+                                <ShowMore
+                                    label='manual'
+                                    content={
+                                        <div className="container">
+                                            <TextInput
+                                                name="makeScenesNewManualObjTitle"
+                                                value={makeScenesNewManualObj.current.title}
+                                                placeHolder="Set the title for the new Scene."
+                                                onChange={(e) => {
+                                                    makeScenesNewManualObj.current.title = e.target.value
+
+                                                    //general refresh
+                                                    refreshProject([])
+                                                }}
+                                            />
+
+                                            <TextInput
+                                                name="makeScenesNewManualObjBackgroundImg"
+                                                value={makeScenesNewManualObj.current.backgroundImageSrc ?? ""}
+                                                placeHolder="Set the backgroundImageSrc src for the new Scene."
+                                                onChange={(e) => {
+                                                    const seenText = e.target.value === "" ? null : e.target.value
+                                                    makeScenesNewManualObj.current.backgroundImageSrc = seenText
+
+                                                    console.log(`$makeScenesNewManualObj.current.backgroundImageSrc`, makeScenesNewManualObj.current.backgroundImageSrc);
+                                                    //general refresh
+                                                    refreshProject([])
+                                                }}
+                                            />
+
+                                            <button className="button1"
+                                                onClick={() => {
+                                                    const newScene: sceneType = {
+                                                        id: uuidV4(),
+                                                        dialogue: [],
+                                                        title: makeScenesNewManualObj.current.title,
+                                                        backgroundImageSrc: makeScenesNewManualObj.current.backgroundImageSrc,
+                                                    }
+
+                                                    //validation
+                                                    sceneSchema.parse(newScene)
+
+                                                    //add onto scenes
+                                                    project.current.scenes = [...project.current.scenes, newScene]
+
+                                                    //reset
+                                                    makeScenesNewManualObj.current = { ...initialMakeScenesNewManualObj }
+
+                                                    //general refresh
+                                                    refreshProject([])
+                                                }}
+                                            >add</button>
+                                        </div>
+                                    }
                                 />
                             </div>
                         </div>

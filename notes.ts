@@ -3,7 +3,6 @@
 //
 //figure out after effects
 //delete scenes, add/edit/delete shuffle dialogue
-//trim down user object to gpt - refine over time
 
 
 
