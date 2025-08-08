@@ -1,8 +1,16 @@
 //To Do
-//remember sync env variables
-//
+//floating add, delete, shuffle
+//scenes edit all view, edit dialogue
+//scenes - add, delete, swap position
+//dialogue - add, delete, swap position
 //figure out after effects
 //delete scenes, add/edit/delete shuffle dialogue
+//make a timeline
+
+
+
+
+//remember sync env variables
 
 
 

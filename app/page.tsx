@@ -17,46 +17,52 @@ export default function Page() {
 
     return (
         <main className={styles.main}>
-            <h1>Projects</h1>
+            {session !== null ? (
+                <>
+                    <h1>Projects</h1>
 
-            <Link href={"/projects/new"} style={{ justifySelf: "flex-end" }}>
-                <button className='button1'>make new</button>
-            </Link>
+                    <Link href={"/projects/new"} style={{ justifySelf: "flex-end" }}>
+                        <button className='button1'>make new</button>
+                    </Link>
 
-            <Search
-                searchObj={projectsSearchObj}
-                searchObjSet={projectsSearchObjSet}
-                searchFunc={async (seenFilters) => {
-                    if (session === null) throw new Error("not seeing session")
+                    <Search
+                        searchObj={projectsSearchObj}
+                        searchObjSet={projectsSearchObjSet}
+                        searchFunc={async (seenFilters) => {
+                            return await getProjects({ ...seenFilters, userId: session.user.id }, {}, projectsSearchObj.limit, projectsSearchObj.offset)
+                        }}
+                        showPage={true}
+                        searchFilters={{
+                            name: {
+                                value: "",
+                            }
+                        }}
+                    />
 
-                    return await getProjects({ ...seenFilters, userId: session.user.id }, {}, projectsSearchObj.limit, projectsSearchObj.offset)
-                }}
-                showPage={true}
-                searchFilters={{
-                    name: {
-                        value: "",
-                    }
-                }}
-            />
+                    {projectsSearchObj.loading && (<p>loading...</p>)}
 
-            {projectsSearchObj.loading && (<p>loading...</p>)}
+                    {projectsSearchObj.searchItems.length > 0 && (
+                        <div className="container">
+                            <div className='gridColumns snap'>
+                                {projectsSearchObj.searchItems.map(eachProject => {
+                                    return (
+                                        <div key={eachProject.id} style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingR)" }}>
+                                            <p>{formatLocalDateTime(eachProject.dateCreated)}</p>
 
-            {projectsSearchObj.searchItems.length > 0 && (
-                <div className="container">
-                    <div className='gridColumns snap'>
-                        {projectsSearchObj.searchItems.map(eachProject => {
-                            return (
-                                <div key={eachProject.id} style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingR)" }}>
-                                    <p>{formatLocalDateTime(eachProject.dateCreated)}</p>
-
-                                    <Link href={`projects/view/${eachProject.id}`}>
-                                        <h2>{eachProject.name}</h2>
-                                    </Link>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
+                                            <Link href={`projects/view/${eachProject.id}`}>
+                                                <h2>{eachProject.name}</h2>
+                                            </Link>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <>
+                    Please Login to get started
+                </>
             )}
         </main>
     )

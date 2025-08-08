@@ -7,7 +7,7 @@ import { alterDialogueObjType, alterScenesObjType, characterSchema, characterTyp
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
-import { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
 import defaultImg from "@/public/default.jpg"
 import Search from "../search/Search"
@@ -26,6 +26,9 @@ import { v4 as uuidV4 } from "uuid"
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
 //how does after effects integration work - layers, importing, images, audio
+type editModeType = {
+    scenes: boolean;
+}
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
     const { rateLimit } = UseRateLimit({})
@@ -62,6 +65,10 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         backgroundImageSrc: null,
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
+
+    const editMode = useRef<editModeType>({
+        scenes: false
+    })
 
     //handle changes from above
     useEffect(() => {
@@ -217,53 +224,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             consoleAndToastError(error)
         }
     }
-    async function handleAlterScene(sceneToReplace: sceneType, referencedSceneIds: string) {
-        try {
-            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
-            if (project.current.alterScenesObj[sceneToReplace.id] === undefined) throw new Error("not seeing scene to replace")
 
-            toast.success("altering scene")
-
-            const scenePrompt = project.current.alterScenesObj[sceneToReplace.id].prompt
-            const sceneBaseInstructions = project.current.alterScenesObj[sceneToReplace.id].baseInstructions
-
-            //loading
-            project.current.alterScenesObj[sceneToReplace.id].loading = true
-
-            //get scenes referenced for context
-            const referencedScenes = getReferencedScenes(referencedSceneIds)
-
-            //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
-            const newAlteredSceneResponse = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
-
-            const newReplacedScene = { ...newAlteredSceneResponse.scene, id: sceneToReplace.id }
-
-            //save scenes to variations - old and new
-            project.current.alterScenesObj[sceneToReplace.id].variations = [...project.current.alterScenesObj[sceneToReplace.id].variations, sceneToReplace, newReplacedScene]
-
-            //replace the scene
-            project.current.scenes = project.current.scenes.map(eachScene => {
-                if (eachScene.id === sceneToReplace.id) {
-                    //keep og id
-                    eachScene = newReplacedScene
-                }
-
-                return eachScene
-            })
-
-            //finished loading
-            project.current.alterScenesObj[sceneToReplace.id].loading = false
-
-            //refresh
-            refreshProject(["scenes", "alterScenesObj"])
-
-            toast.success("finished!")
-
-        } catch (error) {
-            consoleAndToastError(error)
-        }
-    }
 
     function addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string }, atTop = true) {
         //add on characters
@@ -318,58 +279,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
             return true
         }
-    }
-
-    function makeDefaultAlterScenesObj(): alterScenesObjType["key"] {
-        return {
-            loading: false,
-            prompt: "Enter your prompt here",
-            baseInstructions: `BaseInstructions:\n[[baseInstructions]]\n\n\nPlease alter the scene below using the users prompt.\nScene:\n[[scene]]\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]`,
-            referencedScenes: "",
-            variationIndex: 1, //there's 2 records initially
-            variations: []
-        }
-    }
-    function handleSceneVariationSwitch(sceneId: sceneType["id"], option: "next" | "prev") {
-        if (project.current.alterScenesObj[sceneId] === undefined) throw new Error("not seeing alter scenes obj for scene id")
-        const seenVariations = project.current.alterScenesObj[sceneId].variations
-
-        //get index
-        let seenIndex = project.current.alterScenesObj[sceneId].variationIndex
-
-        if (option === "next") {
-            seenIndex++
-
-            //keep in bounds
-            if (seenIndex > seenVariations.length - 1) {
-                seenIndex = 0
-            }
-
-        } else {
-            seenIndex--
-
-            //keep in bounds
-            if (seenIndex < 0) {
-                seenIndex = seenVariations.length - 1
-            }
-        }
-
-        //set new scene
-        const newScene: sceneType = seenVariations[seenIndex]
-
-        //update vriation index
-        project.current.alterScenesObj[sceneId].variationIndex = seenIndex
-
-        //update scene array
-        project.current.scenes = project.current.scenes.map(eachScene => {
-            if (eachScene.id === sceneId) {
-                eachScene = { ...newScene }
-            }
-
-            return eachScene
-        })
-
-        refreshProject(["scenes", "alterScenesObj"])
     }
 
     function makeDefaultAlterDialogueObj(): alterDialogueObjType["key"] {
@@ -607,187 +516,34 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                 {project.current.scenes.length > 0 ? (
                     <>
-                        <h2>scenes</h2>
+                        <div style={{ display: "flex", gap: "var(--spacingS)" }}>
+                            <h2>scenes</h2>
+
+                            <button
+                                onClick={() => {
+                                    editMode.current.scenes = !editMode.current.scenes
+
+                                    //general refresh
+                                    refreshProject([])
+                                }}
+                            >
+                                <span className="material-symbols-outlined">
+                                    {editMode.current.scenes ? "close_small" : "edit"}
+                                </span>
+                            </button>
+                        </div>
 
                         <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
-                            {project.current.scenes.map((eachScene, eachSceneIndex) => {
-                                const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[eachScene.id]
+                            {project.current.scenes.map(eachScene => {
 
                                 return (
-                                    <div key={eachScene.id} className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
-                                        <div style={{ display: "flex", alignItems: "center" }}>
-                                            <h3>{eachScene.title}</h3>
-
-                                            <button style={{ marginLeft: "auto" }}
-                                                onClick={() => {
-                                                    toast.success("copied scene id")
-                                                    navigator.clipboard.writeText(eachScene.id);
-                                                }}
-                                            >
-                                                <span className="material-symbols-outlined">
-                                                    content_copy
-                                                </span>
-                                            </button>
-
-                                            <ConfirmationBox text='' confirmationText='are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
-                                                runAction={async () => {
-                                                    project.current.scenes = project.current.scenes.filter(eachSceneFilter => eachSceneFilter.id !== eachScene.id)
-
-                                                    refreshProject(["scenes"])
-                                                }}
-                                            />
-                                        </div>
-
-                                        <ShowMore
-                                            label="alter scene"
-                                            content={(
-                                                <div className="container">
-                                                    {seenAlterScenesObj === undefined ? (
-                                                        <>
-                                                            <button className="button1"
-                                                                onClick={() => {
-                                                                    project.current.alterScenesObj[eachScene.id] = makeDefaultAlterScenesObj()
-
-                                                                    refreshProject(["alterScenesObj"])
-                                                                }}
-                                                            >make</button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <ShowMore
-                                                                label="baseInstructions"
-                                                                content={
-                                                                    <TextArea
-                                                                        name="sceneBaseInstructions"
-                                                                        value={seenAlterScenesObj.baseInstructions}
-                                                                        placeHolder="Set the base instructions for this prompt"
-                                                                        onChange={(e) => {
-                                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) return
-
-                                                                            project.current.alterScenesObj[eachScene.id].baseInstructions = e.target.value
-
-                                                                            //refresh
-                                                                            refreshProject(["alterScenesObj"])
-                                                                        }}
-                                                                        onBlur={() => checkProjectErrors(project.current)}
-                                                                        errors={projectFormErrors[`alterScenesObj/${eachScene.id}/baseInstructions`]}
-                                                                    />
-                                                                }
-                                                            />
-
-                                                            <ShowMore
-                                                                label="prompt"
-                                                                content={
-                                                                    <TextArea
-                                                                        name="alterScenePrompt"
-                                                                        value={seenAlterScenesObj.prompt}
-                                                                        placeHolder="How would you like to alter this scene..."
-                                                                        onChange={(e) => {
-                                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) return
-
-                                                                            project.current.alterScenesObj[eachScene.id].prompt = e.target.value
-
-                                                                            //refresh
-                                                                            refreshProject(["alterScenesObj"])
-                                                                        }}
-                                                                        onBlur={() => checkProjectErrors(project.current)}
-                                                                        errors={projectFormErrors[`alterScenesObj/${eachScene.id}/prompt`]}
-                                                                    />
-                                                                }
-                                                            />
-
-                                                            <ShowMore
-                                                                label="referenced scene id's"
-                                                                content={
-                                                                    <TextInput
-                                                                        name="alterSceneReferencedScenes"
-                                                                        value={seenAlterScenesObj.referencedScenes}
-                                                                        placeHolder="Enter other scene id's. e.g ID1, ID2"
-                                                                        onChange={(e) => {
-                                                                            if (project.current.alterScenesObj[eachScene.id] === undefined) return
-
-                                                                            project.current.alterScenesObj[eachScene.id].referencedScenes = e.target.value
-
-                                                                            //refresh
-                                                                            refreshProject(["alterScenesObj"])
-                                                                        }}
-                                                                        onBlur={() => checkProjectErrors(project.current)}
-                                                                        errors={projectFormErrors[`alterScenesObj/${eachScene.id}/referencedScenes`]}
-                                                                    />
-                                                                }
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    handleAlterScene(eachScene, seenAlterScenesObj.referencedScenes)
-                                                                }}
-                                                                disabled={seenAlterScenesObj.loading}
-                                                                className="button1"
-                                                            >
-                                                                {seenAlterScenesObj.loading ? "loading..." : "alter scene"}
-                                                            </button>
-
-                                                            {seenAlterScenesObj.variations.length > 0 && (
-                                                                <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
-                                                                    <button className="button2"
-                                                                        onClick={() => {
-                                                                            handleSceneVariationSwitch(eachScene.id, "prev")
-                                                                        }}
-                                                                    >prev</button>
-
-                                                                    <button className="button2"
-                                                                        onClick={() => {
-                                                                            handleSceneVariationSwitch(eachScene.id, "next")
-                                                                        }}
-                                                                    >next</button>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            )}
-                                        />
-
-                                        {eachScene.backgroundImageSrc !== null && (
-                                            <Image alt={`Scene ${eachSceneIndex + 1} Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+                                    <React.Fragment key={eachScene.id}>
+                                        {editMode.current.scenes ? (
+                                            <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} baseInstructions={baseInstructions} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} />
+                                        ) : (
+                                            <ViewScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} />
                                         )}
-
-                                        <div className="container">
-                                            {eachScene.dialogue.map(eachDialogue => {
-                                                return (
-                                                    <DisplayDialogue key={eachDialogue.id} dialogue={eachDialogue} usedCharacters={charactersInProject} editMode={true}
-                                                        updateDialogue={(seenText, seenKey) => {
-                                                            project.current.scenes = project.current.scenes.map(eachSceneMap => {
-                                                                if (eachSceneMap.id === eachScene.id) {
-                                                                    eachSceneMap.dialogue = eachSceneMap.dialogue.map(eachDialogueMap => {
-                                                                        if (eachDialogueMap.id === eachDialogue.id) {
-                                                                            if (seenKey === "sentence") {
-                                                                                eachDialogueMap.sentence = seenText
-
-                                                                            } else if (seenKey === "emotions") {
-                                                                                eachDialogueMap.emotions = seenText
-                                                                            }
-
-                                                                            //make audio editable since dialogue changed
-                                                                            const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachDialogue.id]
-                                                                            if (seenAlterDialogueObj !== undefined) {
-                                                                                project.current.alterDialogueObj[eachDialogue.id].audioEditable = true
-                                                                            }
-                                                                        }
-
-                                                                        return eachDialogueMap
-                                                                    })
-                                                                }
-
-                                                                return eachSceneMap
-                                                            })
-
-                                                            refreshProject(["scenes"])
-                                                        }}
-                                                    />
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
+                                    </React.Fragment>
                                 )
                             })}
 
@@ -986,7 +742,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                 }}
                                                             >{seenAlterDialogueObj.audioEditable ? "can edit" : "fixed"}</button>
 
-                                                            <DisplayDialogue dialogue={eachDialogue} usedCharacters={charactersInProject} />
+                                                            <ViewDialogue dialogue={eachDialogue} charactersInProject={charactersInProject} />
 
                                                             <button className="button2" disabled={!seenAlterDialogueObj.audioEditable}
                                                                 onClick={async () => {
@@ -1033,61 +789,415 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     )
 }
 
-function DisplayDialogue({ dialogue, usedCharacters, editMode = false, updateDialogue }: { dialogue: dialogueType, usedCharacters: characterType[], editMode?: boolean, updateDialogue?: (text: string, key: keyof dialogueType) => void }) {
-    const foundCharacter = usedCharacters.find(eachCharacter => eachCharacter.id === dialogue.characterId)
+function ViewScene({ scene, charactersInProject, project, refreshProject }: {
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void
+}) {
+    return (
+        <div className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+                <h3>{scene.title}</h3>
+            </div>
+
+            {scene.backgroundImageSrc !== null && (
+                <Image alt={`scene_${scene.id}_Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+            )}
+
+            <div className="container">
+                {scene.dialogue.map(eachDialogue => {
+                    return (
+                        <ViewDialogue key={eachDialogue.id} dialogue={eachDialogue} charactersInProject={charactersInProject} />
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, baseInstructions, getReferencedScenes, addVariablesToBaseInstructions }: {
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, baseInstructions: React.RefObject<string | undefined>, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string
+}) {
+    const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
+    const seenSceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
+
+    function makeDefaultAlterScenesObj(): alterScenesObjType["key"] {
+        return {
+            loading: false,
+            prompt: "Enter your prompt here",
+            baseInstructions: `BaseInstructions:\n[[baseInstructions]]\n\n\nPlease alter the scene below using the users prompt.\nScene:\n[[scene]]\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]`,
+            referencedScenes: "",
+            variationIndex: 1, //there's 2 records initially
+            variations: []
+        }
+    }
+
+    async function handleAlterScene(sceneToReplace: sceneType, referencedSceneIds: string) {
+        try {
+            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
+            if (project.current.alterScenesObj[sceneToReplace.id] === undefined) throw new Error("not seeing scene to replace")
+
+            toast.success("altering scene")
+
+            const scenePrompt = project.current.alterScenesObj[sceneToReplace.id].prompt
+            const sceneBaseInstructions = project.current.alterScenesObj[sceneToReplace.id].baseInstructions
+
+            //loading
+            project.current.alterScenesObj[sceneToReplace.id].loading = true
+
+            //get scenes referenced for context
+            const referencedScenes = getReferencedScenes(referencedSceneIds)
+
+            //get variables into prompt
+            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
+            const newAlteredSceneResponse = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
+
+            const newReplacedScene = { ...newAlteredSceneResponse.scene, id: sceneToReplace.id }
+
+            //save scenes to variations - old and new
+            project.current.alterScenesObj[sceneToReplace.id].variations = [...project.current.alterScenesObj[sceneToReplace.id].variations, sceneToReplace, newReplacedScene]
+
+            //replace the scene
+            project.current.scenes = project.current.scenes.map(eachScene => {
+                if (eachScene.id === sceneToReplace.id) {
+                    //keep og id
+                    eachScene = newReplacedScene
+                }
+
+                return eachScene
+            })
+
+            //finished loading
+            project.current.alterScenesObj[sceneToReplace.id].loading = false
+
+            //refresh
+            refreshProject(["scenes", "alterScenesObj"])
+
+            toast.success("finished!")
+
+        } catch (error) {
+            consoleAndToastError(error)
+        }
+    }
+
+    function handleSceneVariationSwitch(sceneId: sceneType["id"], option: "next" | "prev") {
+        if (project.current.alterScenesObj[sceneId] === undefined) throw new Error("not seeing alter scenes obj for scene id")
+        const seenVariations = project.current.alterScenesObj[sceneId].variations
+
+        //get index
+        let seenIndex = project.current.alterScenesObj[sceneId].variationIndex
+
+        if (option === "next") {
+            seenIndex++
+
+            //keep in bounds
+            if (seenIndex > seenVariations.length - 1) {
+                seenIndex = 0
+            }
+
+        } else {
+            seenIndex--
+
+            //keep in bounds
+            if (seenIndex < 0) {
+                seenIndex = seenVariations.length - 1
+            }
+        }
+
+        //set new scene
+        const newScene: sceneType = seenVariations[seenIndex]
+
+        //update vriation index
+        project.current.alterScenesObj[sceneId].variationIndex = seenIndex
+
+        //update scene array
+        project.current.scenes = project.current.scenes.map(eachScene => {
+            if (eachScene.id === sceneId) {
+                eachScene = { ...newScene }
+            }
+
+            return eachScene
+        })
+
+        refreshProject(["scenes", "alterScenesObj"])
+    }
+
+    function updateDialogue(seenText: string, seenKey: keyof dialogueType, seenDialogueId: dialogueType["id"]) {
+        project.current.scenes = project.current.scenes.map(eachSceneMap => {
+            if (eachSceneMap.id === scene.id) {
+                eachSceneMap.dialogue = eachSceneMap.dialogue.map(eachDialogueMap => {
+                    if (eachDialogueMap.id === seenDialogueId) {
+                        if (seenKey === "sentence") {
+                            eachDialogueMap.sentence = seenText
+
+                        } else if (seenKey === "emotions") {
+                            eachDialogueMap.emotions = seenText
+                        }
+
+                        //make audio editable since dialogue changed
+                        const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[seenDialogueId]
+                        if (seenAlterDialogueObj !== undefined) {
+                            project.current.alterDialogueObj[seenDialogueId].audioEditable = true
+                        }
+                    }
+
+                    return eachDialogueMap
+                })
+            }
+
+            return eachSceneMap
+        })
+
+        refreshProject(["scenes"])
+    }
+
+    return (
+        <div key={scene.id} className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+                <button style={{ marginLeft: "auto" }}
+                    onClick={() => {
+                        toast.success("copied scene id")
+                        navigator.clipboard.writeText(scene.id);
+                    }}
+                >
+                    <span className="material-symbols-outlined">
+                        content_copy
+                    </span>
+                </button>
+
+                <ConfirmationBox text='' confirmationText='are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
+                    runAction={async () => {
+                        project.current.scenes = project.current.scenes.filter(eachSceneFilter => eachSceneFilter.id !== scene.id)
+
+                        refreshProject(["scenes"])
+                    }}
+                />
+            </div>
+
+            <ShowMore
+                label="alter scene"
+                content={(
+                    <div className="container">
+                        {seenAlterScenesObj === undefined ? (
+                            <>
+                                <button className="button1"
+                                    onClick={() => {
+                                        project.current.alterScenesObj[scene.id] = makeDefaultAlterScenesObj()
+
+                                        refreshProject(["alterScenesObj"])
+                                    }}
+                                >make</button>
+                            </>
+                        ) : (
+                            <>
+                                <ShowMore
+                                    label="baseInstructions"
+                                    content={
+                                        <TextArea
+                                            name="sceneBaseInstructions"
+                                            value={seenAlterScenesObj.baseInstructions}
+                                            placeHolder="Set the base instructions for this prompt"
+                                            onChange={(e) => {
+                                                if (project.current.alterScenesObj[scene.id] === undefined) return
+
+                                                project.current.alterScenesObj[scene.id].baseInstructions = e.target.value
+
+                                                //refresh
+                                                refreshProject(["alterScenesObj"])
+                                            }}
+                                            onBlur={() => checkProjectErrors(project.current)}
+                                            errors={projectFormErrors[`alterScenesObj/${scene.id}/baseInstructions`]}
+                                        />
+                                    }
+                                />
+
+                                <ShowMore
+                                    label="prompt"
+                                    content={
+                                        <TextArea
+                                            name="alterScenePrompt"
+                                            value={seenAlterScenesObj.prompt}
+                                            placeHolder="How would you like to alter this scene..."
+                                            onChange={(e) => {
+                                                if (project.current.alterScenesObj[scene.id] === undefined) return
+
+                                                project.current.alterScenesObj[scene.id].prompt = e.target.value
+
+                                                //refresh
+                                                refreshProject(["alterScenesObj"])
+                                            }}
+                                            onBlur={() => checkProjectErrors(project.current)}
+                                            errors={projectFormErrors[`alterScenesObj/${scene.id}/prompt`]}
+                                        />
+                                    }
+                                />
+
+                                <ShowMore
+                                    label="referenced scene id's"
+                                    content={
+                                        <TextInput
+                                            name="alterSceneReferencedScenes"
+                                            value={seenAlterScenesObj.referencedScenes}
+                                            placeHolder="Enter other scene id's. e.g ID1, ID2"
+                                            onChange={(e) => {
+                                                if (project.current.alterScenesObj[scene.id] === undefined) return
+
+                                                project.current.alterScenesObj[scene.id].referencedScenes = e.target.value
+
+                                                //refresh
+                                                refreshProject(["alterScenesObj"])
+                                            }}
+                                            onBlur={() => checkProjectErrors(project.current)}
+                                            errors={projectFormErrors[`alterScenesObj/${scene.id}/referencedScenes`]}
+                                        />
+                                    }
+                                />
+                                <button
+                                    onClick={() => {
+                                        handleAlterScene(scene, seenAlterScenesObj.referencedScenes)
+                                    }}
+                                    disabled={seenAlterScenesObj.loading}
+                                    className="button1"
+                                >
+                                    {seenAlterScenesObj.loading ? "loading..." : "alter scene"}
+                                </button>
+
+                                {seenAlterScenesObj.variations.length > 0 && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
+                                        <button className="button2"
+                                            onClick={() => {
+                                                handleSceneVariationSwitch(scene.id, "prev")
+                                            }}
+                                        >prev</button>
+
+                                        <button className="button2"
+                                            onClick={() => {
+                                                handleSceneVariationSwitch(scene.id, "next")
+                                            }}
+                                        >next</button>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+            />
+
+            <label>scene title</label>
+
+            <TextInput
+                name={`scene${scene.id}Title`}
+                value={scene.title}
+                placeHolder="Set the scene title"
+                onChange={(e) => {
+                    project.current.scenes = project.current.scenes.map(eachScene => {
+                        if (eachScene.id === scene.id) {
+                            eachScene.title = e.target.value
+                        }
+
+                        return eachScene
+                    })
+
+                    //refresh
+                    refreshProject(["scenes"])
+                }}
+                onBlur={() => checkProjectErrors(project.current)}
+                errors={projectFormErrors[`scenes/${seenSceneIndex}/title`]}
+            />
+
+            <label>scene backgroundImage</label>
+
+            <TextInput
+                name={`scene${scene.id}backgroundImageSrc`}
+                value={scene.backgroundImageSrc ?? ""}
+                placeHolder="Set the scene backgroundImage"
+                onChange={(e) => {
+                    project.current.scenes = project.current.scenes.map(eachScene => {
+                        if (eachScene.id === scene.id) {
+                            eachScene.backgroundImageSrc = e.target.value
+                        }
+
+                        return eachScene
+                    })
+
+                    //refresh
+                    refreshProject(["scenes"])
+                }}
+                onBlur={() => checkProjectErrors(project.current)}
+                errors={projectFormErrors[`scenes/${seenSceneIndex}/backgroundImageSrc`]}
+            />
+
+            {scene.backgroundImageSrc !== null && (
+                <Image alt={`scene${scene.id}backgroundImage`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+            )}
+
+            <div className="container">
+                {scene.dialogue.map(eachDialogue => {
+                    const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
+
+                    return (
+                        <div key={eachDialogue.id} className="container">
+                            {foundCharacter !== undefined ? (
+                                <>
+                                    <b>{foundCharacter.name}</b>
+
+                                    <TextArea
+                                        name={`dialogueSentence${eachDialogue.id}`}
+                                        value={eachDialogue.sentence}
+                                        placeHolder="Edit the dialogue..."
+                                        onChange={(e) => {
+                                            updateDialogue(e.target.value, "sentence", eachDialogue.id)
+                                        }}
+                                    />
+
+                                    {foundCharacter.charactersToEmotions !== undefined ? (
+                                        <>
+                                            <Select
+                                                name={`dialogueEmotion${eachDialogue.id}`}
+                                                value={eachDialogue.emotions ?? ""}
+                                                valueOptions={foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)}
+                                                onChange={value => {
+                                                    updateDialogue(value, "emotions", eachDialogue.id)
+                                                }}
+                                            />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p>not seeing charactersToEmotions</p>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <p>not seeing character for dialogue</p>
+                                </>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+function ViewDialogue({ dialogue, charactersInProject, }: { dialogue: dialogueType, charactersInProject: characterType[] }) {
+    const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === dialogue.characterId)
 
     return (
         <div className="container">
             {foundCharacter !== undefined ? (
                 <>
-                    <b>{foundCharacter.name}</b>
+                    <div style={{ display: "flex", gap: "var(--spacingS)", flexWrap: "wrap" }}>
+                        <b>{foundCharacter.name}</b>
 
-                    <TextArea
-                        name={`dialogueText_${dialogue.id}`}
-                        value={dialogue.sentence}
-                        placeHolder="Edit the dialogue..."
-                        onChange={(e) => {
-                            if (!editMode || updateDialogue === undefined) return
+                        {dialogue.emotions && (
+                            <b>({dialogue.emotions})</b>
+                        )}
 
-                            updateDialogue(e.target.value, "sentence")
-                        }}
-                    />
-
-                    {editMode ? (
-                        <>
-                            {foundCharacter.charactersToEmotions !== undefined ? (
-                                <>
-                                    <Select
-                                        name={`dialogueEmotion_${dialogue.id}`}
-                                        value={dialogue.emotions !== null ? dialogue.emotions : ""}
-                                        valueOptions={foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)}
-                                        onChange={value => {
-                                            if (updateDialogue === undefined) return
-
-                                            updateDialogue(value, "emotions")
-                                        }}
-                                    />
-                                </>
-                            ) : (
-                                <>
-                                    <p>not seeing charactersToEmotions</p>
-                                </>
-                            )}
-                        </>
-                    ) : (
-                        <>
-                            {dialogue.emotions && (
-                                <b>({dialogue.emotions})</b>
-                            )}
-                        </>
-                    )}
-
+                        <span>{dialogue.sentence} </span>
+                    </div>
                 </>
             ) : (
                 <>
                     <p>not seeing character for dialogue</p>
-
-                    <button>pair character</button>
                 </>
             )}
         </div>
