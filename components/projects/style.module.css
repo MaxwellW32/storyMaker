@@ -16,3 +16,14 @@
     padding: 1rem;
     overflow: auto;
 }
+
+.showOnHoverParent .showOnHoverChild {
+    opacity: 0;
+    transition: opacity var(--transitionTimeS);
+    pointer-events: none;
+}
+
+.showOnHoverParent:hover .showOnHoverChild {
+    opacity: 1;
+    pointer-events: all;
+}

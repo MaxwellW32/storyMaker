@@ -541,7 +541,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                         {editMode.current.scenes ? (
                                             <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} baseInstructions={baseInstructions} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} />
                                         ) : (
-                                            <ViewScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} />
+                                            <ViewScene scene={eachScene} charactersInProject={charactersInProject} />
                                         )}
                                     </React.Fragment>
                                 )
@@ -789,8 +789,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     )
 }
 
-function ViewScene({ scene, charactersInProject, project, refreshProject }: {
-    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void
+function ViewScene({ scene, charactersInProject }: {
+    scene: sceneType, charactersInProject: characterType[]
 }) {
     return (
         <div className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
@@ -817,7 +817,13 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
     scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, baseInstructions: React.RefObject<string | undefined>, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string
 }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
-    const seenSceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
+    const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
+    const [wantedNewIndex, wantedNewIndexSet] = useState(sceneIndex)
+
+    //respond to changing sceneIndex
+    useEffect(() => {
+        wantedNewIndexSet(sceneIndex)
+    }, [sceneIndex])
 
     function makeDefaultAlterScenesObj(): alterScenesObjType["key"] {
         return {
@@ -949,10 +955,50 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
         refreshProject(["scenes"])
     }
 
+    function changeSceneIndex(option: "next" | "prev" | number) {
+        if (sceneIndex === -1) throw new Error("not seeing scene index")
+
+        let newIndex = sceneIndex
+
+        if (typeof option === "number") {
+            newIndex = option
+
+        } else {
+            if (option === "next") {
+                newIndex++
+
+            } else {
+                //prev
+                newIndex--
+            }
+        }
+
+        //keep in bounds
+        if (newIndex > project.current.scenes.length - 1) {
+            newIndex = 0
+        }
+
+        if (newIndex < 0) {
+            newIndex = project.current.scenes.length - 1
+        }
+
+        const originalItem = project.current.scenes.splice(sceneIndex, 1)
+
+        const newScenes: sceneType[] = [
+            ...project.current.scenes.slice(0, newIndex),//before
+            ...originalItem,
+            ...project.current.scenes.slice(newIndex),//after
+        ]
+
+        project.current.scenes = newScenes
+
+        refreshProject(["scenes"])
+    }
+
     return (
-        <div key={scene.id} className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center" }}>
-                <button style={{ marginLeft: "auto" }}
+        <div key={scene.id} className={`container ${styles.showOnHoverParent}`} style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--spacingS)", }}>
+                <button
                     onClick={() => {
                         toast.success("copied scene id")
                         navigator.clipboard.writeText(scene.id);
@@ -963,7 +1009,54 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                     </span>
                 </button>
 
-                <ConfirmationBox text='' confirmationText='are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
+                <div className={styles.showOnHoverChild} style={{ display: "flex", paddingInline: "var(--spacingS)", alignItems: "center", backgroundColor: "orange" }}>
+                    <button
+                        onClick={() => {
+                            changeSceneIndex("prev")
+                        }}
+                    >
+                        <span className="material-symbols-outlined">
+                            chevron_backward
+                        </span>
+                    </button>
+
+                    <TextInput
+                        name={`scene${scene.id}IndexChange`}
+                        value={`${wantedNewIndex}`}
+                        className="smallInput"
+                        onChange={(e) => {
+                            let seenNum = parseInt(e.target.value)
+                            if (isNaN(seenNum)) return
+
+                            wantedNewIndexSet(seenNum)
+                        }}
+                    />
+
+                    {wantedNewIndex !== sceneIndex && (
+                        <button
+                            onClick={() => {
+                                changeSceneIndex(wantedNewIndex)
+                            }}
+                        >
+                            <span className="material-symbols-outlined">
+                                keyboard_control_key
+                            </span>
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => {
+                            changeSceneIndex("next")
+                        }}
+                    >
+                        <span className="material-symbols-outlined">
+                            chevron_forward
+                        </span>
+                    </button>
+
+                </div>
+
+                <ConfirmationBox text='' confirmationText='Are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
                     runAction={async () => {
                         project.current.scenes = project.current.scenes.filter(eachSceneFilter => eachSceneFilter.id !== scene.id)
 
@@ -1100,7 +1193,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                     refreshProject(["scenes"])
                 }}
                 onBlur={() => checkProjectErrors(project.current)}
-                errors={projectFormErrors[`scenes/${seenSceneIndex}/title`]}
+                errors={projectFormErrors[`scenes/${sceneIndex}/title`]}
             />
 
             <label>scene backgroundImage</label>
@@ -1122,7 +1215,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                     refreshProject(["scenes"])
                 }}
                 onBlur={() => checkProjectErrors(project.current)}
-                errors={projectFormErrors[`scenes/${seenSceneIndex}/backgroundImageSrc`]}
+                errors={projectFormErrors[`scenes/${sceneIndex}/backgroundImageSrc`]}
             />
 
             {scene.backgroundImageSrc !== null && (

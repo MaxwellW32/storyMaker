@@ -6,7 +6,7 @@ export default function ConfirmationBox({ text, confirmationText, successMessage
     const [confirmed, confirmedSet] = useState(false)
 
     return (
-        <div {...elProps} style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingS)", position: "relative", ...elProps.style }}>
+        <div {...elProps} style={{ display: "grid", alignContent: "flex-start", gap: "var(--spacingS)", ...elProps.style }}>
             <button className='button2'
                 onClick={() => {
                     confirmedSet(true)

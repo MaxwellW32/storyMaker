@@ -139,6 +139,10 @@ textarea::placeholder {
   text-transform: capitalize;
 }
 
+button {
+  cursor: pointer;
+}
+
 .button1 {
   display: flex;
   gap: var(--spacingS);
@@ -252,4 +256,11 @@ textarea::placeholder {
   gap: var(--spacingR);
   grid-auto-columns: min(50%, 350px);
   overflow: auto;
+}
+
+.smallInput>input {
+  padding: 0;
+  text-align: center;
+  width: 2rem;
+  text-align: center
 }

@@ -1,7 +1,5 @@
 //To Do
-//floating add, delete, shuffle
-//scenes edit all view, edit dialogue
-//scenes - add, delete, swap position
+//Add - Manual/Generation, Delete, Swap
 //dialogue - add, delete, swap position
 //figure out after effects
 //delete scenes, add/edit/delete shuffle dialogue
