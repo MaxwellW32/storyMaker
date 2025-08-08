@@ -1009,7 +1009,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                     </span>
                 </button>
 
-                <div className={styles.showOnHoverChild} style={{ display: "flex", paddingInline: "var(--spacingS)", alignItems: "center", backgroundColor: "orange" }}>
+                <div className={styles.showOnHoverChild} style={{ display: "flex", paddingInline: "var(--spacingS)", alignItems: "center" }}>
                     <button
                         onClick={() => {
                             changeSceneIndex("prev")
@@ -1022,13 +1022,13 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
                     <TextInput
                         name={`scene${scene.id}IndexChange`}
-                        value={`${wantedNewIndex}`}
+                        value={`${wantedNewIndex + 1}`}
                         className="smallInput"
                         onChange={(e) => {
                             let seenNum = parseInt(e.target.value)
                             if (isNaN(seenNum)) return
 
-                            wantedNewIndexSet(seenNum)
+                            wantedNewIndexSet(seenNum - 1)
                         }}
                     />
 
