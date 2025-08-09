@@ -162,6 +162,19 @@ export type uploadFileApiResponseType = z.infer<typeof uploadFileApiResponseSche
 
 
 
+export const downloadProjectBodySchema = z.object({
+    projectId: z.lazy(() => projectSchema.shape.id)
+})
+export type downloadProjectBodyType = z.infer<typeof downloadProjectBodySchema>
+
+export const downloadProjectResponseSchema = z.object({
+    names: z.string().array(),
+})
+export type downloadProjectResponseType = z.infer<typeof downloadProjectResponseSchema>
+
+
+
+
 
 
 

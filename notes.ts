@@ -1,5 +1,5 @@
 //To Do
-//change for characters main folder
+//make a characters folder, make a mainProject folder
 //read characters in project, compile all files from them
 //download project specific resources - audio zip
 //figure out after effects
@@ -9,7 +9,7 @@
 
 
 
-//remember sync env variables
+//remem ber sync env variables
 
 
 
