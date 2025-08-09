@@ -8,6 +8,7 @@ import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
 import TextInput from '../inputs/textInput/TextInput'
 import { deepClone } from '@/utility/utility'
 import { useRouter } from 'next/navigation'
+import TextArea from '../inputs/textArea/TextArea'
 
 export default function AddEditProject({ sentProject, submissionAction }: { sentProject?: projectType, submissionAction?: () => void }) {
     const router = useRouter()
@@ -15,6 +16,7 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
     const initialFormObj: newProjectType = {
         name: "",
         userId: "dummyData",
+        baseInstructions: "write incredible short children stories. Please base the characters in the story from this [[characters]] emotions for each character in the dialogue must be taken from that character object only."
     }
 
     //assign either a new form, or the safe values on an update form
@@ -107,7 +109,7 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
                         type={"text"}
                         label={"project name"}
                         placeHolder={"enter project name"}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        onChange={e => {
                             formObjSet(prevFormObj => {
                                 const newFormObj = { ...prevFormObj }
                                 if (newFormObj.name === undefined) return prevFormObj
@@ -119,6 +121,29 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
                         }}
                         onBlur={() => { checkIfValid(formObj, "name") }}
                         errors={formErrors["name"]}
+                    />
+                </>
+            )}
+
+            {formObj.baseInstructions !== undefined && (
+                <>
+                    <TextArea
+                        name={"baseInstructions"}
+                        value={formObj.baseInstructions}
+                        label={"project base instructions"}
+                        placeHolder={"enter project baseInstructions"}
+                        onChange={e => {
+                            formObjSet(prevFormObj => {
+                                const newFormObj = { ...prevFormObj }
+                                if (newFormObj.baseInstructions === undefined) return prevFormObj
+
+                                newFormObj.baseInstructions = e.target.value
+
+                                return newFormObj
+                            })
+                        }}
+                        onBlur={() => { checkIfValid(formObj, "baseInstructions") }}
+                        errors={formErrors["baseInstructions"]}
                     />
                 </>
             )}

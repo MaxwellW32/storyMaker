@@ -1,11 +1,9 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
-import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
 import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
 import { alterDialogueObjType, alterScenesObjType, characterType, dialogueSchema, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
-import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
@@ -26,6 +24,7 @@ import { v4 as uuidV4 } from "uuid"
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
 //how does after effects integration work - layers, importing, images, audio
+
 type editModeType = {
     scenes: boolean;
 }
@@ -36,7 +35,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     const charactersInProject = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(each => each !== undefined) : []
     const [projectFormErrors, projectFormErrorsSet] = useState<{ [key: string]: string | undefined }>({})
 
-    const baseInstructions = useRef<string | undefined>(undefined)
     const projectSaveDebounce = useRef<{ [key: string]: NodeJS.Timeout | undefined }>({})
     const storyLoading = useRef(false)
 
@@ -84,24 +82,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         refreshProject([])
 
     }, [seenProject])
-
-    //load base instructions
-    useEffect(() => {
-        const loadInstructions = async () => {
-            try {
-                const seenText = await fetchMainFolderFile(baseInstructionsPromptFilepath, "text");
-                baseInstructions.current = seenText;
-
-                //general refresh
-                refreshProject([])
-
-            } catch (error) {
-                consoleAndToastError(error);
-            }
-        };
-
-        loadInstructions();
-    }, []);
 
     //respond to project changes by key
     useEffect(() => {
@@ -163,8 +143,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     async function handleGenerateStory() {
         try {
-            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
-
             //loading
             storyLoading.current = true
             project.current.scenes = []
@@ -172,7 +150,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             toast.success("Generating story...")
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(baseInstructions.current)
+            const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions)
             const storyResponse = await makeStory(project.current.prompt, finalBaseInstructions)
 
             //add scenes
@@ -191,7 +169,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
     async function handleMakeScenes(referencedSceneIds: string) {
         try {
-            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
             if (makeScenesGenerateObj.current.prompt === "") throw new Error("not seeing prompt")
             if (makeScenesGenerateObj.current.baseInstructions === "") throw new Error("not seeing base instructions")
             if (addingSceneIndex.current === undefined) throw new Error("not seeing index to add scene")
@@ -208,7 +185,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
+            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const makeScenesResponse = await makeScenes(newScenePrompt, finalBaseInstructions)
 
             //add the scenes
@@ -405,6 +382,15 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         return referencedScenes
     }
 
+    async function handleMakeOutput() {
+        try {
+            //download 
+
+        } catch (error) {
+            consoleAndToastError(error)
+        }
+    }
+
     const seeingFixed = Object.entries(project.current.alterDialogueObj).filter(eachEntry => !eachEntry[1].audioEditable).length > 0
 
     return (
@@ -473,13 +459,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     content={
                         <TextArea
                             name="baseInstructions"
-                            value={baseInstructions.current !== undefined ? baseInstructions.current : ""}
+                            value={project.current.baseInstructions}
                             placeHolder="Describe how the gpt works..."
                             onChange={(e) => {
-                                baseInstructions.current = e.target.value
+                                project.current.baseInstructions = e.target.value
 
-                                //general refresh
-                                refreshProject([])
+                                //refresh
+                                refreshProject(["baseInstructions"])
                             }}
                             onBlur={() => checkProjectErrors(project.current)}
                         />
@@ -544,7 +530,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                     <React.Fragment key={eachScene.id}>
                                         {editMode.current.scenes ? (
                                             <>
-                                                <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} baseInstructions={baseInstructions} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} addingSceneIndex={addingSceneIndex} />
+                                                <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} addingSceneIndex={addingSceneIndex} />
 
                                                 {addingSceneIndex.current !== undefined && addingSceneIndex.current === (eachSceneIndex + 1) && (
                                                     <div className="container">
@@ -574,7 +560,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                         label="base instructions"
                                                                         content={
                                                                             <TextArea
-                                                                                name="newSceneBaseInstructions"
+                                                                                name={`newSceneBaseInstructions${eachScene.id}`}
                                                                                 value={makeScenesGenerateObj.current.baseInstructions}
                                                                                 placeHolder="Set the base instructions for the new scenes."
                                                                                 onChange={(e) => {
@@ -591,7 +577,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                         label="new scene prompt"
                                                                         content={
                                                                             <TextArea
-                                                                                name="newScenePrompt"
+                                                                                name={`newScenePrompt${eachScene.id}`}
                                                                                 value={makeScenesGenerateObj.current.prompt}
                                                                                 placeHolder="Add a new scene(s) based on your prompt"
                                                                                 onChange={(e) => {
@@ -608,7 +594,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                         label="referenced scene id's"
                                                                         content={
                                                                             <TextInput
-                                                                                name="newSceneReferencedSceneIds"
+                                                                                name={`newSceneReferencedSceneIds${eachScene.id}`}
                                                                                 value={makeScenesGenerateObj.current.referencedSceneIds}
                                                                                 placeHolder="Enter other scene id's. e.g ID1, ID2"
                                                                                 onChange={(e) => {
@@ -755,7 +741,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                             const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachDialogue.id]
 
                                             return (
-                                                <div key={eachDialogue.id} className="container">
+                                                <div key={eachDialogue.id} className="container" style={{ justifyItems: "center" }}>
                                                     {seenAlterDialogueObj !== undefined ? (
                                                         <>
                                                             <button className="button2" style={{ justifySelf: "flex-end" }}
@@ -811,6 +797,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             <section>
                 <h2>Output {"(After Effects)"}</h2>
 
+                <button className="button1"
+                    onClick={handleMakeOutput}
+                >make output</button>
             </section>
         </main>
     )
@@ -840,8 +829,8 @@ function ViewScene({ scene, charactersInProject }: {
     )
 }
 
-function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, baseInstructions, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
-    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, baseInstructions: React.RefObject<string | undefined>, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
+function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
 }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
@@ -889,7 +878,6 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
     async function handleAlterScene(sceneToReplace: sceneType, referencedSceneIds: string) {
         try {
-            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
             if (project.current.alterScenesObj[sceneToReplace.id] === undefined) throw new Error("not seeing scene to replace")
 
             toast.success("altering scene")
@@ -904,7 +892,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
+            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const newAlteredSceneResponse = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
 
             const newReplacedScene = { ...newAlteredSceneResponse.scene, id: sceneToReplace.id }
@@ -1100,7 +1088,6 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
     async function handleMakeDialogue(referencedSceneIds: string) {
         try {
-            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
             if (makeDialogueGenerateObj.current.prompt === "") throw new Error("not seeing prompt")
             if (makeDialogueGenerateObj.current.baseInstructions === "") throw new Error("not seeing base instructions")
             if (addingDialogueIndex.current === undefined) throw new Error("not seeing index to add dialogue")
@@ -1117,7 +1104,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
+            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const makeDialogueResponse = await makeDialogue(newDialoguePrompt, finalBaseInstructions)
 
             //add the dialogue

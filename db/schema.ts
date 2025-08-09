@@ -36,6 +36,7 @@ export const projects = pgTable("projects", {
     //regular
     name: text("name").notNull(),
     userId: text("userId").notNull().references(() => users.id),
+    baseInstructions: text("baseInstructions").notNull(),
 
     //null
 },

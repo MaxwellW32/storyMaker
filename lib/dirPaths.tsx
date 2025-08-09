@@ -1,9 +1,8 @@
 import path from "path";
 
-export const mainFolderDir = path.join("mainFolder")
-export const baseFolderDir = path.join(mainFolderDir, "base")
-export const baseInstructionsPromptFilepath = path.join(baseFolderDir, "baseInstructionsPrompt.txt")
+export const uploadedDataDir = path.join(process.cwd(), "uploadedData")
+export const projectsDirName = "projects"
+export const audioDirName = "audio"
+export const imagesDirName = "images"
 
-export const projectResourcesDir = path.join(process.cwd(), "projectResources")
-export const projectAudioDir = path.join(projectResourcesDir, "audio")
-export const projectImagesDir = path.join(projectResourcesDir, "images")
+export const charactersDirName = "characters"

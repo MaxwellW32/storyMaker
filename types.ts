@@ -187,6 +187,7 @@ export const projectSchema = z.object({
     //regular
     name: z.string().min(1),
     userId: z.string().min(1),
+    baseInstructions: z.string().min(1),
 })
 export type projectType = z.infer<typeof projectSchema> & {
     charactersToProjects?: characterToProjectType[],

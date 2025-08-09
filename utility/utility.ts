@@ -49,21 +49,6 @@ export function formatLocalDateTime(seenDate: Date) {
     return customDateTime
 }
 
-type fileTypeOption = "text" | "image"
-export async function fetchMainFolderFile(filePath: string, option: fileTypeOption) {
-    const response = await fetch(`/api/mainFolder/view?filePath=${filePath}`)
-    if (option === "text") {
-        const content = await response.json()
-        const seenTextFileApiResponse = textFileApiResponseSchema.parse(content)
-
-        return seenTextFileApiResponse.fileContent
-
-    } else if (option === "image") {
-
-    } else throw new Error("not an option")
-}
-
-
 export function makeWhereClauses<T extends Object>(schema: z.Schema, filter: T, dbSchema: PgTableWithColumns<any>) {
     // Validate filter
     schema.parse(filter);

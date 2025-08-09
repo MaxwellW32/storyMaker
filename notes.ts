@@ -1,4 +1,10 @@
 //To Do
+//correct projects uploaded data folder
+//add images to characters
+//read characters in project, compile all files from them
+//characters - images, other files
+//download main folder - character images zip
+//download project specific resources - audio zip
 //figure out after effects
 //make a timeline
 

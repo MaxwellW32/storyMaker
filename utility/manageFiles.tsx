@@ -1,8 +1,6 @@
-import { projectResourcesDir } from "@/lib/dirPaths";
 import { writeFileOptions, projectResourceDirOptionsType, projectType } from "@/types";
 import fs from "fs/promises";
 import path from "path";
-import { v4 as uudiv4 } from "uuid"
 
 export async function ensureDirectoryExists(dirPath: string) {
     await fs.mkdir(dirPath, { recursive: true });
@@ -28,35 +26,35 @@ export async function checkIfDirectoryExists(dirPath: string) {
     }
 }
 
-export async function writeToProjectResources(projectResourceDir: projectResourceDirOptionsType, projectId: projectType["id"], writeFile: writeFileOptions) {
-    const dirPath = path.join(projectResourcesDir, projectResourceDir, projectId)
-    await ensureDirectoryExists(dirPath)
+// export async function writeToProjectResources(projectResourceDir: projectResourceDirOptionsType, projectId: projectType["id"], writeFile: writeFileOptions) {
+//     const dirPath = path.join(projectResourcesDir, projectResourceDir, projectId)
+//     await ensureDirectoryExists(dirPath)
 
-    const newId = `${projectResourceDir}_${uudiv4()}`
+//     const newId = `${projectResourceDir}_${uudiv4()}`
 
-    if (writeFile.type === "text") {
-        const filePath = path.join(dirPath, `${newId}.txt`)
+//     if (writeFile.type === "text") {
+//         const filePath = path.join(dirPath, `${newId}.txt`)
 
-        await fs.writeFile(filePath, writeFile.text, { encoding: "utf-8" })
+//         await fs.writeFile(filePath, writeFile.text, { encoding: "utf-8" })
 
-    } else if (writeFile.type === "audio") {
-        const stream = writeFile.audioFile as ReadableStream;
-        const reader = stream.getReader();
-        const chunks: Uint8Array[] = [];
+//     } else if (writeFile.type === "audio") {
+//         const stream = writeFile.audioFile as ReadableStream;
+//         const reader = stream.getReader();
+//         const chunks: Uint8Array[] = [];
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-        }
+//         while (true) {
+//             const { done, value } = await reader.read();
+//             if (done) break;
+//             chunks.push(value);
+//         }
 
-        const buffer = Buffer.concat(chunks);
+//         const buffer = Buffer.concat(chunks);
 
-        const filePath = path.join(dirPath, `${newId}.mp3`)
+//         const filePath = path.join(dirPath, `${newId}.mp3`)
 
-        await fs.writeFile(filePath, buffer)
-    }
-}
+//         await fs.writeFile(filePath, buffer)
+//     }
+// }
 
 export async function downloadFile(filePath: string) {
     // Read the file

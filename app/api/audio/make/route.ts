@@ -3,10 +3,10 @@ import dotenv from 'dotenv';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { ensureDirectoryExists } from "@/utility/manageFiles";
 import path from "path";
-import { projectAudioDir } from "@/lib/dirPaths";
 // import { v4 as uudiv4 } from "uuid"
 import fs from "fs/promises";
 import { NextResponse } from "next/server";
+import { audioDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
 
 dotenv.config({ path: ".env.local" });
 
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     });
 
     //write the audio to the server
-    const dirPath = path.join(projectAudioDir, seenMakeAudioBody.projectId)
+    const dirPath = path.join(uploadedDataDir, projectsDirName, seenMakeAudioBody.projectId, audioDirName)
     await ensureDirectoryExists(dirPath)
 
     const stream = audio as ReadableStream;
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
     const buffer = Buffer.concat(chunks);
 
-    const audioFileName = `${seenMakeAudioBody.dialogueId}__${seenMakeAudioBody.variationIndex}.mp3`
+    const audioFileName = `${seenMakeAudioBody.dialogueId}__${seenMakeAudioBody.variationIndex + 1}.mp3`
     const audioFilePath = path.join(dirPath, audioFileName)
 
     await fs.writeFile(audioFilePath, buffer)

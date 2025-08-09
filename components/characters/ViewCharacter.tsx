@@ -1,5 +1,6 @@
 import { characterType } from '@/types'
 import React from 'react'
+import styles from "./style.module.css"
 
 export default function ViewCharacter({ seenCharacter, selectionAction, viewAll = true }: { seenCharacter: characterType, selectionAction?: (eachCharacter: characterType) => void, viewAll?: boolean }) {
     //get tags
@@ -7,7 +8,7 @@ export default function ViewCharacter({ seenCharacter, selectionAction, viewAll 
     //get user
 
     return (
-        <div>
+        <div className={`container ${styles.cont}`}>
             <p>name: {seenCharacter.name}</p>
             <p>age: {seenCharacter.age}</p>
 

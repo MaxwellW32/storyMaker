@@ -1,6 +1,6 @@
 import path from "path";
 import { downloadFile } from "@/utility/manageFiles";
-import { projectAudioDir } from "@/lib/dirPaths";
+import { audioDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const fileName = searchParams.get("fileName");
     if (fileName === null) throw new Error("fileName not sent");
 
-    const audioPath = path.join(projectAudioDir, projectId, fileName)
+    const audioPath = path.join(uploadedDataDir, projectsDirName, projectId, audioDirName, fileName)
 
     //download audio
     return downloadFile(audioPath)

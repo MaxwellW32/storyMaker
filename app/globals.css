@@ -171,7 +171,11 @@ button {
   cursor: pointer;
 }
 
-
+.containerFlex {
+  display: flex;
+  align-items: center;
+  gap: var(--spacingS);
+}
 
 
 
@@ -263,4 +267,13 @@ button {
   text-align: center;
   width: 2rem;
   text-align: center
+}
+
+.resetTextMargin>p,
+.resetTextMargin>h1,
+.resetTextMargin>h2,
+.resetTextMargin>h3,
+.resetTextMargin>h4,
+.resetTextMargin>h5 {
+  margin: 0;
 }

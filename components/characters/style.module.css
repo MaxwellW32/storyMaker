@@ -5,3 +5,8 @@
     padding: 1rem;
     overflow: auto;
 }
+
+.cont {
+    overflow: auto;
+    max-height: 80vh;
+}
