@@ -845,7 +845,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
-    const wantedNewIndex = useRef(sceneIndex)
+    const wantedNewSceneIndex = useRef(sceneIndex)
 
     const addingDialogueIndex = useRef<number | undefined>(undefined)
 
@@ -870,7 +870,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
     //respond to changing sceneIndex
     useEffect(() => {
-        wantedNewIndex.current = sceneIndex
+        wantedNewSceneIndex.current = sceneIndex
 
         //general refresh
         refreshProject([])
@@ -1048,6 +1048,55 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
         refreshProject(["scenes"])
     }
+    function changeDialogueIndex(dialogueIndex: number, option: "next" | "prev" | number) {
+        if (sceneIndex === -1) throw new Error("not seeing scene index")
+        const seenDialogue = project.current.scenes[sceneIndex].dialogue
+
+        if (dialogueIndex === -1) throw new Error("not seeing dialogue index")
+
+        let newIndex = dialogueIndex
+
+        if (typeof option === "number") {
+            newIndex = option
+
+        } else {
+            if (option === "next") {
+                newIndex++
+
+            } else {
+                //prev
+                newIndex--
+            }
+        }
+
+        //keep in bounds
+        if (newIndex > seenDialogue.length - 1) {
+            newIndex = 0
+        }
+
+        if (newIndex < 0) {
+            newIndex = seenDialogue.length - 1
+        }
+
+        const originalItem = seenDialogue.splice(dialogueIndex, 1)
+
+        const newDialogue: dialogueType[] = [
+            ...seenDialogue.slice(0, newIndex),//before
+            ...originalItem,
+            ...seenDialogue.slice(newIndex),//after
+        ]
+
+        //add the new dialogue
+        project.current.scenes = project.current.scenes.map(eachScene => {
+            if (eachScene.id === scene.id) {
+                eachScene.dialogue = [...newDialogue]
+            }
+
+            return eachScene
+        })
+
+        refreshProject(["scenes"])
+    }
 
     async function handleMakeDialogue(referencedSceneIds: string) {
         try {
@@ -1124,23 +1173,23 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
                     <TextInput
                         name={`scene${scene.id}IndexChange`}
-                        value={`${wantedNewIndex.current + 1}`}
+                        value={`${wantedNewSceneIndex.current + 1}`}
                         className="smallInput"
                         onChange={(e) => {
                             let seenNum = parseInt(e.target.value)
                             if (isNaN(seenNum)) return
 
-                            wantedNewIndex.current = seenNum - 1
+                            wantedNewSceneIndex.current = seenNum - 1
 
                             //general refresh
                             refreshProject([])
                         }}
                     />
 
-                    {wantedNewIndex.current !== sceneIndex && (
+                    {wantedNewSceneIndex.current !== sceneIndex && (
                         <button
                             onClick={() => {
-                                changeSceneIndex(wantedNewIndex.current)
+                                changeSceneIndex(wantedNewSceneIndex.current)
                             }}
                         >
                             <span className="material-symbols-outlined">
@@ -1344,7 +1393,58 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                     const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
 
                     return (//scene edit dialogue
-                        <div key={eachDialogue.id} className="container">
+                        <div key={eachDialogue.id} className="container" style={{ position: "relative" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)", justifyContent: "flex-end" }}>
+                                <button className="button2"
+                                    onClick={() => {
+                                        addingDialogueIndex.current = addingDialogueIndex.current === undefined ? eachDialogueIndex + 1 : undefined
+
+                                        //general refresh
+                                        refreshProject([])
+                                    }}
+                                >
+                                    <span className="material-symbols-outlined">
+                                        {addingDialogueIndex.current === undefined ? "add" : "check_indeterminate_small"}
+                                    </span>
+                                </button>
+
+                                <div style={{ display: "flex", alignItems: "center" }}>
+                                    <button
+                                        onClick={() => { //dialogue swap setting
+                                            changeDialogueIndex(eachDialogueIndex, "prev")
+                                        }}
+                                    >
+                                        <span className="material-symbols-outlined">
+                                            arrow_drop_up
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            changeDialogueIndex(eachDialogueIndex, "next")
+                                        }}
+                                    >
+                                        <span className="material-symbols-outlined">
+                                            arrow_drop_down
+                                        </span>
+                                    </button>
+                                </div>
+
+                                <ConfirmationBox text='' confirmationText='Are you sure you want to delete this dialogue?' successMessage='dialogue deleted!' iconName={"delete"} float={true}
+                                    runAction={async () => {
+                                        project.current.scenes = project.current.scenes.map(eachScene => {
+                                            if (eachScene.id === scene.id) {
+                                                eachScene.dialogue = eachScene.dialogue.filter(eachDialogueFilter => eachDialogueFilter.id !== eachDialogue.id)
+                                            }
+
+                                            return eachScene
+                                        })
+
+                                        refreshProject(["scenes"])
+                                    }}
+                                />
+                            </div>
+
                             {foundCharacter !== undefined ? (
                                 <>
                                     <div>
@@ -1400,21 +1500,6 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                     >pair</button>
                                 </div>
                             )}
-
-                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)", justifyContent: "flex-end" }}>
-                                <button className="button2"
-                                    onClick={() => {
-                                        addingDialogueIndex.current = addingDialogueIndex.current === undefined ? eachDialogueIndex + 1 : undefined
-
-                                        //general refresh
-                                        refreshProject([])
-                                    }}
-                                >
-                                    <span className="material-symbols-outlined">
-                                        {addingDialogueIndex.current === undefined ? "add" : "check_indeterminate_small"}
-                                    </span>
-                                </button>
-                            </div>
 
                             {addingDialogueIndex.current === eachDialogueIndex + 1 && (
                                 <div className="container">

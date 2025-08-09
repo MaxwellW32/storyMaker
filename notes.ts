@@ -1,10 +1,6 @@
 //To Do
-//Add - Manual/Generation, Delete, Swap
-//dialogue - add, delete, swap position
 //figure out after effects
-//delete scenes, add/edit/delete shuffle dialogue
 //make a timeline
-//add pair to character in dialogue edit
 
 
 
