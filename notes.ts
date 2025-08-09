@@ -4,6 +4,7 @@
 //figure out after effects
 //delete scenes, add/edit/delete shuffle dialogue
 //make a timeline
+//add pair to character in dialogue edit
 
 
 

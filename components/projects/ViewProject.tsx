@@ -1,9 +1,9 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
 import { baseInstructionsPromptFilepath } from "@/lib/dirPaths"
-import { alterScene, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
+import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterDialogueObjType, alterScenesObjType, characterSchema, characterType, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterDialogueObjType, alterScenesObjType, characterType, dialogueSchema, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import { fetchMainFolderFile } from "@/utility/utility"
 import Image from "next/image"
@@ -69,6 +69,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     const editMode = useRef<editModeType>({
         scenes: false
     })
+    const addingSceneIndex = useRef<number | undefined>(undefined)
 
     //handle changes from above
     useEffect(() => {
@@ -193,6 +194,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
             if (makeScenesGenerateObj.current.prompt === "") throw new Error("not seeing prompt")
             if (makeScenesGenerateObj.current.baseInstructions === "") throw new Error("not seeing base instructions")
+            if (addingSceneIndex.current === undefined) throw new Error("not seeing index to add scene")
 
             toast.success("making scenes")
 
@@ -210,7 +212,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             const makeScenesResponse = await makeScenes(newScenePrompt, finalBaseInstructions)
 
             //add the scenes
-            project.current.scenes = [...project.current.scenes, ...makeScenesResponse.scenes]
+            project.current.scenes = [
+                ...project.current.scenes.slice(0, addingSceneIndex.current), //before
+                ...makeScenesResponse.scenes,
+                ...project.current.scenes.slice(addingSceneIndex.current), //after
+            ]
 
             //finished loading
             makeScenesGenerateObj.current.loading = false
@@ -237,7 +243,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             }
 
             if (variables.referencedScenes !== undefined) {
-                console.log(`$seen re`);
                 //add on reference Scenes
                 if (variables.referencedScenes.length > 0) {
                     seenBaseInstructions = seenBaseInstructions.replaceAll("[[referencedScenes]]", JSON.stringify(variables.referencedScenes, null, 2))
@@ -247,7 +252,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             if (variables.baseInstructions !== undefined) {
                 //prevent loop
                 if (atTop) {
-                    console.log(`$called here`);
                     //add on baseInstructions
                     seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
                 }
@@ -534,143 +538,166 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                         </div>
 
                         <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
-                            {project.current.scenes.map(eachScene => {
+                            {project.current.scenes.map((eachScene, eachSceneIndex) => {
 
                                 return (
                                     <React.Fragment key={eachScene.id}>
                                         {editMode.current.scenes ? (
-                                            <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} baseInstructions={baseInstructions} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} />
+                                            <>
+                                                <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} baseInstructions={baseInstructions} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} addingSceneIndex={addingSceneIndex} />
+
+                                                {addingSceneIndex.current !== undefined && addingSceneIndex.current === (eachSceneIndex + 1) && (
+                                                    <div className="container">
+                                                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                                            <button
+                                                                onClick={() => {
+                                                                    addingSceneIndex.current = undefined
+
+                                                                    //general refresh
+                                                                    refreshProject([])
+                                                                }}
+                                                            >
+                                                                <span className="material-symbols-outlined">
+                                                                    close
+                                                                </span>
+                                                            </button>
+                                                        </div>
+
+
+                                                        <h2>Make scenes</h2>
+
+                                                        <ShowMore
+                                                            label='generate'
+                                                            content={
+                                                                <div className="container">
+                                                                    <ShowMore
+                                                                        label="base instructions"
+                                                                        content={
+                                                                            <TextArea
+                                                                                name="newSceneBaseInstructions"
+                                                                                value={makeScenesGenerateObj.current.baseInstructions}
+                                                                                placeHolder="Set the base instructions for the new scenes."
+                                                                                onChange={(e) => {
+                                                                                    makeScenesGenerateObj.current.baseInstructions = e.target.value
+
+                                                                                    //general refresh
+                                                                                    refreshProject([])
+                                                                                }}
+                                                                            />
+                                                                        }
+                                                                    />
+
+                                                                    <ShowMore
+                                                                        label="new scene prompt"
+                                                                        content={
+                                                                            <TextArea
+                                                                                name="newScenePrompt"
+                                                                                value={makeScenesGenerateObj.current.prompt}
+                                                                                placeHolder="Add a new scene(s) based on your prompt"
+                                                                                onChange={(e) => {
+                                                                                    makeScenesGenerateObj.current.prompt = e.target.value
+
+                                                                                    //refresh
+                                                                                    refreshProject([])
+                                                                                }}
+                                                                            />
+                                                                        }
+                                                                    />
+
+                                                                    <ShowMore
+                                                                        label="referenced scene id's"
+                                                                        content={
+                                                                            <TextInput
+                                                                                name="newSceneReferencedSceneIds"
+                                                                                value={makeScenesGenerateObj.current.referencedSceneIds}
+                                                                                placeHolder="Enter other scene id's. e.g ID1, ID2"
+                                                                                onChange={(e) => {
+                                                                                    makeScenesGenerateObj.current.referencedSceneIds = e.target.value
+
+                                                                                    //general refresh
+                                                                                    refreshProject([])
+                                                                                }}
+                                                                            />
+                                                                        }
+                                                                    />
+
+                                                                    <button className="button1"
+                                                                        onClick={() => {
+                                                                            handleMakeScenes(makeScenesGenerateObj.current.referencedSceneIds)
+                                                                        }}
+                                                                    >make</button>
+                                                                </div>
+                                                            }
+                                                        />
+
+                                                        <ShowMore
+                                                            label='manual'
+                                                            content={
+                                                                <div className="container">
+                                                                    <TextInput
+                                                                        name="makeScenesNewManualObjTitle"
+                                                                        value={makeScenesNewManualObj.current.title}
+                                                                        placeHolder="Set the title for the new Scene."
+                                                                        onChange={(e) => {
+                                                                            makeScenesNewManualObj.current.title = e.target.value
+
+                                                                            //general refresh
+                                                                            refreshProject([])
+                                                                        }}
+                                                                    />
+
+                                                                    <TextInput
+                                                                        name="makeScenesNewManualObjBackgroundImg"
+                                                                        value={makeScenesNewManualObj.current.backgroundImageSrc ?? ""}
+                                                                        placeHolder="Set the backgroundImageSrc src for the new Scene."
+                                                                        onChange={(e) => {
+                                                                            const seenText = e.target.value === "" ? null : e.target.value
+                                                                            makeScenesNewManualObj.current.backgroundImageSrc = seenText
+
+                                                                            console.log(`$makeScenesNewManualObj.current.backgroundImageSrc`, makeScenesNewManualObj.current.backgroundImageSrc);
+                                                                            //general refresh
+                                                                            refreshProject([])
+                                                                        }}
+                                                                    />
+
+                                                                    <button className="button1"
+                                                                        onClick={() => {
+                                                                            const newScene: sceneType = {
+                                                                                id: uuidV4(),
+                                                                                dialogue: [],
+                                                                                title: makeScenesNewManualObj.current.title,
+                                                                                backgroundImageSrc: makeScenesNewManualObj.current.backgroundImageSrc,
+                                                                            }
+
+                                                                            //validation
+                                                                            sceneSchema.parse(newScene)
+
+                                                                            //add onto scenes
+                                                                            project.current.scenes = [
+                                                                                ...project.current.scenes.slice(0, addingSceneIndex.current), //before
+                                                                                newScene,
+                                                                                ...project.current.scenes.slice(addingSceneIndex.current), //after
+                                                                            ]
+
+                                                                            //reset
+                                                                            makeScenesNewManualObj.current = { ...initialMakeScenesNewManualObj }
+
+                                                                            //refresh
+                                                                            refreshProject(["scenes"])
+                                                                        }}
+                                                                    >add</button>
+                                                                </div>
+                                                            }
+                                                        />
+                                                    </div>
+                                                )}
+                                            </>
                                         ) : (
                                             <ViewScene scene={eachScene} charactersInProject={charactersInProject} />
                                         )}
                                     </React.Fragment>
                                 )
                             })}
-
-                            <div className="container">
-                                <h2>Make scenes</h2>
-
-                                <ShowMore
-                                    label='generate'
-                                    content={
-                                        <div className="container">
-                                            <ShowMore
-                                                label="base instructions"
-                                                content={
-                                                    <TextArea
-                                                        name="newSceneBaseInstructions"
-                                                        value={makeScenesGenerateObj.current.baseInstructions}
-                                                        placeHolder="Set the base instructions for the new scenes."
-                                                        onChange={(e) => {
-                                                            makeScenesGenerateObj.current.baseInstructions = e.target.value
-
-                                                            //general refresh
-                                                            refreshProject([])
-                                                        }}
-                                                    />
-                                                }
-                                            />
-
-                                            <ShowMore
-                                                label="new scene prompt"
-                                                content={
-                                                    <TextArea
-                                                        name="newScenePrompt"
-                                                        value={makeScenesGenerateObj.current.prompt}
-                                                        placeHolder="Add a new scene(s) based on your prompt"
-                                                        onChange={(e) => {
-                                                            makeScenesGenerateObj.current.prompt = e.target.value
-
-                                                            //refresh
-                                                            refreshProject([])
-                                                        }}
-                                                    />
-                                                }
-                                            />
-
-                                            <ShowMore
-                                                label="referenced scene id's"
-                                                content={
-                                                    <TextInput
-                                                        name="newSceneReferencedSceneIds"
-                                                        value={makeScenesGenerateObj.current.referencedSceneIds}
-                                                        placeHolder="Enter other scene id's. e.g ID1, ID2"
-                                                        onChange={(e) => {
-                                                            makeScenesGenerateObj.current.referencedSceneIds = e.target.value
-
-                                                            //general refresh
-                                                            refreshProject([])
-                                                        }}
-                                                    />
-                                                }
-                                            />
-
-                                            <button className="button1"
-                                                onClick={() => {
-                                                    handleMakeScenes(makeScenesGenerateObj.current.referencedSceneIds)
-                                                }}
-                                            >make</button>
-                                        </div>
-                                    }
-                                    startShowing={true}
-                                />
-
-                                <ShowMore
-                                    label='manual'
-                                    content={
-                                        <div className="container">
-                                            <TextInput
-                                                name="makeScenesNewManualObjTitle"
-                                                value={makeScenesNewManualObj.current.title}
-                                                placeHolder="Set the title for the new Scene."
-                                                onChange={(e) => {
-                                                    makeScenesNewManualObj.current.title = e.target.value
-
-                                                    //general refresh
-                                                    refreshProject([])
-                                                }}
-                                            />
-
-                                            <TextInput
-                                                name="makeScenesNewManualObjBackgroundImg"
-                                                value={makeScenesNewManualObj.current.backgroundImageSrc ?? ""}
-                                                placeHolder="Set the backgroundImageSrc src for the new Scene."
-                                                onChange={(e) => {
-                                                    const seenText = e.target.value === "" ? null : e.target.value
-                                                    makeScenesNewManualObj.current.backgroundImageSrc = seenText
-
-                                                    console.log(`$makeScenesNewManualObj.current.backgroundImageSrc`, makeScenesNewManualObj.current.backgroundImageSrc);
-                                                    //general refresh
-                                                    refreshProject([])
-                                                }}
-                                            />
-
-                                            <button className="button1"
-                                                onClick={() => {
-                                                    const newScene: sceneType = {
-                                                        id: uuidV4(),
-                                                        dialogue: [],
-                                                        title: makeScenesNewManualObj.current.title,
-                                                        backgroundImageSrc: makeScenesNewManualObj.current.backgroundImageSrc,
-                                                    }
-
-                                                    //validation
-                                                    sceneSchema.parse(newScene)
-
-                                                    //add onto scenes
-                                                    project.current.scenes = [...project.current.scenes, newScene]
-
-                                                    //reset
-                                                    makeScenesNewManualObj.current = { ...initialMakeScenesNewManualObj }
-
-                                                    //general refresh
-                                                    refreshProject([])
-                                                }}
-                                            >add</button>
-                                        </div>
-                                    }
-                                />
-                            </div>
                         </div>
                     </>
                 ) : (
@@ -813,16 +840,40 @@ function ViewScene({ scene, charactersInProject }: {
     )
 }
 
-function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, baseInstructions, getReferencedScenes, addVariablesToBaseInstructions }: {
-    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, baseInstructions: React.RefObject<string | undefined>, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string
+function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, baseInstructions, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, baseInstructions: React.RefObject<string | undefined>, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
 }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
-    const [wantedNewIndex, wantedNewIndexSet] = useState(sceneIndex)
+    const wantedNewIndex = useRef(sceneIndex)
+
+    const addingDialogueIndex = useRef<number | undefined>(undefined)
+
+    const makeDialogueGenerateObj = useRef<{
+        prompt: string,
+        baseInstructions: string,
+        referencedSceneIds: string,
+        loading: boolean,
+    }>({
+        prompt: "",
+        baseInstructions: `BaseInstructions:\n[[baseInstructions]]\n\n\nPlease add new dialogue based on the user prompt\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]`,
+        referencedSceneIds: "",
+        loading: false
+    })
+    const initialMakeDialogueNewManualObj: dialogueType = {
+        id: "",
+        characterId: "",
+        sentence: "",
+        emotions: null,
+    }
+    const makeDialogueNewManualObj = useRef<dialogueType>({ ...initialMakeDialogueNewManualObj })
 
     //respond to changing sceneIndex
     useEffect(() => {
-        wantedNewIndexSet(sceneIndex)
+        wantedNewIndex.current = sceneIndex
+
+        //general refresh
+        refreshProject([])
     }, [sceneIndex])
 
     function makeDefaultAlterScenesObj(): alterScenesObjType["key"] {
@@ -935,7 +986,10 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                             eachDialogueMap.sentence = seenText
 
                         } else if (seenKey === "emotions") {
-                            eachDialogueMap.emotions = seenText
+                            eachDialogueMap.emotions = seenText === "null" ? null : seenText
+
+                        } else if (seenKey === "characterId") {
+                            eachDialogueMap.characterId = seenText
                         }
 
                         //make audio editable since dialogue changed
@@ -995,6 +1049,54 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
         refreshProject(["scenes"])
     }
 
+    async function handleMakeDialogue(referencedSceneIds: string) {
+        try {
+            if (baseInstructions.current === undefined) throw new Error("not seeing base instructions")
+            if (makeDialogueGenerateObj.current.prompt === "") throw new Error("not seeing prompt")
+            if (makeDialogueGenerateObj.current.baseInstructions === "") throw new Error("not seeing base instructions")
+            if (addingDialogueIndex.current === undefined) throw new Error("not seeing index to add dialogue")
+
+            toast.success("making dialogue")
+
+            const newDialoguePrompt = makeDialogueGenerateObj.current.prompt
+            const newDialogueBaseInstructions = makeDialogueGenerateObj.current.baseInstructions
+
+            //loading
+            makeDialogueGenerateObj.current.loading = true
+
+            //get scenes referenced for context
+            const referencedScenes = getReferencedScenes(referencedSceneIds)
+
+            //get variables into prompt
+            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: baseInstructions.current })
+            const makeDialogueResponse = await makeDialogue(newDialoguePrompt, finalBaseInstructions)
+
+            //add the dialogue
+            project.current.scenes = project.current.scenes.map(eachScene => {
+                if (eachScene.id === scene.id) {
+                    eachScene.dialogue = [
+                        ...eachScene.dialogue.slice(0, addingDialogueIndex.current), //before
+                        ...makeDialogueResponse.dialogue,
+                        ...eachScene.dialogue.slice(addingDialogueIndex.current), //after
+                    ]
+                }
+
+                return eachScene
+            })
+
+            //finished loading
+            makeDialogueGenerateObj.current.loading = false
+
+            //refresh
+            refreshProject(["scenes"])
+
+            toast.success("finished!")
+
+        } catch (error) {
+            consoleAndToastError(error)
+        }
+    }
+
     return (
         <div key={scene.id} className={`container ${styles.showOnHoverParent}`} style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--spacingS)", }}>
@@ -1022,20 +1124,23 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
                     <TextInput
                         name={`scene${scene.id}IndexChange`}
-                        value={`${wantedNewIndex + 1}`}
+                        value={`${wantedNewIndex.current + 1}`}
                         className="smallInput"
                         onChange={(e) => {
                             let seenNum = parseInt(e.target.value)
                             if (isNaN(seenNum)) return
 
-                            wantedNewIndexSet(seenNum - 1)
+                            wantedNewIndex.current = seenNum - 1
+
+                            //general refresh
+                            refreshProject([])
                         }}
                     />
 
-                    {wantedNewIndex !== sceneIndex && (
+                    {wantedNewIndex.current !== sceneIndex && (
                         <button
                             onClick={() => {
-                                changeSceneIndex(wantedNewIndex)
+                                changeSceneIndex(wantedNewIndex.current)
                             }}
                         >
                             <span className="material-symbols-outlined">
@@ -1054,6 +1159,18 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                         </span>
                     </button>
 
+                    <button
+                        onClick={() => {
+                            addingSceneIndex.current = sceneIndex + 1
+
+                            //general refresh
+                            refreshProject([])
+                        }}
+                    >
+                        <span className="material-symbols-outlined">
+                            add
+                        </span>
+                    </button>
                 </div>
 
                 <ConfirmationBox text='' confirmationText='Are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
@@ -1223,14 +1340,26 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             )}
 
             <div className="container">
-                {scene.dialogue.map(eachDialogue => {
+                {scene.dialogue.map((eachDialogue, eachDialogueIndex) => {
                     const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
 
-                    return (
+                    return (//scene edit dialogue
                         <div key={eachDialogue.id} className="container">
                             {foundCharacter !== undefined ? (
                                 <>
-                                    <b>{foundCharacter.name}</b>
+                                    <div>
+                                        <Select
+                                            name={`${eachDialogue.id}characterId`}
+                                            value={`${foundCharacter.name}____${eachDialogue.characterId}`}
+                                            valueOptions={charactersInProject.map(eachCharacterInProject => `${eachCharacterInProject.name}____${eachCharacterInProject.id}`)}
+                                            style={{ fontWeight: "bold" }}
+                                            onChange={value => {
+                                                const usableValue = value.split("____")
+
+                                                updateDialogue(usableValue[1], "characterId", eachDialogue.id)
+                                            }}
+                                        />
+                                    </div>
 
                                     <TextArea
                                         name={`dialogueSentence${eachDialogue.id}`}
@@ -1245,8 +1374,8 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                         <>
                                             <Select
                                                 name={`dialogueEmotion${eachDialogue.id}`}
-                                                value={eachDialogue.emotions ?? ""}
-                                                valueOptions={foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)}
+                                                value={eachDialogue.emotions ?? "null"}
+                                                valueOptions={["null", ...foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)]}
                                                 onChange={value => {
                                                     updateDialogue(value, "emotions", eachDialogue.id)
                                                 }}
@@ -1259,9 +1388,153 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                     )}
                                 </>
                             ) : (
-                                <>
+                                <div className="container">
                                     <p>not seeing character for dialogue</p>
-                                </>
+
+                                    <button className="button2"
+                                        onClick={() => {
+                                            if (charactersInProject.length < 1) return
+
+                                            updateDialogue(charactersInProject[0].id, "characterId", eachDialogue.id)
+                                        }}
+                                    >pair</button>
+                                </div>
+                            )}
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)", justifyContent: "flex-end" }}>
+                                <button className="button2"
+                                    onClick={() => {
+                                        addingDialogueIndex.current = addingDialogueIndex.current === undefined ? eachDialogueIndex + 1 : undefined
+
+                                        //general refresh
+                                        refreshProject([])
+                                    }}
+                                >
+                                    <span className="material-symbols-outlined">
+                                        {addingDialogueIndex.current === undefined ? "add" : "check_indeterminate_small"}
+                                    </span>
+                                </button>
+                            </div>
+
+                            {addingDialogueIndex.current === eachDialogueIndex + 1 && (
+                                <div className="container">
+                                    <h2>Make Dialogue</h2>
+
+                                    <ShowMore
+                                        label='generate'
+                                        content={
+                                            <div className="container">
+                                                <ShowMore
+                                                    label="base instructions"
+                                                    content={
+                                                        <TextArea
+                                                            name="newDialogueBaseInstructions"
+                                                            value={makeDialogueGenerateObj.current.baseInstructions}
+                                                            placeHolder="Set the base instructions for the new dialogue."
+                                                            onChange={(e) => {
+                                                                makeDialogueGenerateObj.current.baseInstructions = e.target.value
+
+                                                                //general refresh
+                                                                refreshProject([])
+                                                            }}
+                                                        />
+                                                    }
+                                                />
+
+                                                <ShowMore
+                                                    label="new dialogue prompt"
+                                                    content={
+                                                        <TextArea
+                                                            name="newDialoguePrompt"
+                                                            value={makeDialogueGenerateObj.current.prompt}
+                                                            placeHolder="Add a new dialogue based on your prompt"
+                                                            onChange={(e) => {
+                                                                makeDialogueGenerateObj.current.prompt = e.target.value
+
+                                                                //refresh
+                                                                refreshProject([])
+                                                            }}
+                                                        />
+                                                    }
+                                                />
+
+                                                <ShowMore
+                                                    label="referenced scene id's"
+                                                    content={
+                                                        <TextInput
+                                                            name="newDialogueReferencedSceneIds"
+                                                            value={makeDialogueGenerateObj.current.referencedSceneIds}
+                                                            placeHolder="Enter other scene id's. e.g ID1, ID2"
+                                                            onChange={(e) => {
+                                                                makeDialogueGenerateObj.current.referencedSceneIds = e.target.value
+
+                                                                //general refresh
+                                                                refreshProject([])
+                                                            }}
+                                                        />
+                                                    }
+                                                />
+
+                                                <button className="button1"
+                                                    onClick={() => {
+                                                        handleMakeDialogue(makeDialogueGenerateObj.current.referencedSceneIds)
+                                                    }}
+                                                >make</button>
+                                            </div>
+                                        }
+                                    />
+
+                                    <ShowMore
+                                        label='manual'
+                                        content={
+                                            <div className="container">
+                                                <TextInput
+                                                    name={`makeDialogueNewManualObjSentence${eachDialogue.id}`}
+                                                    value={makeDialogueNewManualObj.current.sentence}
+                                                    placeHolder="Set the sentence for the new dialogue."
+                                                    onChange={(e) => {
+                                                        makeDialogueNewManualObj.current.sentence = e.target.value
+
+                                                        //general refresh
+                                                        refreshProject([])
+                                                    }}
+                                                />
+
+                                                <button className="button1"
+                                                    onClick={() => {
+                                                        //make new id
+                                                        makeDialogueNewManualObj.current.id = uuidV4()
+
+                                                        //assign same character id
+                                                        makeDialogueNewManualObj.current.characterId = eachDialogue.characterId
+
+                                                        //validation
+                                                        dialogueSchema.parse(makeDialogueNewManualObj.current)
+
+                                                        //add onto scenes dialogue
+                                                        project.current.scenes = project.current.scenes.map(eachScene => {
+                                                            if (eachScene.id === scene.id) {
+                                                                eachScene.dialogue = [
+                                                                    ...eachScene.dialogue.slice(0, addingDialogueIndex.current), //before
+                                                                    makeDialogueNewManualObj.current,
+                                                                    ...eachScene.dialogue.slice(addingDialogueIndex.current), //after
+                                                                ]
+                                                            }
+
+                                                            return eachScene
+                                                        })
+
+                                                        //reset
+                                                        makeDialogueNewManualObj.current = { ...initialMakeDialogueNewManualObj }
+
+                                                        //refresh
+                                                        refreshProject(["scenes"])
+                                                    }}
+                                                >add</button>
+                                            </div>
+                                        }
+                                    />
+                                </div>
                             )}
                         </div>
                     )

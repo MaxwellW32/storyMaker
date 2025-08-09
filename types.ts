@@ -48,6 +48,11 @@ export const gptMakeScenesResponseSchema = z.object({
 })
 export type gptMakeScenesResponseType = z.infer<typeof gptMakeScenesResponseSchema>
 
+export const gptMakeDialogueResponseSchema = z.object({
+    dialogue: dialogueSchema.array()
+})
+export type gptMakeDialogueResponseType = z.infer<typeof gptMakeDialogueResponseSchema>
+
 
 
 

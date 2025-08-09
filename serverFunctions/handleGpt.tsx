@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptNewCharacterResponseSchema, gptNewCharacterResponseType, gptMakeScenesResponseSchema, gptMakeScenesResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType } from "@/types";
+import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptNewCharacterResponseSchema, gptNewCharacterResponseType, gptMakeScenesResponseSchema, gptMakeScenesResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType, gptMakeDialogueResponseSchema, gptMakeDialogueResponseType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 
 dotenv.config({ path: ".env.local" });
@@ -69,7 +69,6 @@ export async function makeScenes(prompt: string, baseInstructions: string): Prom
 
     return seenGptMakeScenesResponse
 }
-
 export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType): Promise<gptAlterSceneResponseType> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
@@ -92,6 +91,28 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
     })
 
     return seenGptAlterSceneResponse
+}
+
+export async function makeDialogue(prompt: string, baseInstructions: string): Promise<gptMakeDialogueResponseType> {
+    const response = await openai.responses.parse({
+        model: "gpt-4.1",
+        instructions: baseInstructions,
+        input: prompt,
+        text: {
+            format: zodTextFormat(gptMakeDialogueResponseSchema, "gptMakeDialogueResponseSchema"),
+        },
+    });
+
+    const seenGptMakeDialogueResponse = gptMakeDialogueResponseSchema.parse(response.output_parsed)
+
+    //assign new ids to dialogue
+    seenGptMakeDialogueResponse.dialogue = seenGptMakeDialogueResponse.dialogue.map(eachDialogue => {
+        eachDialogue.id = uuidV4()
+
+        return eachDialogue
+    })
+
+    return seenGptMakeDialogueResponse
 }
 
 export async function makeCharacter(prompt: string, baseInstructions: string): Promise<gptNewCharacterResponseType> {
