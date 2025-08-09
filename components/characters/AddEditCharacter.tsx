@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
@@ -169,6 +169,24 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 //images
                 if (validatedUpdatedCharacter.images !== undefined) {
                     validatedUpdatedCharacter.images = await handleWithFiles(validatedUpdatedCharacter.images, imageFormData, "image", {
+                        upload: async () => {
+                            if (imageFormData === null) throw new Error("imageFormData null")
+
+                            //set formData info
+                            imageFormData.append("characterId", sentCharacter.id)
+
+                            const response = await fetch(`/api/characters/images/upload`, {
+                                method: 'POST',
+                                body: imageFormData,
+                            })
+                            //get the srcs of files uploaded - confirmation
+                            const seenNamesObj = await response.json()
+
+                            //validate
+                            const validatedUploadFileApiResponse = uploadFileApiResponseSchema.parse(seenNamesObj)
+
+                            return validatedUploadFileApiResponse
+                        },
                         delete: async (dbWithFilesObjs) => {
                             if (sentCharacter !== undefined) {
                                 await deleteImageForCharacter(sentCharacter.id, dbWithFilesObjs)
@@ -608,7 +626,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
 
                                             const newDate = new Date()
 
-                                            const fileSrc = `${sentCharacter.id}____${chosenImageEmotion}____${uuidV4()}____${file.name}`
+                                            const fileSrc = `${chosenImageEmotion}____${uuidV4()}____${file.name}`
 
                                             const newDbUploadFile: dbFileType = {
                                                 src: fileSrc,
@@ -663,7 +681,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                                 <b>{eachImage.emotionType}</b>
 
                                                 {eachImage.file.uploadedAlready ? (
-                                                    <Image alt={`${eachImage.file.fileName} image`} width={100} height={100} src={`/api/files/download/images?src=${eachImage.file.src}`} style={{ objectFit: "contain" }} />
+                                                    <Image alt={`${eachImage.file.fileName} image`} width={100} height={100} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachImage.file.src}`} style={{ objectFit: "contain" }} />
                                                 ) : (
                                                     <p>{eachImage.file.fileName}</p>
                                                 )}

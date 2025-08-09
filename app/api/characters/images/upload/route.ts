@@ -3,7 +3,7 @@ import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import { ensureDirectoryExists } from "@/utility/manageFiles";
 import { sessionCheck } from "@/serverFunctions/handleAuth";
-import { dbFileTypeSchema } from "@/types";
+import { characterSchema } from "@/types";
 import { convertBtyes } from "@/utility/utility";
 import { charactersDirName, imagesDirName, uploadedDataDir } from "@/lib/dirPaths";
 import { allowedImageFileTypes, maxFileUploadSize } from "@/lib/uploadFilesLib";
@@ -14,19 +14,17 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const body = Object.fromEntries(formData);
 
-    const seenUploadType = dbFileTypeSchema.parse(body["type"])
-    if (seenUploadType === undefined) throw new Error("not seeing upload type")
+    const seenCharacterId = characterSchema.shape.id.parse(body["characterId"])
 
     const addedFileNamesPre = await Promise.all(
         Object.entries(body).map(async eachEntry => {
             const eachEntryKey = eachEntry[0] //file id
             const eachEntryValue = eachEntry[1]
-            if (eachEntryKey === "type") return null //skip type declaration
+            if (eachEntryKey === "type" || eachEntryKey === "characterId") return null //skip type declaration
 
             const file = eachEntryValue as File;
 
-            const mainDirectory = seenUploadType === "image" ? path.join(uploadedDataDir, charactersDirName, imagesDirName) : null
-            if (mainDirectory === null) throw new Error("mainDirectory null")
+            const mainDirectory = path.join(uploadedDataDir, charactersDirName, seenCharacterId, imagesDirName)
 
             //ensure directory exists
             await ensureDirectoryExists(mainDirectory)
@@ -34,9 +32,7 @@ export async function POST(request: Request) {
             const documentPath = path.join(mainDirectory, eachEntryKey)
 
             // Check if file proper file type
-            const allowedFileTypes = seenUploadType === "image" ? allowedImageFileTypes : null
-            if (allowedFileTypes === null) throw new Error("allowedFileTypes null")
-            if (!allowedFileTypes.includes(file.type)) throw new Error("Invalid file type");
+            if (!allowedImageFileTypes.includes(file.type)) throw new Error("Invalid file type");
 
             // Check the file size
             if (file.size > maxFileUploadSize) {

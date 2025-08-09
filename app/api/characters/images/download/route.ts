@@ -9,9 +9,11 @@ export async function GET(request: Request) {
     const src = searchParams.get("src");
     if (!src) throw new Error("src not sent");
 
-    const imagePath = path.join(uploadedDataDir, charactersDirName, imagesDirName, src)
+    //get character id
+    const seenCharacterId = searchParams.get("characterId");
+    if (!seenCharacterId) throw new Error("characterId not sent");
 
-    console.log(`$seeing here`)
+    const imagePath = path.join(uploadedDataDir, charactersDirName, seenCharacterId, imagesDirName, src)
 
     return downloadFile(imagePath)
 }

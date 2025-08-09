@@ -148,10 +148,18 @@ export const dbFileSchema = z.object({
 })
 export type dbFileType = z.infer<typeof dbFileSchema>
 
+export const uploadFileBodySchema = z.object({
+    type: dbFileTypeSchema,
+    characterId: z.lazy(() => characterSchema.shape.id),
+})
+export type uploadFileBodyType = z.infer<typeof uploadFileBodySchema>
+
 export const uploadFileApiResponseSchema = z.object({
     names: z.string().array(),
 })
 export type uploadFileApiResponseType = z.infer<typeof uploadFileApiResponseSchema>
+
+
 
 
 

@@ -1,11 +1,13 @@
 "use server"
 import { db } from "@/db";
 import { characters } from "@/db/schema";
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, tableFilterTypes, updateCharacterType, characterImageType, dbWithFileType } from "@/types";
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, tableFilterTypes, updateCharacterType, dbWithFileType } from "@/types";
 import { makeWhereClauses } from "@/utility/utility";
 import { and, eq, SQLWrapper } from "drizzle-orm";
 import { ensureCanAccessResource, sessionCheck } from "./handleAuth";
-import { deleteImages } from "./handleUploadedFiles";
+import path from "path";
+import fs from "fs/promises"
+import { charactersDirName, imagesDirName, uploadedDataDir } from "@/lib/dirPaths";
 
 export async function addCharacter(newCharacterObj: newCharacterType): Promise<characterType> {
     const session = await sessionCheck()
@@ -88,5 +90,10 @@ export async function deleteImageForCharacter(characterId: characterType["id"], 
     characterSchema.shape.id.parse(characterId)
 
     //delete from folder
-    await deleteImages(dbWithFilesObjs.map(eachDbWithFilesObj => eachDbWithFilesObj.file.src))
+    await Promise.all(dbWithFilesObjs.map(async eachDbWithFileObj => {
+        const baseFolderPath = path.join(uploadedDataDir, charactersDirName, characterId, imagesDirName, eachDbWithFileObj.file.src)
+
+        await fs.rm(baseFolderPath, { force: true, recursive: true })
+    })
+    )
 }

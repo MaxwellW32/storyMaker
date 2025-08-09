@@ -1,6 +1,6 @@
 //To Do
+//change for characters main folder
 //read characters in project, compile all files from them
-//download main folder - character images zip
 //download project specific resources - audio zip
 //figure out after effects
 //make a timeline
@@ -33,3 +33,5 @@
 //button 1, button 2
 //different size headings h1, h2, h3
 //overflow x scroll - snap
+
+//api routes - container name first - then verb. e.g projects - download, files - upload
