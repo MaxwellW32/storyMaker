@@ -131,6 +131,27 @@ export type writeFileOptions =
     }
 
 
+export type dbWithFileType = {
+    file: dbFileType;
+} & Record<string, unknown>;
+
+export const dbFileTypeSchema = z.enum(["other", "image"])
+export type dbFileTypeType = z.infer<typeof dbFileTypeSchema>
+
+export const dbFileSchema = z.object({
+    createdAt: dateSchma,
+    fileName: z.string().min(1),
+    src: z.string().min(1),
+    status: z.enum(["to-delete", "to-upload", "uploaded"]),
+    uploadedAlready: z.boolean(),
+    dbFileType: dbFileTypeSchema,
+})
+export type dbFileType = z.infer<typeof dbFileSchema>
+
+export const uploadFileApiResponseSchema = z.object({
+    names: z.string().array(),
+})
+export type uploadFileApiResponseType = z.infer<typeof uploadFileApiResponseSchema>
 
 
 
@@ -203,6 +224,12 @@ export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 
 
+export const characterImageSchema = z.object({
+    emotionType: z.lazy(() => emotionSchema.shape.type),
+    file: dbFileSchema,
+})
+export type characterImageType = z.infer<typeof characterImageSchema>
+
 export const characterSchema = z.object({
     id: z.string().min(1),
 
@@ -222,6 +249,7 @@ export const characterSchema = z.object({
     location: z.string(),
     appearance: z.string(),
     archetype: z.string(),
+    images: characterImageSchema.array()
 })
 export type characterType = z.infer<typeof characterSchema> & {
     charactersToProjects?: characterToProjectType[],

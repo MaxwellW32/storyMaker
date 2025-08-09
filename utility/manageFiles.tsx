@@ -26,36 +26,6 @@ export async function checkIfDirectoryExists(dirPath: string) {
     }
 }
 
-// export async function writeToProjectResources(projectResourceDir: projectResourceDirOptionsType, projectId: projectType["id"], writeFile: writeFileOptions) {
-//     const dirPath = path.join(projectResourcesDir, projectResourceDir, projectId)
-//     await ensureDirectoryExists(dirPath)
-
-//     const newId = `${projectResourceDir}_${uudiv4()}`
-
-//     if (writeFile.type === "text") {
-//         const filePath = path.join(dirPath, `${newId}.txt`)
-
-//         await fs.writeFile(filePath, writeFile.text, { encoding: "utf-8" })
-
-//     } else if (writeFile.type === "audio") {
-//         const stream = writeFile.audioFile as ReadableStream;
-//         const reader = stream.getReader();
-//         const chunks: Uint8Array[] = [];
-
-//         while (true) {
-//             const { done, value } = await reader.read();
-//             if (done) break;
-//             chunks.push(value);
-//         }
-
-//         const buffer = Buffer.concat(chunks);
-
-//         const filePath = path.join(dirPath, `${newId}.mp3`)
-
-//         await fs.writeFile(filePath, buffer)
-//     }
-// }
-
 export async function downloadFile(filePath: string) {
     // Read the file
     const fileBuffer = await fs.readFile(filePath);
@@ -104,12 +74,44 @@ export async function downloadFile(filePath: string) {
             break;
     }
 
+    console.log(`$ext`, ext)
+
     // Return the image file in the response
-    return new Response(fileBuffer, {
+    return new Response(new Uint8Array(fileBuffer), {
         status: 200,
         headers: {
-            'Content-Type': contentType,
-            'Content-Length': fileBuffer.length.toString(),
+            "Content-Type": "image/png",
+            "Content-Length": fileBuffer.length.toString(),
         },
     });
 }
+
+// export async function writeToProjectResources(projectResourceDir: projectResourceDirOptionsType, projectId: projectType["id"], writeFile: writeFileOptions) {
+//     const dirPath = path.join(projectResourcesDir, projectResourceDir, projectId)
+//     await ensureDirectoryExists(dirPath)
+
+//     const newId = `${projectResourceDir}_${uudiv4()}`
+
+//     if (writeFile.type === "text") {
+//         const filePath = path.join(dirPath, `${newId}.txt`)
+
+//         await fs.writeFile(filePath, writeFile.text, { encoding: "utf-8" })
+
+//     } else if (writeFile.type === "audio") {
+//         const stream = writeFile.audioFile as ReadableStream;
+//         const reader = stream.getReader();
+//         const chunks: Uint8Array[] = [];
+
+//         while (true) {
+//             const { done, value } = await reader.read();
+//             if (done) break;
+//             chunks.push(value);
+//         }
+
+//         const buffer = Buffer.concat(chunks);
+
+//         const filePath = path.join(dirPath, `${newId}.mp3`)
+
+//         await fs.writeFile(filePath, buffer)
+//     }
+// }

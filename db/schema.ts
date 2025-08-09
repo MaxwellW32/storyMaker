@@ -1,4 +1,4 @@
-import { alterDialogueObjType, alterScenesObjType, sceneType } from "@/types";
+import { alterDialogueObjType, alterScenesObjType, characterType, sceneType } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -77,6 +77,7 @@ export const characters = pgTable("characters", {
     location: text("location").notNull(), // Where they're usually found
     appearance: text("appearance").notNull(), // Short description e.g. "tall, with silver hair and a jagged scar"
     archetype: text("archetype").notNull(), // e.g. "The Hero", "The Trickster", "The Mentor"
+    images: json("images").$type<characterType["images"]>().notNull(),
 })
 export const charactersRelations = relations(characters, ({ one, many }) => ({
     charactersToProjects: many(charactersToProjects),
