@@ -7,29 +7,26 @@
 
 
 
-//remember sync env variables
-
-
-
-
 //ideas
-//after effects
-//one folder to hold general - character images...etc
-//one live folder with everything else
+//more details on base character to ensure presice images, has different clothing options
+//characters to projects has additional clothing detail for project, inherits from overall character clothes options - active selection of which clothes in each scene
+//super detailed prompt goes to gpt for each scene, choosing best dialogue
+//then generate all images at once, based on amount of scenes - save base info to uploadedData
+//every scne has images, audio, dialogue text - order them in after effects
+//
+//
+//
+//
+//
+
+
+
+
+//notes
+//remember to sync env variables
 
 //naming
 //schema - plural
 //type - singular with Type added - e.g userType
 //serverFunctions - handlePlural e.g handleUsers - singular function names - e.g addUser - getAll remains plural - e.g getUsers
-
-//main folder is where base files exist - character image files, instructions...etc
-//project resources is where active project files live
-
-//simple
-//black text
-//white backgrounds
-//button 1, button 2
-//different size headings h1, h2, h3
-//overflow x scroll - snap
-
 //api routes - container name first - then verb. e.g projects - download, files - upload
