@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { deepClone } from "./utility";
 
 //handles upload/delete of any object containing the files key/value
-export async function handleWithFiles<T extends dbWithFileType>(dbWithFileObjs: T[], formData: FormData | null, dbFileType: dbFileTypeType, serverFunctions?: {
+export async function handleWithFiles<T extends dbWithFileType>(dbWithFileObjs: T[], formData: FormData | null, serverFunctions?: {
     upload?: () => Promise<uploadFileApiResponseType>,
     delete?: (dbWithFileObjs: T[]) => Promise<void>,
 }): Promise<T[]> {
@@ -19,7 +19,7 @@ export async function handleWithFiles<T extends dbWithFileType>(dbWithFileObjs: 
         const seenUploadedFileSrcs = seenResponse.names
 
         //notify
-        toast.success(`${dbFileType} uploaded`)
+        toast.success(`uploaded`)
 
         dbWithFileObjs = dbWithFileObjs.map(eachDbWithFileObj => {
             if (seenUploadedFileSrcs.includes(eachDbWithFileObj.file.src)) {

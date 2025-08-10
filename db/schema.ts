@@ -1,8 +1,7 @@
-import { alterDialogueObjType, alterScenesObjType, characterType, sceneType } from "@/types";
+import { alterDialogueObjType, alterScenesObjType, clothingType, sceneType } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
-import { id } from "zod/v4/locales";
 // type chT = typeof characters.$inferInsert
 
 export const users = pgTable("users", {
@@ -66,18 +65,20 @@ export const characters = pgTable("characters", {
     userId: text("userId").notNull().references(() => users.id),
     voiceId: text("voiceId").notNull(),
     personality: text("personality").notNull(), // e.g. "brooding and analytical", "cheerful and impulsive"
-    toneOfVoice: text("tone_of_voice").notNull(), // e.g. "sarcastic", "soft-spoken", "authoritative"
-    dialogueStyle: text("dialogue_style").notNull(), // e.g. "uses short, clipped sentences", "speaks in metaphors"
+    appearance: text("appearance").notNull(), // Highly detailed on their physical appearance to ensure consistency accross image generation, leave out clothing detail.
+    //appearance
+    clothing: json("clothing").$type<clothingType[]>().notNull(),
+    //behaviour
+    toneOfVoice: text("toneOfVoice").notNull(), // e.g. "sarcastic", "soft-spoken", "authoritative"
+    dialogueStyle: text("dialogueStyle").notNull(), // e.g. "uses short, clipped sentences", "speaks in metaphors"
     alignment: text("alignment").notNull(), // e.g. "Lawful Good", "Chaotic Neutral", or your own moral scale
     goal: text("goal").notNull(), // What drives the character
     fear: text("fear").notNull(), // What the character is afraid of
-    fatalFlaw: text("fatal_flaw").notNull(), // e.g. "trusts too easily", "overconfident"
+    fatalFlaw: text("fatalFlaw").notNull(), // e.g. "trusts too easily", "overconfident"
     backstory: text("backstory").notNull(), // Important past experiences
     occupation: text("occupation").notNull(), // Their role in the story or world
     location: text("location").notNull(), // Where they're usually found
-    appearance: text("appearance").notNull(), // Short description e.g. "tall, with silver hair and a jagged scar"
     archetype: text("archetype").notNull(), // e.g. "The Hero", "The Trickster", "The Mentor"
-    images: json("images").$type<characterType["images"]>().notNull(),
 })
 export const charactersRelations = relations(characters, ({ one, many }) => ({
     charactersToProjects: many(charactersToProjects),
@@ -144,6 +145,7 @@ export const charactersToProjects = pgTable("charactersToProjects", {
 
     characterId: text("characterId").notNull().references(() => characters.id),
     projectId: text("projectId").notNull().references(() => projects.id),
+    //clothes
 },
     (t) => {
         return {

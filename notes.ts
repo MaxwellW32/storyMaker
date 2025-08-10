@@ -1,4 +1,7 @@
 //To Do
+//remake character appearance, clothes and images
+//save the files
+//move on to after effects
 //build out audio, text, images for the story - each scene, each dialogue
 //figure out after effects
 //make a timeline
@@ -8,11 +11,14 @@
 
 
 //ideas
-//more details on base character to ensure presice images, has different clothing options
-//characters to projects has additional clothing detail for project, inherits from overall character clothes options - active selection of which clothes in each scene
-//super detailed prompt goes to gpt for each scene, choosing best dialogue
-//then generate all images at once, based on amount of scenes - save base info to uploadedData
-//every scne has images, audio, dialogue text - order them in after effects
+//more details on base character to ensure precise images..., has different clothing options and reference images...
+//characters to projects has additional clothing options for project, inherits from overall character clothes options - store as og or local reference - determines where we get the file from
+//each scene stores active clothing for characters - start off with default selection, can be changed
+//super detailed prompt goes to gpt for story - generates all scenes, with active clothes selected for each user
+//then generate all images at once, use the clothing id and reference image for best generation //not sure
+//every scene has an image, audio and dialogue text - order them in after effects
+//character folder in uploaded data holds reference images
+//scene images are in projects folder by id
 //
 //
 //

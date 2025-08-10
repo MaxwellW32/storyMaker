@@ -130,6 +130,15 @@ export type writeFileOptions =
         imageFile: string,
     }
 
+export const dbFileSchema = z.object({
+    createdAt: dateSchma,
+    fileName: z.string().min(1),
+    src: z.string().min(1),
+    status: z.enum(["to-delete", "to-upload", "uploaded"]),
+    uploadedAlready: z.boolean(),
+    dbFileType: z.lazy(() => dbFileTypeSchema),
+})
+export type dbFileType = z.infer<typeof dbFileSchema>
 
 export type dbWithFileType = {
     file: dbFileType;
@@ -137,16 +146,6 @@ export type dbWithFileType = {
 
 export const dbFileTypeSchema = z.enum(["other", "image"])
 export type dbFileTypeType = z.infer<typeof dbFileTypeSchema>
-
-export const dbFileSchema = z.object({
-    createdAt: dateSchma,
-    fileName: z.string().min(1),
-    src: z.string().min(1),
-    status: z.enum(["to-delete", "to-upload", "uploaded"]),
-    uploadedAlready: z.boolean(),
-    dbFileType: dbFileTypeSchema,
-})
-export type dbFileType = z.infer<typeof dbFileSchema>
 
 export const uploadFileBodySchema = z.object({
     type: dbFileTypeSchema,
@@ -245,11 +244,14 @@ export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 
 
-export const characterImageSchema = z.object({
-    emotionType: z.lazy(() => emotionSchema.shape.type),
-    file: dbFileSchema,
+export const clothingSchema = z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    file: dbFileSchema, //reference image
+    uploadedFrom: z.enum(["main", "project"]),
 })
-export type characterImageType = z.infer<typeof characterImageSchema>
+export type clothingType = z.infer<typeof clothingSchema>
 
 export const characterSchema = z.object({
     id: z.string().min(1),
@@ -259,6 +261,8 @@ export const characterSchema = z.object({
     userId: z.string().min(1),
     voiceId: z.string().min(1, "please provide a voice id from eleven labs"),
     personality: z.string().min(1),
+    appearance: z.string().min(1),
+    clothing: clothingSchema.array(),
     toneOfVoice: z.string(),
     dialogueStyle: z.string(),
     alignment: z.string(),
@@ -268,9 +272,7 @@ export const characterSchema = z.object({
     backstory: z.string(),
     occupation: z.string(),
     location: z.string(),
-    appearance: z.string(),
     archetype: z.string(),
-    images: characterImageSchema.array()
 })
 export type characterType = z.infer<typeof characterSchema> & {
     charactersToProjects?: characterToProjectType[],

@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, clothingType } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
@@ -30,6 +30,8 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
         userId: "dummyData",
         voiceId: "",
         personality: "",
+        appearance: "",
+        clothing: [],
         toneOfVoice: "",
         dialogueStyle: "",
         alignment: "",
@@ -39,9 +41,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
         backstory: "",
         occupation: "",
         location: "",
-        appearance: "",
         archetype: "",
-        images: []
     }
     //assign either a new form, or the safe values on an update form
     const [formObj, formObjSet] = useState<Partial<characterType>>(deepClone(sentCharacter === undefined ? initialFormObj : updateCharacterSchema.parse(sentCharacter)))
@@ -63,11 +63,10 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
         loading: boolean,
     }>({
         prompt: "",
-        baseInstructions: `Make a new character based on the users prompt.\n\npersonality:  // e.g. "brooding and analytical", "cheerful and impulsive"\ntoneOfVoice:  // e.g. "sarcastic", "soft-spoken", "authoritative"\ndialogueStyle:  // e.g. "uses short, clipped sentences", "speaks in metaphors"\nalignment:  // e.g. "Lawful Good", "Chaotic Neutral", or your own moral scale\ngoal:  // What drives the character\nfear:  // What the character is afraid of\nfatalFlaw:  // e.g. "trusts too easily", "overconfident"\nbackstory:  // Important past experiences\noccupation:  // Their role in the story or world\nlocation:  // Where they're usually found\nappearance:  // Short description e.g. "tall, with silver hair and a jagged scar"\narchetype:  // e.g. "The Hero", "The Trickster", "The Mentor"`,
+        baseInstructions: `Make a new character based on the users prompt.\n\npersonality:  // e.g. "brooding and analytical", "cheerful and impulsive"\ntoneOfVoice:  // e.g. "sarcastic", "soft-spoken", "authoritative"\ndialogueStyle:  // e.g. "uses short, clipped sentences", "speaks in metaphors"\nalignment:  // e.g. "Lawful Good", "Chaotic Neutral", or your own moral scale\ngoal:  // What drives the character\nfear:  // What the character is afraid of\nfatalFlaw:  // e.g. "trusts too easily", "overconfident"\nbackstory:  // Important past experiences\noccupation:  // Their role in the story or world\nlocation:  // Where they're usually found\narchetype:  // e.g. "The Hero", "The Trickster", "The Mentor\nappearance:  //Highly detailed on their physical appearance to ensure consistency accross image generation, leave out clothing detail."`,
         loading: false
     })
     const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
-    const [chosenImageEmotion, chosenImageEmotionSet] = useState<(emotionType["type"]) | undefined>(undefined)
 
     //get chosen emotions
     useEffect(() => {
@@ -135,6 +134,38 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 //send up to server
                 const addedCharacter = await addCharacter(validatedNewCharacter)
 
+                //clothing
+                if (addedCharacter.clothing !== undefined) {
+                    addedCharacter.clothing = await handleWithFiles(addedCharacter.clothing, imageFormData, {
+                        upload: async () => {
+                            if (imageFormData === null) throw new Error("imageFormData null")
+
+                            //set formData info
+                            imageFormData.append("characterId", addedCharacter.id)
+
+                            const response = await fetch(`/api/characters/images/upload`, {
+                                method: 'POST',
+                                body: imageFormData,
+                            })
+                            //get the srcs of files uploaded - confirmation
+                            const seenNamesObj = await response.json()
+
+                            //validate
+                            const validatedUploadFileApiResponse = uploadFileApiResponseSchema.parse(seenNamesObj)
+
+                            return validatedUploadFileApiResponse
+                        },
+                        delete: async (dbWithFilesObjs) => {
+                            if (sentCharacter !== undefined) {
+                                await deleteImageForCharacter(addedCharacter.id, dbWithFilesObjs)
+                            }
+                        }
+                    })
+
+                    //update same character
+                    await updateCharacter(addedCharacter.id, { clothing: addedCharacter.clothing })
+                }
+
                 //add emotions
                 if (chosenEmotionTypes !== undefined) {
                     await Promise.all(chosenEmotionTypes.map(async eachChosenEmotionType => {
@@ -160,15 +191,16 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 //reset
                 chosenEmotionTypesSet(undefined)
                 chosenTagIdsSet(undefined)
+                imageFormDataSet(null)
                 formObjSet(deepClone(initialFormObj))
 
             } else {
                 //validate
                 const validatedUpdatedCharacter = updateCharacterSchema.parse(formObj)
 
-                //images
-                if (validatedUpdatedCharacter.images !== undefined) {
-                    validatedUpdatedCharacter.images = await handleWithFiles(validatedUpdatedCharacter.images, imageFormData, "image", {
+                //clothing
+                if (validatedUpdatedCharacter.clothing !== undefined) {
+                    validatedUpdatedCharacter.clothing = await handleWithFiles(validatedUpdatedCharacter.clothing, imageFormData, {
                         upload: async () => {
                             if (imageFormData === null) throw new Error("imageFormData null")
 
@@ -279,6 +311,9 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                         })
                     }))
                 }
+
+                //reset
+                imageFormDataSet(null)
 
                 toast.success("character updated")
             }
@@ -566,164 +601,6 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 </>
             )}
 
-            {formObj.images !== undefined && sentCharacter !== undefined && (
-                <>
-                    <label>Images</label>
-
-                    {chosenEmotionTypes !== undefined && (
-                        <>
-                            {chosenEmotionTypes.length > 0 ? (//choose emotions for image upload
-                                <div style={{ display: "flex", gap: "var(--spacingR)", flexWrap: "wrap" }}>
-                                    {chosenEmotionTypes.map(eachEmotionType => {
-                                        return (
-                                            <button key={eachEmotionType} className='button2' style={{ backgroundColor: chosenImageEmotion === eachEmotionType ? "var(--c3)" : "" }}
-                                                onClick={() => {
-                                                    chosenImageEmotionSet(eachEmotionType)
-                                                }}
-                                            >{eachEmotionType}</button>
-                                        )
-                                    })}
-                                </div>
-                            ) : (
-                                <p>select emotions to upload images</p>
-                            )}
-                        </>
-                    )}
-
-                    <div className='container'>
-                        {chosenImageEmotion !== undefined && (
-                            <>
-                                <button className='button1' style={{ justifySelf: "flex-start" }}>
-                                    <label htmlFor={`characterImageUpload`} style={{ cursor: "pointer" }}>
-                                        upload
-                                    </label>
-                                </button>
-
-                                <input id={`characterImageUpload`} type="file" placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
-                                    onChange={(e) => {
-                                        if (!e.target.files || chosenImageEmotion === undefined) return
-
-                                        let totalUploadSize = 0
-                                        const uploadedFiles = e.target.files
-
-                                        for (let index = 0; index < uploadedFiles.length; index++) {
-                                            const file = uploadedFiles[index];
-
-                                            //validation
-                                            if (!allowedImageFileTypes.includes(file.type)) {
-                                                toast.error(`File ${file.name} is not a valid file type to upload.`);
-                                                continue;
-                                            }
-
-                                            // Check the file size
-                                            if (file.size > maxFileUploadSize) {
-                                                toast.error(`File ${file.name} is too large. Maximum size is ${convertBtyes(maxFileUploadSize, "mb")} MB`);
-                                                continue;
-                                            }
-
-                                            //add file size to totalUploadSize
-                                            totalUploadSize += file.size
-
-                                            const newDate = new Date()
-
-                                            const fileSrc = `${chosenImageEmotion}____${uuidV4()}____${file.name}`
-
-                                            const newDbUploadFile: dbFileType = {
-                                                src: fileSrc,
-                                                createdAt: newDate,
-                                                fileName: file.name,
-                                                status: "to-upload",
-                                                uploadedAlready: false,
-                                                dbFileType: "image"
-                                            }
-
-                                            const newImage: characterType["images"][number] = {
-                                                emotionType: chosenImageEmotion,
-                                                file: newDbUploadFile
-                                            }
-
-                                            formObjSet(prevFormObj => {
-                                                const newFormObj = { ...prevFormObj }
-                                                if (newFormObj.images === undefined) return prevFormObj
-
-                                                //add onto images
-                                                newFormObj.images = [...newFormObj.images, newImage]
-
-                                                return newFormObj
-                                            })
-
-                                            //add to formData
-                                            imageFormDataSet(prevFormData => {
-                                                const formData = prevFormData ?? new FormData();
-                                                formData.append(fileSrc, file);
-
-                                                return formData;
-                                            });
-                                        }
-
-                                        if (totalUploadSize > maxBodyToServerSize) {
-                                            toast.error(`Please upload less than ${convertBtyes(maxBodyToServerSize, "mb")} MB at a time`);
-                                            return
-                                        }
-                                    }}
-                                />
-                            </>
-                        )}
-
-                        {formObj.images.length > 0 && (
-                            <ul style={{ display: "grid", gap: "var(--spacingS)" }}>
-                                {formObj.images.map((eachImage) => {
-                                    if (eachImage.file.status === "to-delete") return null
-
-                                    return (
-                                        <li key={eachImage.file.src} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--spacingS)" }} className='resetTextMargin'>
-                                            <div className='container'>
-                                                <b>{eachImage.emotionType}</b>
-
-                                                {eachImage.file.uploadedAlready ? (
-                                                    <Image alt={`${eachImage.file.fileName} image`} width={100} height={100} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachImage.file.src}`} style={{ objectFit: "contain" }} />
-                                                ) : (
-                                                    <p>{eachImage.file.fileName}</p>
-                                                )}
-                                            </div>
-
-                                            <button
-                                                onClick={() => {
-                                                    //change status
-                                                    formObjSet(prevFormObj => {
-                                                        const newFormObj = { ...prevFormObj }
-                                                        if (newFormObj.images === undefined) return prevFormObj
-
-                                                        newFormObj.images = newFormObj.images.map(eachImageMap => {
-                                                            if (eachImageMap.file.src === eachImage.file.src) {
-                                                                //react refresh
-                                                                eachImageMap = { ...eachImageMap }
-                                                                eachImageMap.file = { ...eachImageMap.file }
-
-                                                                //change status
-                                                                eachImageMap.file.status = "to-delete"
-                                                            }
-
-                                                            return eachImageMap
-                                                        })
-
-                                                        return newFormObj
-                                                    })
-                                                }}
-                                            >
-                                                <span className="material-symbols-outlined">
-                                                    delete
-                                                </span>
-                                            </button>
-                                        </li>
-                                    )
-                                })}
-                            </ul>
-                        )}
-                    </div>
-                </>
-            )}
-
             {formObj.personality !== undefined && (
                 <>
                     <TextInput
@@ -746,6 +623,236 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                         onBlur={() => { checkIfValid(formObj, "personality") }}
                         errors={formErrors["personality"]}
                     />
+                </>
+            )}
+
+            {formObj.appearance !== undefined && (
+                <>
+                    <TextInput
+                        name={"appearance"}
+                        value={formObj.appearance}
+                        type={"text"}
+                        label={"character appearance"}
+                        placeHolder={"Highly detailed character appearance..."}
+                        required=''
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            formObjSet(prevFormObj => {
+                                const newFormObj = { ...prevFormObj }
+                                if (newFormObj.appearance === undefined) return prevFormObj
+
+                                newFormObj.appearance = e.target.value
+
+                                return newFormObj
+                            })
+                        }}
+                        onBlur={() => { checkIfValid(formObj, "appearance") }}
+                        errors={formErrors["appearance"]}
+                    />
+                </>
+            )}
+
+            {formObj.clothing !== undefined && (
+                <>
+                    <label>Clothing options</label>
+
+                    <div className='gridColumns snap'>
+                        {formObj.clothing.map(eachClothingItem => {
+                            if (eachClothingItem.file.status === "to-delete") return null
+
+                            return (
+                                <div key={eachClothingItem.id} className='container'>
+                                    <button style={{ justifySelf: "flex-end" }}
+                                        onClick={() => {
+                                            //change status
+                                            formObjSet(prevFormObj => {
+                                                const newFormObj = { ...prevFormObj }
+                                                if (newFormObj.clothing === undefined) return prevFormObj
+
+                                                //react refresh
+                                                newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
+                                                    if (eachClothingMap.id === eachClothingItem.id) {
+                                                        eachClothingMap = { ...eachClothingMap }
+                                                        eachClothingMap.file = { ...eachClothingMap.file }
+                                                        eachClothingMap.file.status = "to-delete"
+                                                    }
+
+                                                    return eachClothingMap
+                                                })
+
+                                                return newFormObj
+                                            })
+                                        }}
+                                    >
+                                        <span className="material-symbols-outlined">
+                                            delete
+                                        </span>
+                                    </button>
+
+                                    <label>name</label>
+                                    <TextInput
+                                        name={`${eachClothingItem.id}clothingName`}
+                                        value={eachClothingItem.name}
+                                        placeHolder="Enter clothing name..."
+                                        onChange={(e) => {
+                                            formObjSet(prevFormObj => {
+                                                const newFormObj = { ...prevFormObj }
+                                                if (newFormObj.clothing === undefined) return prevFormObj
+
+                                                //react refresh
+                                                newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
+                                                    if (eachClothingMap.id === eachClothingItem.id) {
+                                                        eachClothingMap.name = e.target.value
+                                                    }
+
+                                                    return eachClothingMap
+                                                })
+
+                                                return newFormObj
+                                            })
+                                        }}
+                                    />
+
+                                    <label>description</label>
+                                    <TextArea
+                                        name={`${eachClothingItem.id}clothingDescription`}
+                                        value={eachClothingItem.description}
+                                        placeHolder="Descibe in detail the clothes on the character..."
+                                        onChange={(e) => {
+                                            formObjSet(prevFormObj => {
+                                                const newFormObj = { ...prevFormObj }
+                                                if (newFormObj.clothing === undefined) return prevFormObj
+
+                                                //react refresh
+                                                newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
+                                                    if (eachClothingMap.id === eachClothingItem.id) {
+                                                        eachClothingMap.description = e.target.value
+                                                    }
+
+                                                    return eachClothingMap
+                                                })
+
+                                                return newFormObj
+                                            })
+                                        }}
+                                    />
+
+                                    <button className='button1' style={{ justifySelf: "flex-start" }}>
+                                        <label htmlFor={`characterImageUpload${eachClothingItem.id}`} style={{ cursor: "pointer" }}>
+                                            upload
+                                        </label>
+                                    </button>
+
+                                    <input id={`characterImageUpload${eachClothingItem.id}`} type="file" placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
+                                        onChange={(e) => {
+                                            if (!e.target.files) return
+
+                                            let totalUploadSize = 0
+                                            const uploadedFiles = e.target.files
+
+                                            for (let index = 0; index < uploadedFiles.length; index++) {
+                                                const file = uploadedFiles[index];
+
+                                                //validation
+                                                if (!allowedImageFileTypes.includes(file.type)) {
+                                                    toast.error(`File ${file.name} is not a valid file type to upload.`);
+                                                    continue;
+                                                }
+
+                                                // Check the file size
+                                                if (file.size > maxFileUploadSize) {
+                                                    toast.error(`File ${file.name} is too large. Maximum size is ${convertBtyes(maxFileUploadSize, "mb")} MB`);
+                                                    continue;
+                                                }
+
+                                                //add file size to totalUploadSize
+                                                totalUploadSize += file.size
+
+                                                const newDate = new Date()
+
+                                                const fileEnding = file.name.split(".")[1]
+                                                const fileSrc = `${eachClothingItem.id}.${fileEnding}`
+
+                                                const newDbUploadFile: dbFileType = {
+                                                    src: fileSrc,
+                                                    createdAt: newDate,
+                                                    fileName: file.name,
+                                                    status: "to-upload",
+                                                    uploadedAlready: false,
+                                                    dbFileType: "image"
+                                                }
+
+                                                formObjSet(prevFormObj => {
+                                                    const newFormObj = { ...prevFormObj }
+                                                    if (newFormObj.clothing === undefined) return prevFormObj
+
+                                                    //react refresh
+                                                    newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
+                                                        if (eachClothingMap.id === eachClothingItem.id) {
+                                                            eachClothingMap.file = { ...eachClothingMap.file }
+                                                            eachClothingMap.file = { ...newDbUploadFile }
+                                                        }
+
+                                                        return eachClothingMap
+                                                    })
+
+                                                    return newFormObj
+                                                })
+
+                                                //add to formData
+                                                imageFormDataSet(prevFormData => {
+                                                    const formData = prevFormData ?? new FormData();
+                                                    formData.append(fileSrc, file);
+
+                                                    return formData;
+                                                });
+                                            }
+
+                                            if (totalUploadSize > maxBodyToServerSize) {
+                                                toast.error(`Please upload less than ${convertBtyes(maxBodyToServerSize, "mb")} MB at a time`);
+                                                return
+                                            }
+                                        }}
+                                    />
+
+                                    {eachClothingItem.file.uploadedAlready && sentCharacter !== undefined ? (
+                                        <Image alt={`${eachClothingItem.file.fileName} image`} width={100} height={100} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachClothingItem.file.src}`} style={{ objectFit: "contain" }} />
+                                    ) : (
+                                        <p>{eachClothingItem.file.fileName}</p>
+                                    )}
+                                </div>
+                            )
+                        })}
+
+                        <div className='container'>
+                            <button className='button1'
+                                onClick={() => {
+                                    formObjSet(prevFormObj => {
+                                        const newFormObj = { ...prevFormObj }
+                                        if (newFormObj.clothing === undefined) return prevFormObj
+
+                                        const newClothingOption: clothingType = {
+                                            id: uuidV4(),
+                                            name: "",
+                                            description: "",
+                                            file: {
+                                                src: "",
+                                                createdAt: new Date(),
+                                                fileName: "",
+                                                status: "to-upload",
+                                                uploadedAlready: false,
+                                                dbFileType: "image"
+                                            },
+                                            uploadedFrom: "main"
+                                        }
+
+                                        newFormObj.clothing = [...newFormObj.clothing, newClothingOption]
+
+                                        return newFormObj
+                                    })
+                                }}
+                            >make new</button>
+                        </div>
+                    </div>
                 </>
             )}
 
