@@ -35,7 +35,7 @@ export async function makeStory(prompt: string, baseInstructions: string, active
         const newScene: sceneType = {
             ...eachScene,
             id: uuidV4(),
-            backgroundImageSrc: null,
+            backgroundImageSrc: "",
             activeCharacterClothing: activeCharacterClothingStarter
         }
         return newScene
@@ -66,7 +66,7 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
         const newScene: sceneType = {
             ...eachScene,
             id: uuidV4(),
-            backgroundImageSrc: null,
+            backgroundImageSrc: "",
             activeCharacterClothing: activeCharacterClothingStarter
         }
         return newScene

@@ -16,7 +16,7 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
     const initialFormObj: newProjectType = {
         name: "",
         userId: "dummyData",
-        baseInstructions: "Write incredible short children stories.\n\nPlease base the characters in the story from this (emotions for each character in the dialogue must be taken from that character object only.)\n[[characters]]\n\n Note below for info on what the character is wearing (each key is a character id, each value is a clothing id on that character).\n[[activeCharacterClothing]]"
+        baseInstructions: "Write incredible short children stories.\n\nPlease base the characters in the story from this (emotions for each character in the dialogue must be taken from that character object only.)\ncharacters:\n[[characters]]"
     }
 
     //assign either a new form, or the safe values on an update form

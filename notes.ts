@@ -1,5 +1,5 @@
 //To Do
-//make starting value for active character clothing obj - give context to story generation...
+//edit characters up to the prmpt to only use active character clothing item
 //make sure prompt to gpt is detailed, take in active clothing, appearance, focus...
 //then build generate images for each scene - download to server
 //move on to after effects

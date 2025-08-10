@@ -31,7 +31,7 @@ export const sceneSchema = z.object({
     id: z.string().min(1),
     title: z.string().min(1),
     dialogue: dialogueSchema.array(),
-    backgroundImageSrc: z.string().min(1).nullable(),
+    backgroundImageSrc: z.string(),
     activeCharacterClothing: activeCharacterClothingSchema,
 })
 export type sceneType = z.infer<typeof sceneSchema>

@@ -20,6 +20,7 @@ import UseRateLimit from "../rateLimit/UseRateLimit"
 import Select from "../inputs/select/Select"
 import ConfirmationBox from "../confirmationBox/ConfirmationBox"
 import { v4 as uuidV4 } from "uuid"
+import { deepClone } from "@/utility/utility"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
@@ -52,7 +53,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         loading: boolean,
     }>({
         prompt: "",
-        baseInstructions: `BaseInstructions:\n[[baseInstructions]]\n\n\nPlease add a new scene/scenes based on the user prompt\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]`,
+        baseInstructions: `BaseInstructions:\n[[baseInstructions]]\n\n\nPlease add a new scene/scenes based on the user prompt\n\n\nYou can use these scenes for reference context if needed.\nreferencedScenes:\n[[referencedScenes]]`,
         referencedSceneIds: "",
         loading: false
     })
@@ -60,7 +61,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         id: "",
         title: "",
         dialogue: [],
-        backgroundImageSrc: null,
+        backgroundImageSrc: "",
         activeCharacterClothing: {}
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
@@ -191,7 +192,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { activeCharacterClothing: project.current.activeCharacterClothingStarter, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const madeScenes = await makeScenes(newScenePrompt, finalBaseInstructions, project.current.activeCharacterClothingStarter)
 
             //add the scenes
@@ -215,9 +216,22 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
 
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, activeCharacterClothing?: activeCharacterClothingType }, atTop = true) {
+    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string }, atTop = true) {
         //add on characters
-        seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(charactersInProject, null, 2))
+        //edit characters for clothes
+        const finalCharactersInProject = deepClone(charactersInProject).map(eachCharacterInProject => {
+            const seenActiveCharacterClothingId: activeCharacterClothingType["key"] | undefined = variables.activeCharacterClothing[eachCharacterInProject.id]
+            if (seenActiveCharacterClothingId === undefined) throw new Error(`not seeing clothing for ${eachCharacterInProject.name}`)
+
+            const foundClothingItem = eachCharacterInProject.clothing.find(eachClothingItem => eachClothingItem.id === seenActiveCharacterClothingId)
+            if (foundClothingItem === undefined) throw new Error(`not seeing clothing item in character ${eachCharacterInProject.name} array`)
+
+            //assign single clothing item
+            eachCharacterInProject.clothing = [foundClothingItem]
+
+            return eachCharacterInProject
+        })
+        seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(finalCharactersInProject, null, 2))
 
         if (variables !== undefined) {
             if (variables.scene !== undefined) {
@@ -238,11 +252,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     //add on baseInstructions
                     seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
                 }
-            }
-
-            if (variables.activeCharacterClothing !== undefined) {
-                //add on reference Scenes
-                seenBaseInstructions = seenBaseInstructions.replaceAll("[[activeCharacterClothing]]", JSON.stringify(variables.activeCharacterClothing, null, 2))
             }
         }
 
@@ -732,13 +741,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                                                                     <TextInput
                                                                         name="makeScenesNewManualObjBackgroundImg"
-                                                                        value={makeScenesNewManualObj.current.backgroundImageSrc ?? ""}
+                                                                        value={makeScenesNewManualObj.current.backgroundImageSrc}
                                                                         placeHolder="Set the backgroundImageSrc src for the new Scene."
                                                                         onChange={(e) => {
-                                                                            const seenText = e.target.value === "" ? null : e.target.value
-                                                                            makeScenesNewManualObj.current.backgroundImageSrc = seenText
+                                                                            makeScenesNewManualObj.current.backgroundImageSrc = e.target.value
 
-                                                                            console.log(`$makeScenesNewManualObj.current.backgroundImageSrc`, makeScenesNewManualObj.current.backgroundImageSrc);
                                                                             //general refresh
                                                                             refreshProject([])
                                                                         }}
@@ -911,7 +918,7 @@ function ViewScene({ scene, charactersInProject }: {
                 <h3>{scene.title}</h3>
             </div>
 
-            {scene.backgroundImageSrc !== null && (
+            {scene.backgroundImageSrc !== "" && (
                 <Image alt={`scene_${scene.id}_Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
             )}
 
@@ -927,7 +934,7 @@ function ViewScene({ scene, charactersInProject }: {
 }
 
 function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
-    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string, activeCharacterClothing?: activeCharacterClothingType }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
 }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
@@ -989,7 +996,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions, activeCharacterClothing: sceneToReplace.activeCharacterClothing })
+            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { activeCharacterClothing: sceneToReplace.activeCharacterClothing, scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const alteredScene = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
 
             const newReplacedScene = { ...alteredScene }
@@ -1201,7 +1208,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { activeCharacterClothing: scene.activeCharacterClothing, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const madeDialogue = await makeDialogue(newDialoguePrompt, finalBaseInstructions)
 
             //add the dialogue
@@ -1450,7 +1457,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
             <TextInput
                 name={`scene${scene.id}backgroundImageSrc`}
-                value={scene.backgroundImageSrc ?? ""}
+                value={scene.backgroundImageSrc}
                 placeHolder="Set the scene backgroundImage"
                 onChange={(e) => {
                     project.current.scenes = project.current.scenes.map(eachScene => {
@@ -1468,7 +1475,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                 errors={projectFormErrors[`scenes/${sceneIndex}/backgroundImageSrc`]}
             />
 
-            {scene.backgroundImageSrc !== null && (
+            {scene.backgroundImageSrc !== "" && (
                 <Image alt={`scene${scene.id}backgroundImage`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
             )}
 
