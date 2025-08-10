@@ -2,7 +2,7 @@
 import ShowMore from "@/components/showMore/ShowMore"
 import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterDialogueObjType, alterScenesObjType, characterSchema, characterType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { activeCharacterClothingType, alterDialogueObjType, alterScenesObjType, characterType, clothingType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -61,6 +61,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         title: "",
         dialogue: [],
         backgroundImageSrc: null,
+        activeCharacterClothing: {}
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
 
@@ -145,6 +146,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     async function handleGenerateStory() {
         try {
+            //ensure chracters and activeCharacterClothingStarter
+            if (charactersInProject.length < 1) throw new Error("please add characters to this project generate a story")
+
             //loading
             storyLoading.current = true
             project.current.scenes = []
@@ -152,11 +156,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             toast.success("Generating story...")
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions)
-            const storyResponse = await makeStory(project.current.prompt, finalBaseInstructions)
+            const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions, { activeCharacterClothing: project.current.activeCharacterClothingStarter })
+            const madeScenes = await makeStory(project.current.prompt, finalBaseInstructions, project.current.activeCharacterClothingStarter)
 
             //add scenes
-            project.current.scenes = storyResponse.scenes
+            project.current.scenes = madeScenes
 
             //refresh
             refreshProject(["scenes"])
@@ -188,12 +192,12 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
-            const makeScenesResponse = await makeScenes(newScenePrompt, finalBaseInstructions)
+            const madeScenes = await makeScenes(newScenePrompt, finalBaseInstructions, project.current.activeCharacterClothingStarter)
 
             //add the scenes
             project.current.scenes = [
                 ...project.current.scenes.slice(0, addingSceneIndex.current), //before
-                ...makeScenesResponse.scenes,
+                ...madeScenes,
                 ...project.current.scenes.slice(addingSceneIndex.current), //after
             ]
 
@@ -211,7 +215,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
 
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string }, atTop = true) {
+    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, activeCharacterClothing?: activeCharacterClothingType }, atTop = true) {
         //add on characters
         seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(charactersInProject, null, 2))
 
@@ -234,6 +238,11 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     //add on baseInstructions
                     seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
                 }
+            }
+
+            if (variables.activeCharacterClothing !== undefined) {
+                //add on reference Scenes
+                seenBaseInstructions = seenBaseInstructions.replaceAll("[[activeCharacterClothing]]", JSON.stringify(variables.activeCharacterClothing, null, 2))
             }
         }
 
@@ -430,52 +439,112 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     startShowing={true}
                     content={(
                         <div className='container'>
-                            <Search
-                                searchObj={charactersSearchObj}
-                                searchObjSet={charactersSearchObjSet}
-                                searchFunc={async (seenFilters) => {
-                                    return await getCharacters({ ...seenFilters, userId: seenProject.userId }, {}, charactersSearchObj.limit, charactersSearchObj.offset)
-                                }}
-                                showPage={true}
-                                searchFilters={{
-                                    name: {
-                                        value: "",
-                                    }
-                                }}
+                            <ShowMore
+                                label='search'
+                                content={(
+                                    <div className="container">
+                                        <Search
+                                            searchObj={charactersSearchObj}
+                                            searchObjSet={charactersSearchObjSet}
+                                            searchFunc={async (seenFilters) => {
+                                                return await getCharacters({ ...seenFilters, userId: seenProject.userId }, {}, charactersSearchObj.limit, charactersSearchObj.offset)
+                                            }}
+                                            showPage={true}
+                                            searchFilters={{
+                                                name: {
+                                                    value: "",
+                                                }
+                                            }}
+                                        />
+
+                                        {charactersSearchObj.searchItems.length > 0 && (
+                                            <ViewItems
+                                                itemObjs={charactersSearchObj.searchItems.map(eachSearchItem => {
+                                                    return {
+                                                        item: eachSearchItem,
+                                                        Element: <ViewCharacter seenCharacter={eachSearchItem} viewAll={false} />
+                                                    }
+                                                })}
+                                                selectedIds={charactersInProject.map(eachCharacterInProject => eachCharacterInProject.id)}
+                                                selectionAction={async (eachCharacter) => {
+                                                    try {
+                                                        //server functions
+                                                        const inProject = await getSpecificCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id }) !== undefined
+
+                                                        if (!inProject) {
+                                                            await addCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id })
+                                                            toast.success("selected user")
+
+                                                        } else {
+                                                            await deleteCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id })
+                                                            toast.success("de-selected user")
+                                                        }
+
+                                                        //refresh project from server
+                                                        refreshFromServer.current = true
+                                                        refreshProjectPath(seenProject.id)
+
+                                                    } catch (error) {
+                                                        consoleAndToastError(error)
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                                startShowing={true}
                             />
 
-                            {charactersSearchObj.searchItems.length > 0 && (
-                                <ViewItems
-                                    itemObjs={charactersSearchObj.searchItems.map(eachSearchItem => {
-                                        return {
-                                            item: eachSearchItem,
-                                            Element: <ViewCharacter seenCharacter={eachSearchItem} viewAll={false} />
-                                        }
-                                    })}
-                                    selectedIds={charactersInProject.map(eachCharacterInProject => eachCharacterInProject.id)}
-                                    selectionAction={async (eachCharacter) => {
-                                        try {
-                                            //server functions
-                                            const inProject = await getSpecificCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id }) !== undefined
+                            {charactersInProject.length > 0 && (
+                                <>
+                                    <h2>Characters in project</h2>
 
-                                            if (!inProject) {
-                                                await addCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id })
-                                                toast.success("selected user")
+                                    <ViewItems
+                                        itemObjs={charactersInProject.map(eachCharacterInProject => {
+                                            const seenActiveCharacterClothingId: activeCharacterClothingType["key"] = project.current.activeCharacterClothingStarter[eachCharacterInProject.id]
+                                            const foundClothing: clothingType | undefined = seenActiveCharacterClothingId !== undefined ? eachCharacterInProject.clothing.find(eachClothingItem => eachClothingItem.id === seenActiveCharacterClothingId) : undefined
 
-                                            } else {
-                                                await deleteCharacterToProject({ characterId: eachCharacter.id, projectId: seenProject.id })
-                                                toast.success("de-selected user")
+                                            //ensure exists for character for first time
+                                            if (seenActiveCharacterClothingId === undefined) {
+                                                //update activeCharacterClothingStarter
+                                                project.current.activeCharacterClothingStarter[eachCharacterInProject.id] = eachCharacterInProject.clothing[0].id
+
+                                                //refresh
+                                                refreshProject(["activeCharacterClothingStarter"])
                                             }
 
-                                            //refresh project from server
-                                            refreshFromServer.current = true
-                                            refreshProjectPath(seenProject.id)
+                                            return {
+                                                item: eachCharacterInProject,
+                                                Element: (
+                                                    <div className="container">
+                                                        <ViewCharacter seenCharacter={eachCharacterInProject} viewAll={false} />
 
-                                        } catch (error) {
-                                            consoleAndToastError(error)
-                                        }
-                                    }}
-                                />
+                                                        {seenActiveCharacterClothingId !== undefined && foundClothing !== undefined && (
+                                                            <>
+                                                                <b>Clothing start</b>
+
+                                                                <Select
+                                                                    name={`${eachCharacterInProject.id}ActiveCharacterClothingStarter`}
+                                                                    value={foundClothing.name}
+                                                                    valueOptions={eachCharacterInProject.clothing.map(eachClothingItem => eachClothingItem.name)}
+                                                                    onChange={value => {
+                                                                        const foundClothingItem: clothingType | undefined = eachCharacterInProject.clothing.find(eachClothingItem => eachClothingItem.name === value)
+                                                                        if (foundClothingItem === undefined) throw new Error("not seeing foundClothingItem from name")
+
+                                                                        project.current.activeCharacterClothingStarter[eachCharacterInProject.id] = foundClothingItem.id
+
+                                                                        //refresh
+                                                                        refreshProject(["activeCharacterClothingStarter"])
+                                                                    }}
+                                                                />
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )
+                                            }
+                                        })}
+                                    />
+                                </>
                             )}
                         </div>
                     )}
@@ -678,10 +747,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                     <button className="button1"
                                                                         onClick={() => {
                                                                             const newScene: sceneType = {
+                                                                                ...makeScenesNewManualObj.current,
                                                                                 id: uuidV4(),
-                                                                                dialogue: [],
-                                                                                title: makeScenesNewManualObj.current.title,
-                                                                                backgroundImageSrc: makeScenesNewManualObj.current.backgroundImageSrc,
+                                                                                activeCharacterClothing: project.current.activeCharacterClothingStarter,
                                                                             }
 
                                                                             //validation
@@ -859,7 +927,7 @@ function ViewScene({ scene, charactersInProject }: {
 }
 
 function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
-    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables?: { scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string, activeCharacterClothing?: activeCharacterClothingType }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
 }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
@@ -921,10 +989,10 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
-            const newAlteredSceneResponse = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
+            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions, activeCharacterClothing: sceneToReplace.activeCharacterClothing })
+            const alteredScene = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
 
-            const newReplacedScene = { ...newAlteredSceneResponse.scene, id: sceneToReplace.id }
+            const newReplacedScene = { ...alteredScene }
 
             //save scenes to variations - old and new
             project.current.alterScenesObj[sceneToReplace.id].variations = [...project.current.alterScenesObj[sceneToReplace.id].variations, sceneToReplace, newReplacedScene]
@@ -1134,14 +1202,14 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
-            const makeDialogueResponse = await makeDialogue(newDialoguePrompt, finalBaseInstructions)
+            const madeDialogue = await makeDialogue(newDialoguePrompt, finalBaseInstructions)
 
             //add the dialogue
             project.current.scenes = project.current.scenes.map(eachScene => {
                 if (eachScene.id === scene.id) {
                     eachScene.dialogue = [
                         ...eachScene.dialogue.slice(0, addingDialogueIndex.current), //before
-                        ...makeDialogueResponse.dialogue,
+                        ...madeDialogue,
                         ...eachScene.dialogue.slice(addingDialogueIndex.current), //after
                     ]
                 }
@@ -1404,6 +1472,125 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                 <Image alt={`scene${scene.id}backgroundImage`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
             )}
 
+            <ShowMore
+                label="active character clothing"
+                content={(
+                    <div className="container">
+                        <div className="container">
+                            {Object.entries(scene.activeCharacterClothing).map(eachEntry => {
+                                const eachKey = eachEntry[0] //character id
+                                const eachValue = eachEntry[1] //clothing id
+
+                                const foundCharacter: characterType | undefined = charactersInProject.find(eachCharacterInProject => eachCharacterInProject.id === eachKey)
+                                const foundClothing: clothingType | undefined = foundCharacter !== undefined ? foundCharacter.clothing.find(eachClothingItem => eachClothingItem.id === eachValue) : undefined
+
+                                return (
+                                    <div key={eachKey} style={{ display: "flex", alignItems: "center", gap: "var(--spacingR)" }}>
+                                        {/* <del */}
+
+                                        {foundCharacter !== undefined && (
+                                            <>
+                                                <p>{foundCharacter.name}</p>
+
+                                                {foundClothing !== undefined ? (
+                                                    <>
+                                                        <Select
+                                                            name={`${scene.id}ActiveCharacterClothing`}
+                                                            value={foundClothing.name}
+                                                            valueOptions={foundCharacter.clothing.map(eachClothingItem => eachClothingItem.name)}
+                                                            onChange={value => {
+                                                                project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                                    if (eachSceneMap.id === scene.id) {
+                                                                        //react refresh
+                                                                        eachSceneMap = { ...eachSceneMap }
+                                                                        eachSceneMap.activeCharacterClothing = { ...eachSceneMap.activeCharacterClothing }
+
+                                                                        const foundClothingItem: clothingType | undefined = foundCharacter.clothing.find(eachClothingItem => eachClothingItem.name === value)
+                                                                        if (foundClothingItem === undefined) throw new Error("not seeing foundClothingItem from name")
+
+                                                                        eachSceneMap.activeCharacterClothing[eachKey] = foundClothingItem.id
+                                                                    }
+
+                                                                    return eachSceneMap
+                                                                })
+
+                                                                //refresh
+                                                                refreshProject(["scenes"])
+                                                            }}
+                                                        />
+                                                    </>
+                                                ) : (
+                                                    <div className="container">
+                                                        <p>not seeing active clothing selection for character</p>
+
+                                                        <button className="button2"
+                                                            onClick={() => {
+                                                                project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                                    if (eachSceneMap.id === scene.id) {
+                                                                        //react refresh
+                                                                        eachSceneMap = { ...eachSceneMap }
+                                                                        eachSceneMap.activeCharacterClothing = { ...eachSceneMap.activeCharacterClothing }
+
+                                                                        const foundCharacter = charactersInProject.find(eachCharacterInProject => eachCharacterInProject.id === eachKey)
+                                                                        if (foundCharacter === undefined) throw new Error("not seeing character")
+
+                                                                        //set first in clothing array as default
+                                                                        eachSceneMap.activeCharacterClothing[eachKey] = foundCharacter.clothing[0].id
+                                                                    }
+
+                                                                    return eachSceneMap
+                                                                })
+
+                                                                //refresh
+                                                                refreshProject(["scenes"])
+                                                            }}
+                                                        >reset</button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        {Object.entries(scene.activeCharacterClothing).length !== charactersInProject.length && (
+                            <button className="button1"
+                                onClick={() => {
+                                    const newActiveCharacterClothingPre = charactersInProject.map(eachCharacterInProject => {
+                                        if (scene.activeCharacterClothing === undefined) return null
+
+                                        if (scene.activeCharacterClothing[eachCharacterInProject.id] === undefined) {
+
+                                            //add first time
+                                            return [eachCharacterInProject.id, eachCharacterInProject.clothing[0].id]
+
+                                        } else {
+                                            //seeing already so just return original
+                                            return [eachCharacterInProject.id, scene.activeCharacterClothing[eachCharacterInProject.id]]
+                                        }
+                                    })
+                                    const newActiveCharacterClothing: sceneType["activeCharacterClothing"] = Object.fromEntries(newActiveCharacterClothingPre.filter(eachEntryArr => eachEntryArr !== null))
+
+                                    project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                        if (eachSceneMap.id === scene.id) {
+                                            //react refresh
+                                            eachSceneMap = { ...eachSceneMap }
+                                            eachSceneMap.activeCharacterClothing = { ...newActiveCharacterClothing }
+                                        }
+
+                                        return eachSceneMap
+                                    })
+
+                                    //refresh
+                                    refreshProject(["scenes"])
+                                }}
+                            >Add clothing</button>
+                        )}
+                    </div>
+                )}
+            />
+
             <div className="container">
                 {scene.dialogue.map((eachDialogue, eachDialogueIndex) => {
                     const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
@@ -1463,19 +1650,17 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
                             {foundCharacter !== undefined ? (
                                 <>
-                                    <div>
-                                        <Select
-                                            name={`${eachDialogue.id}characterId`}
-                                            value={`${foundCharacter.name}____${eachDialogue.characterId}`}
-                                            valueOptions={charactersInProject.map(eachCharacterInProject => `${eachCharacterInProject.name}____${eachCharacterInProject.id}`)}
-                                            style={{ fontWeight: "bold" }}
-                                            onChange={value => {
-                                                const usableValue = value.split("____")
+                                    <Select
+                                        name={`${eachDialogue.id}characterId`}
+                                        value={`${foundCharacter.name}____${eachDialogue.characterId}`}
+                                        valueOptions={charactersInProject.map(eachCharacterInProject => `${eachCharacterInProject.name}____${eachCharacterInProject.id}`)}
+                                        style={{ fontWeight: "bold" }}
+                                        onChange={value => {
+                                            const usableValue = value.split("____")
 
-                                                updateDialogue(usableValue[1], "characterId", eachDialogue.id)
-                                            }}
-                                        />
-                                    </div>
+                                            updateDialogue(usableValue[1], "characterId", eachDialogue.id)
+                                        }}
+                                    />
 
                                     <TextArea
                                         name={`dialogueSentence${eachDialogue.id}`}

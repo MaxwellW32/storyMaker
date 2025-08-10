@@ -16,6 +16,8 @@ export type tableNames = keyof schemaType
 
 
 
+export const activeCharacterClothingSchema = z.lazy(() => z.record(characterSchema.shape.id, clothingSchema.shape.id)) //each character id, maps to a specific clothing id in that scene
+export type activeCharacterClothingType = z.infer<typeof activeCharacterClothingSchema>
 
 export const dialogueSchema = z.object({
     id: z.string().min(1),
@@ -30,21 +32,32 @@ export const sceneSchema = z.object({
     title: z.string().min(1),
     dialogue: dialogueSchema.array(),
     backgroundImageSrc: z.string().min(1).nullable(),
+    activeCharacterClothing: activeCharacterClothingSchema,
 })
 export type sceneType = z.infer<typeof sceneSchema>
 
+export const sceneForGptSchema = sceneSchema.omit({
+    id: true,
+    backgroundImageSrc: true,
+    activeCharacterClothing: true,
+});
+export type sceneForGptType = z.infer<typeof sceneForGptSchema>
+
+
+
+
 export const gptStoryResponseSchema = z.object({
-    scenes: sceneSchema.array(),
+    scenes: sceneForGptSchema.array(),
 })
 export type gptStoryResponseType = z.infer<typeof gptStoryResponseSchema>
 
 export const gptAlterSceneResponseSchema = z.object({
-    scene: sceneSchema
+    scene: sceneForGptSchema
 })
 export type gptAlterSceneResponseType = z.infer<typeof gptAlterSceneResponseSchema>
 
 export const gptMakeScenesResponseSchema = z.object({
-    scenes: sceneSchema.array()
+    scenes: sceneForGptSchema.array()
 })
 export type gptMakeScenesResponseType = z.infer<typeof gptMakeScenesResponseSchema>
 
@@ -53,11 +66,12 @@ export const gptMakeDialogueResponseSchema = z.object({
 })
 export type gptMakeDialogueResponseType = z.infer<typeof gptMakeDialogueResponseSchema>
 
-
-
-
 export const gptNewCharacterResponseSchema = z.object({
-    newCharacter: z.lazy(() => newCharacterSchema),
+    newCharacter: z.lazy(() => newCharacterSchema.omit({
+        userId: true,
+        voiceId: true,
+        clothing: true,
+    })),
 })
 export type gptNewCharacterResponseType = z.infer<typeof gptNewCharacterResponseSchema>
 
@@ -222,6 +236,7 @@ export const projectSchema = z.object({
     scenes: sceneSchema.array(),
     alterScenesObj: alterScenesObjSchema,
     alterDialogueObj: alterDialogueObjSchema,
+    activeCharacterClothingStarter: activeCharacterClothingSchema,
 
     //null
 
@@ -235,7 +250,7 @@ export type projectType = z.infer<typeof projectSchema> & {
     fromUser?: userType
 }
 
-export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true, alterDialogueObj: true })
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, activeCharacterClothingStarter: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
 export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true, userId: true })
@@ -249,7 +264,7 @@ export const clothingSchema = z.object({
     name: z.string().min(1),
     description: z.string().min(1),
     file: dbFileSchema, //reference image
-    uploadedFrom: z.enum(["main", "project"]),
+    uploadedFrom: z.enum(["main", "project"]), //use eventually
 })
 export type clothingType = z.infer<typeof clothingSchema>
 
@@ -262,7 +277,7 @@ export const characterSchema = z.object({
     voiceId: z.string().min(1, "please provide a voice id from eleven labs"),
     personality: z.string().min(1),
     appearance: z.string().min(1),
-    clothing: clothingSchema.array(),
+    clothing: clothingSchema.array().min(1, "please add character clothing"),
     toneOfVoice: z.string(),
     dialogueStyle: z.string(),
     alignment: z.string(),

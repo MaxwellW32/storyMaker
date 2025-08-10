@@ -341,10 +341,10 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
 
             toast.success("Generating character...")
 
-            const newCharacterResponse = await makeCharacter(makeNewCharacterInstructionsObj.prompt, makeNewCharacterInstructionsObj.baseInstructions)
+            const newCharacter = await makeCharacter(makeNewCharacterInstructionsObj.prompt, makeNewCharacterInstructionsObj.baseInstructions)
 
             //set new character
-            formObjSet({ ...newCharacterResponse.newCharacter })
+            formObjSet({ ...newCharacter })
 
         } catch (error) {
             consoleAndToastError(error)
@@ -628,14 +628,13 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
 
             {formObj.appearance !== undefined && (
                 <>
-                    <TextInput
+                    <TextArea
                         name={"appearance"}
                         value={formObj.appearance}
-                        type={"text"}
                         label={"character appearance"}
                         placeHolder={"Highly detailed character appearance..."}
                         required=''
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        onChange={e => {
                             formObjSet(prevFormObj => {
                                 const newFormObj = { ...prevFormObj }
                                 if (newFormObj.appearance === undefined) return prevFormObj
@@ -653,7 +652,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
 
             {formObj.clothing !== undefined && (
                 <>
-                    <label>Clothing options</label>
+                    <label>Clothing options*</label>
 
                     <div className='gridColumns snap'>
                         {formObj.clothing.map(eachClothingItem => {
@@ -692,7 +691,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                     <TextInput
                                         name={`${eachClothingItem.id}clothingName`}
                                         value={eachClothingItem.name}
-                                        placeHolder="Enter clothing name..."
+                                        placeHolder="Clothing name. E.g Default, Summer wear..."
                                         onChange={(e) => {
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }

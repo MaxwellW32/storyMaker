@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptAlterSceneResponseType, gptNewCharacterResponseSchema, gptNewCharacterResponseType, gptMakeScenesResponseSchema, gptMakeScenesResponseType, gptStoryResponseSchema, gptStoryResponseType, sceneType, gptMakeDialogueResponseSchema, gptMakeDialogueResponseType } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterClothingType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 
 dotenv.config({ path: ".env.local" });
@@ -13,7 +13,7 @@ const openai = new OpenAI({
     apiKey: apiKey
 });
 
-export async function makeStory(prompt: string, baseInstructions: string): Promise<gptStoryResponseType> {
+export async function makeStory(prompt: string, baseInstructions: string, activeCharacterClothingStarter: activeCharacterClothingType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -24,10 +24,7 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
     });
 
     const seenGptStoryResponse = gptStoryResponseSchema.parse(response.output_parsed)
-    seenGptStoryResponse.scenes = seenGptStoryResponse.scenes.map(eachScene => {
-        //ensure proper id
-        eachScene.id = uuidV4()
-
+    const newScenes: sceneType[] = seenGptStoryResponse.scenes.map(eachScene => {
         //assign new ids to dialogue
         eachScene.dialogue = eachScene.dialogue.map(eachDialogue => {
             eachDialogue.id = uuidV4()
@@ -35,13 +32,18 @@ export async function makeStory(prompt: string, baseInstructions: string): Promi
             return eachDialogue
         })
 
-        return eachScene
+        const newScene: sceneType = {
+            ...eachScene,
+            id: uuidV4(),
+            backgroundImageSrc: null,
+            activeCharacterClothing: activeCharacterClothingStarter
+        }
+        return newScene
     })
 
-    return seenGptStoryResponse
+    return newScenes
 }
-
-export async function makeScenes(prompt: string, baseInstructions: string): Promise<gptMakeScenesResponseType> {
+export async function makeScenes(prompt: string, baseInstructions: string, activeCharacterClothingStarter: activeCharacterClothingType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -53,10 +55,7 @@ export async function makeScenes(prompt: string, baseInstructions: string): Prom
 
     const seenGptMakeScenesResponse = gptMakeScenesResponseSchema.parse(response.output_parsed)
 
-    seenGptMakeScenesResponse.scenes = seenGptMakeScenesResponse.scenes.map(eachScene => {
-        //make scene id
-        eachScene.id = uuidV4()
-
+    const newScenes: sceneType[] = seenGptMakeScenesResponse.scenes.map(eachScene => {
         //assign new ids to dialogue
         eachScene.dialogue = eachScene.dialogue.map(eachDialogue => {
             eachDialogue.id = uuidV4()
@@ -64,12 +63,18 @@ export async function makeScenes(prompt: string, baseInstructions: string): Prom
             return eachDialogue
         })
 
-        return eachScene
+        const newScene: sceneType = {
+            ...eachScene,
+            id: uuidV4(),
+            backgroundImageSrc: null,
+            activeCharacterClothing: activeCharacterClothingStarter
+        }
+        return newScene
     })
 
-    return seenGptMakeScenesResponse
+    return newScenes
 }
-export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType): Promise<gptAlterSceneResponseType> {
+export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType): Promise<sceneType> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -81,7 +86,6 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
 
     //keep same scene id
     const seenGptAlterSceneResponse = gptAlterSceneResponseSchema.parse(response.output_parsed)
-    seenGptAlterSceneResponse.scene.id = scene.id
 
     //assign new ids to dialogue
     seenGptAlterSceneResponse.scene.dialogue = seenGptAlterSceneResponse.scene.dialogue.map(eachDialogue => {
@@ -90,10 +94,15 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
         return eachDialogue
     })
 
-    return seenGptAlterSceneResponse
+    const alteredScene: sceneType = {
+        ...scene,
+        ...seenGptAlterSceneResponse.scene, //overwrites what it needs to
+    }
+
+    return alteredScene
 }
 
-export async function makeDialogue(prompt: string, baseInstructions: string): Promise<gptMakeDialogueResponseType> {
+export async function makeDialogue(prompt: string, baseInstructions: string): Promise<dialogueType[]> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -112,10 +121,10 @@ export async function makeDialogue(prompt: string, baseInstructions: string): Pr
         return eachDialogue
     })
 
-    return seenGptMakeDialogueResponse
+    return seenGptMakeDialogueResponse.dialogue
 }
 
-export async function makeCharacter(prompt: string, baseInstructions: string): Promise<gptNewCharacterResponseType> {
+export async function makeCharacter(prompt: string, baseInstructions: string): Promise<newCharacterType> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -127,8 +136,13 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
 
     const seenGptNewCharacterResponse = gptNewCharacterResponseSchema.parse(response.output_parsed)
 
-    //ensure doesn't contain images
-    seenGptNewCharacterResponse.newCharacter.clothing = []
+    //add on required fields
+    const newCharacter: newCharacterType = {
+        ...seenGptNewCharacterResponse.newCharacter,
+        userId: "DummyData",
+        voiceId: "",
+        clothing: [],
+    }
 
-    return seenGptNewCharacterResponse
+    return newCharacter
 }

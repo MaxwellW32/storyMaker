@@ -1,4 +1,4 @@
-import { alterDialogueObjType, alterScenesObjType, clothingType, sceneType } from "@/types";
+import { activeCharacterClothingType, alterDialogueObjType, alterScenesObjType, clothingType, sceneType } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -31,6 +31,7 @@ export const projects = pgTable("projects", {
     scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
     alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),
+    activeCharacterClothingStarter: json("activeCharacterClothingStarter").$type<activeCharacterClothingType>().notNull().default({}),
 
     //regular
     name: text("name").notNull(),
@@ -145,7 +146,6 @@ export const charactersToProjects = pgTable("charactersToProjects", {
 
     characterId: text("characterId").notNull().references(() => characters.id),
     projectId: text("projectId").notNull().references(() => projects.id),
-    //clothes
 },
     (t) => {
         return {
