@@ -2,7 +2,7 @@
 import ShowMore from "@/components/showMore/ShowMore"
 import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterDialogueObjType, alterScenesObjType, characterType, dialogueSchema, dialogueType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterDialogueObjType, alterScenesObjType, characterType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -385,6 +385,33 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     async function handleMakeOutput() {
         try {
             //download 
+            toast.success("downloading")
+
+            const newDownloadProjectBody: downloadProjectBodyType = {
+                projectId: seenProject.id,
+            }
+
+            //validation
+            downloadProjectBodySchema.parse(newDownloadProjectBody)
+
+            const response = await fetch(`/api/projects/download`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newDownloadProjectBody),
+            })
+            toast.success("project downloded!")
+
+            //download action
+            const responseBlob = await response.blob()
+            const url = window.URL.createObjectURL(responseBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${seenProject.name}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
 
         } catch (error) {
             consoleAndToastError(error)
