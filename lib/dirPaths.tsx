@@ -8,3 +8,5 @@ export const imagesDirName = "images"
 export const charactersDirName = "characters"
 
 export const projectStagingAreaDir = path.join(process.cwd(), "projectStagingArea")
+
+export const afterEffectsProjectScriptFile = path.join(process.cwd(), "afterEffectsProjectScript.jsx")

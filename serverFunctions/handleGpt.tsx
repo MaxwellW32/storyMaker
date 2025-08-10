@@ -127,5 +127,8 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
 
     const seenGptNewCharacterResponse = gptNewCharacterResponseSchema.parse(response.output_parsed)
 
+    //ensure doesn't contain images
+    seenGptNewCharacterResponse.newCharacter.images = []
+
     return seenGptNewCharacterResponse
 }

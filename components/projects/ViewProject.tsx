@@ -2,7 +2,7 @@
 import ShowMore from "@/components/showMore/ShowMore"
 import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { alterDialogueObjType, alterScenesObjType, characterType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterDialogueObjType, alterScenesObjType, characterSchema, characterType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -109,7 +109,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         if (projectSaveDebounce.current[debounceKey]) clearTimeout(projectSaveDebounce.current[debounceKey])
 
         //send off one batch update
-        projectSaveDebounce.current[debounceKey] = setTimeout(() => {
+        projectSaveDebounce.current[debounceKey] = setTimeout(async () => {
             try {
                 const pickShape = Object.fromEntries(
                     specificKeys.map(key => [key, true])
@@ -121,7 +121,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 console.log(`$sending to server update`, validatedProject);
 
                 //send to server
-                updateProject(seenProject.id, validatedProject)
+                await updateProject(seenProject.id, validatedProject)
+
+                console.log(`$update confirmed on server`);
 
             } catch (error) {
                 consoleAndToastError(error)
@@ -346,7 +348,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
 
                 //add on audio fileName
-                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.push(makeAudioResponse.dialogueAudioFileName)
+                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeAudioResponse.dialogueAudioFileName]
 
                 //set variation Index to latest
                 project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1
@@ -385,7 +387,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     async function handleMakeOutput() {
         try {
             //download 
-            toast.success("downloading")
+            toast.success("downloading project")
 
             const newDownloadProjectBody: downloadProjectBodyType = {
                 projectId: seenProject.id,
@@ -401,7 +403,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 },
                 body: JSON.stringify(newDownloadProjectBody),
             })
-            toast.success("project downloded!")
+            toast.success("downloaded!")
 
             //download action
             const responseBlob = await response.blob()

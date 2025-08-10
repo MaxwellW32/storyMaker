@@ -1,15 +1,13 @@
 //To Do
-//make a characters folder, make a mainProject folder
-//read characters in project, compile all files from them
-//download project specific resources - audio zip
+//build out audio, text, images for the story - each scene, each dialogue
 //figure out after effects
 //make a timeline
-//omit images from character on gpt
+//generate images for characters, generate background images
 
 
 
 
-//remem ber sync env variables
+//remember sync env variables
 
 
 
