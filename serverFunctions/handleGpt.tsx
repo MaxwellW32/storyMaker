@@ -133,8 +133,7 @@ export async function makeSceneBackgroundImages(prompt: string, projectId: strin
             return `\n${domainName}/api/characters/images/download?characterId=${eachCharacter.id}&src=${activeClothing.file.src}`
         }).join("")
     }
-
-    const baseInstructions = `condense this prompt:${prompt} into an incredibly detailed appearance prompt for gpt image generation for each scene. keep the character reference urls unchanged\ncharacter reference urls:\n${makeReferenceUrls()}`;
+    const baseInstructions = `condense the prompt below into an incredibly detailed appearance prompt for gpt image generation for each scene. keep the character reference urls unchanged\ncharacter reference urls:\n${makeReferenceUrls()}\nprompt:\n${prompt}`;
 
     //refine prompt to ensure it fits
     const response = await openai.responses.parse({

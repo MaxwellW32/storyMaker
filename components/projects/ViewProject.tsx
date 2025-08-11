@@ -228,7 +228,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             // const characterAppearanceOnlySchema = characterSchema.pick({ name: true, age: true, personality: true, appearance: true, clothing: true })
             const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
 
-            const prompt = `\nmake an image for each of these scene descriptions\nBe mindfull of character appearance and clothing\ndescriptions: ${scenesToUse.map((eachSceneToUse, eachSceneToUseIndex) => `scene ${eachSceneToUseIndex}: ${eachSceneToUse.visuals}`).join("\n")}`
+            const prompt = `\nmake an image for each of these scene descriptions\nBe mindfull of character appearance and clothing descriptions:\n ${scenesToUse.map((eachSceneToUse, eachSceneToUseIndex) => `scene ${eachSceneToUseIndex + 1}: ${eachSceneToUse.visuals}`).join("\n")}`
             const sceneBackgroundImageObjResponse = await makeSceneBackgroundImages(prompt, seenProject.id, scenesToUse, charactersInProject, activeCharacterClothing, window.location.origin)
             console.log(`$sceneBackgroundImageObjResponse`, sceneBackgroundImageObjResponse);
 
