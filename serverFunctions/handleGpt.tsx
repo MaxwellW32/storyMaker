@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterClothingType, projectType, gptCondensePromptResponseSchema, characterType } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterClothingType, characterType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import path from "path";
 import fs from "fs/promises";
@@ -106,21 +106,8 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
     return alteredScene
 }
 
-type sceneBackgroundImageObjType = {
-    [key: string]: {
-        src: string
-    }
-}
-
-export async function makeSceneBackgroundImages(prompt: string, projectId: string, scenes: sceneType[], characters: characterType[], activeCharacterClothing: activeCharacterClothingType, domainName: string): Promise<sceneBackgroundImageObjType> {
-    console.log(`$prompt`, prompt);
-    //what to do
-    //prompt that details to base on all scene visuals descriptions...
-    //upload character reference images - from found character - clothing...
-    //send those files to the api
-    //get back all scenes...
-
-    const sceneBackgroundImageObj: sceneBackgroundImageObjType = {}
+export async function makeSceneBackgroundImages(prompt: string, projectId: string, scene: sceneType, characters: characterType[], activeCharacterClothing: activeCharacterClothingType, domainName: string): Promise<{ src: string }> {
+    console.log(`$prompt`, prompt)
 
     function makeReferenceUrls() {
         return characters.map(eachCharacter => {
@@ -133,60 +120,39 @@ export async function makeSceneBackgroundImages(prompt: string, projectId: strin
             return `\n${domainName}/api/characters/images/download?characterId=${eachCharacter.id}&src=${activeClothing.file.src}`
         }).join("")
     }
-    const baseInstructions = `condense the prompt below into an incredibly detailed appearance prompt for gpt image generation for each scene. keep the character reference urls unchanged\ncharacter reference urls:\n${makeReferenceUrls()}\nprompt:\n${prompt}`;
-
-    //refine prompt to ensure it fits
-    const response = await openai.responses.parse({
-        model: "gpt-4.1",
-        instructions: baseInstructions,
-        input: prompt,
-        text: {
-            format: zodTextFormat(gptCondensePromptResponseSchema, "gptCondensePromptResponse"),
-        },
-    });
-    const seenGptCondensePromptResponse = gptCondensePromptResponseSchema.parse(response.output_parsed);
-    const condensedPrompt = seenGptCondensePromptResponse.prompt;
-    console.log(`$condensedPrompt`, condensedPrompt);
+    const finalPrompt = `${prompt}\n\nreferenceImages:${makeReferenceUrls()}`;
+    console.log(`$finalPrompt`, finalPrompt)
 
     //generate images for all scenes
     const result = await openai.images.generate({
         model: "dall-e-3",
-        prompt: condensedPrompt,
-        n: scenes.length
+        prompt: finalPrompt,
     });
 
-    console.log(`$result`, JSON.stringify(result));
-    if (!result.data?.length) return sceneBackgroundImageObj;
+    if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
     // Create images dir
     const mainDirectory = path.join(uploadedDataDir, projectsDirName, projectId, imagesDirName);
     await ensureDirectoryExists(mainDirectory);
 
-    await Promise.all(result.data.map(async (eachResultData, eachResultDataIndex) => {
-        const eachScene = scenes[eachResultDataIndex]
+    const imageName = `${scene.id}___${uuidV4()}.png`;
+    const documentPath = path.join(mainDirectory, imageName);
 
-        const imageName = `${eachScene.id}___${uuidV4()}.png`;
-        const documentPath = path.join(mainDirectory, imageName);
+    // If base64 is returned
+    if (result.data[0].b64_json) {
+        const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
+        await fs.writeFile(documentPath, image_bytes);
 
-        if (eachResultData.b64_json) {
-            // If base64 is returned
-            const image_bytes = Buffer.from(eachResultData.b64_json, "base64");
-            await fs.writeFile(documentPath, image_bytes);
+    } else if (result.data[0].url) {
+        // If URL is returned
+        const res = await fetch(result.data[0].url);
+        const buffer = Buffer.from(await res.arrayBuffer());
+        await fs.writeFile(documentPath, buffer);
+    }
 
-        } else if (eachResultData.url) {
-            // If URL is returned
-            const res = await fetch(eachResultData.url);
-            const buffer = Buffer.from(await res.arrayBuffer());
-            await fs.writeFile(documentPath, buffer);
-        }
-
-        //add onto obj
-        sceneBackgroundImageObj[eachScene.id] = {
-            src: imageName
-        }
-    }))
-
-    return sceneBackgroundImageObj
+    return {
+        src: imageName
+    }
 }
 
 export async function makeDialogue(prompt: string, baseInstructions: string): Promise<dialogueType[]> {

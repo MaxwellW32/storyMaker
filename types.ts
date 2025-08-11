@@ -33,7 +33,7 @@ export const sceneSchema = z.object({
     dialogue: dialogueSchema.array(),
     backgroundImageSrc: z.string(),
     activeCharacterClothing: activeCharacterClothingSchema,
-    visuals: z.string().min(1, "describe the visual appearance of the scene").max(1000), //whats happening in the scene
+    visuals: z.string().min(1, "describe the visual appearance of the scene").max(2000), //describes what's happening visually
 })
 export type sceneType = z.infer<typeof sceneSchema>
 
@@ -75,11 +75,6 @@ export const gptNewCharacterResponseSchema = z.object({
     })),
 })
 export type gptNewCharacterResponseType = z.infer<typeof gptNewCharacterResponseSchema>
-
-export const gptCondensePromptResponseSchema = z.object({
-    prompt: z.string().max(4000),
-})
-export type gptCondensePromptResponseType = z.infer<typeof gptCondensePromptResponseSchema>
 
 
 

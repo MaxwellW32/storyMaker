@@ -10,29 +10,35 @@ export default function UseRateLimit({ concurrencyLimitVal = 5, checkInTime = 1_
         //increase amt in queue
         amtInQueue.current++
 
-        async function runCheck() {
-            if (amtInQueue.current > 0) {
-                //run if able
-                if (amtRunning.current < concurrencyLimit.current) {
-                    //increase amt running
-                    amtRunning.current++
+        await new Promise(resolve => {
+            async function runCheck() {
+                if (amtInQueue.current > 0) {
+                    //run if able
+                    if (amtRunning.current < concurrencyLimit.current) {
+                        //increase amt running
+                        amtRunning.current++
 
-                    //wait for function
-                    await funcToRun()
+                        //wait for function
+                        await funcToRun()
 
-                    //running finished - clean up
-                    amtRunning.current--
-                    if (amtRunning.current < 0) amtRunning.current = 0 //ensure in bounds
+                        //running finished - clean up
+                        amtRunning.current--
+                        if (amtRunning.current < 0) amtRunning.current = 0 //ensure in bounds
 
-                    amtInQueue.current--
-                    if (amtInQueue.current < 0) amtInQueue.current = 0 //ensure in bounds
+                        amtInQueue.current--
+                        if (amtInQueue.current < 0) amtInQueue.current = 0 //ensure in bounds
+
+                    } else {
+                        setTimeout(runCheck, checkInTime)
+                    }
 
                 } else {
-                    setTimeout(runCheck, checkInTime)
+                    //resovle finished
+                    resolve(true)
                 }
             }
-        }
-        runCheck()
+            runCheck()
+        })
     }
 
     return { rateLimit }

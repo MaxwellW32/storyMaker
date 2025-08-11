@@ -32,7 +32,9 @@ type editModeType = {
 }
 
 export default function ViewProject({ seenProject }: { seenProject: projectType }) {
-    const { rateLimit } = UseRateLimit({})
+    const { rateLimit: audioRateLimit } = UseRateLimit({})
+    const { rateLimit: sceneRateLimit } = UseRateLimit({ concurrencyLimitVal: 10 })
+
     const project = useRef<projectType>({ ...seenProject })
     const charactersInProject = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects.map(eachCharacterToProject => eachCharacterToProject.character).filter(each => each !== undefined) : []
     const [projectFormErrors, projectFormErrorsSet] = useState<{ [key: string]: string | undefined }>({})
@@ -216,36 +218,41 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         }
     }
 
-    async function handleGenerateSceneBackgroundImages(scenes: sceneType[], activeCharacterClothing: activeCharacterClothingType) {
+    async function handleGenerateSceneBackgroundImages(scenes: sceneType[]) {
         toast.success("generating images")
 
-        try {
-            //loop over each scene
-            //if background image not there run for it
-            //send up detailed character appearance, and reference image
-            //see if can do all scenes at once - or some at a time
+        const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
 
-            // const characterAppearanceOnlySchema = characterSchema.pick({ name: true, age: true, personality: true, appearance: true, clothing: true })
-            const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
-
-            const prompt = `\nmake an image for each of these scene descriptions\nBe mindfull of character appearance and clothing descriptions:\n ${scenesToUse.map((eachSceneToUse, eachSceneToUseIndex) => `scene ${eachSceneToUseIndex + 1}: ${eachSceneToUse.visuals}`).join("\n")}`
-            const sceneBackgroundImageObjResponse = await makeSceneBackgroundImages(prompt, seenProject.id, scenesToUse, charactersInProject, activeCharacterClothing, window.location.origin)
-            console.log(`$sceneBackgroundImageObjResponse`, sceneBackgroundImageObjResponse);
-
-            //update scene backgrounds
-            project.current.scenes = project.current.scenes.map(eachScene => {
-                if (sceneBackgroundImageObjResponse[eachScene.id] !== undefined) {
-                    eachScene.backgroundImageSrc = sceneBackgroundImageObjResponse[eachScene.id].src
-                }
-
-                return eachScene
+        //generate for all
+        await Promise.all(scenesToUse.map(async eachScene => {
+            //rate limit
+            await sceneRateLimit(async () => {
+                await actualRun(eachScene)
             })
+        }))
 
-            refreshProject(["scenes"])
-            toast.success("generated!")
+        toast.success("generated!")
 
-        } catch (error) {
-            consoleAndToastError(error)
+        async function actualRun(eachScene: sceneType) {
+            try {
+                const prompt = `Depict this scene. Note character appearance and clothing:\n${eachScene.visuals}`
+                const makeSceneBackgroundResponse = await makeSceneBackgroundImages(prompt, seenProject.id, eachScene, charactersInProject, eachScene.activeCharacterClothing, window.location.origin)
+                console.log(`$makeSceneBackgroundResponse`, makeSceneBackgroundResponse);
+
+                //update scene backgrounds
+                project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                    if (eachSceneMap.id === eachScene.id) {
+                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundResponse.src
+                    }
+
+                    return eachSceneMap
+                })
+
+                refreshProject(["scenes"])
+
+            } catch (error) {
+                consoleAndToastError(error)
+            }
         }
     }
 
@@ -356,7 +363,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
     async function handleDialogueAudio(eachDialogue: dialogueType, singleGeneration = true) {
         //rate limit
-        rateLimit(async () => {
+        audioRateLimit(async () => {
             await actualRun()
         })
 
@@ -636,9 +643,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 <button
                     onClick={async () => {
                         await handleGenerateStory()
-
-                        //run generate scene images
-                        await handleGenerateSceneBackgroundImages(project.current.scenes, project.current.activeCharacterClothingStarter)
                     }}
                     disabled={storyLoading.current}
                     className="button1"
@@ -670,7 +674,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                             <button className="button2"
                                 onClick={() => {
-                                    handleGenerateSceneBackgroundImages(project.current.scenes, project.current.activeCharacterClothingStarter)
+                                    handleGenerateSceneBackgroundImages(project.current.scenes)
                                 }}
                             >make images</button>
                         </div>
@@ -1745,6 +1749,28 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                         )}
                     </div>
                 )}
+            />
+
+            <label>scene visuals</label>
+
+            <TextArea
+                name={`scene${scene.id}Visual`}
+                value={scene.visuals}
+                placeHolder="Set the scene visuals - detailed"
+                onChange={(e) => {
+                    project.current.scenes = project.current.scenes.map(eachScene => {
+                        if (eachScene.id === scene.id) {
+                            eachScene.visuals = e.target.value
+                        }
+
+                        return eachScene
+                    })
+
+                    //refresh
+                    refreshProject(["scenes"])
+                }}
+                onBlur={() => checkProjectErrors(project.current)}
+                errors={projectFormErrors[`scenes/${sceneIndex}/visuals`]}
             />
 
             <div className="container">
