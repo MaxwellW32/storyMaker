@@ -91,9 +91,31 @@ export async function deleteImageForCharacter(characterId: characterType["id"], 
 
     //delete from folder
     await Promise.all(dbWithFilesObjs.map(async eachDbWithFileObj => {
-        const baseFolderPath = path.join(uploadedDataDir, charactersDirName, characterId, imagesDirName, eachDbWithFileObj.file.src)
+        const baseFolderPath = path.join(uploadedDataDir, charactersDirName, characterId, imagesDirName)
 
-        await fs.rm(baseFolderPath, { force: true, recursive: true })
+        try {
+            // Read all files in the folder
+            const files = await fs.readdir(baseFolderPath);
+
+            // Filter to find files containing the imageSrc in their name
+            const fileUUidOnly = eachDbWithFileObj.file.src.split(".")[0]
+            const matchingFiles = files.filter((file) => file.includes(fileUUidOnly));
+
+            // Delete each matching file
+            await Promise.all(
+                matchingFiles.map(async (file) => {
+                    const filePath = path.join(baseFolderPath, file);
+                    await fs.rm(filePath, { force: true });
+                })
+            );
+
+        } catch (err: any) {
+            if (err.code === "ENOENT") {
+                // Folder doesn’t exist, nothing to delete
+            }
+
+            throw err;
+        }
     })
     )
 }

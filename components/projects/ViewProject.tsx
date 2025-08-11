@@ -1,13 +1,12 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
-import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
-import { refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { activeCharacterClothingType, alterDialogueObjType, alterScenesObjType, characterType, clothingType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema } from "@/types"
+import { alterScene, makeDialogue, makeSceneBackgroundImages, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
+import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
+import { activeCharacterClothingType, alterDialogueObjType, alterScenesObjType, characterType, clothingType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
-import defaultImg from "@/public/default.jpg"
 import Search from "../search/Search"
 import { getCharacters } from "@/serverFunctions/handleCharacters"
 import ViewCharacter from "../characters/ViewCharacter"
@@ -20,7 +19,9 @@ import UseRateLimit from "../rateLimit/UseRateLimit"
 import Select from "../inputs/select/Select"
 import ConfirmationBox from "../confirmationBox/ConfirmationBox"
 import { v4 as uuidV4 } from "uuid"
-import { deepClone } from "@/utility/utility"
+import { convertBtyes, deepClone } from "@/utility/utility"
+import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from "@/lib/uploadFilesLib"
+import z from "zod"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
@@ -62,7 +63,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         title: "",
         dialogue: [],
         backgroundImageSrc: "",
-        activeCharacterClothing: {}
+        activeCharacterClothing: {},
+        visuals: ""
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
 
@@ -152,7 +154,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
             //loading
             storyLoading.current = true
-            project.current.scenes = []
 
             toast.success("Generating story...")
 
@@ -160,8 +161,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions, { activeCharacterClothing: project.current.activeCharacterClothingStarter })
             const madeScenes = await makeStory(project.current.prompt, finalBaseInstructions, project.current.activeCharacterClothingStarter)
 
-            //add scenes
-            project.current.scenes = madeScenes
+            //add ontp scenes
+            project.current.scenes = [...project.current.scenes, ...madeScenes]
 
             //refresh
             refreshProject(["scenes"])
@@ -215,8 +216,40 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         }
     }
 
+    async function handleGenerateSceneBackgroundImages(scenes: sceneType[], activeCharacterClothing: activeCharacterClothingType) {
+        toast.success("generating images")
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string }, atTop = true) {
+        try {
+            //loop over each scene
+            //if background image not there run for it
+            //send up detailed character appearance, and reference image
+            //see if can do all scenes at once - or some at a time
+
+            // const characterAppearanceOnlySchema = characterSchema.pick({ name: true, age: true, personality: true, appearance: true, clothing: true })
+            const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
+
+            const prompt = `\nmake an image for each of these scene descriptions\nBe mindfull of character appearance and clothing\ndescriptions: ${scenesToUse.map((eachSceneToUse, eachSceneToUseIndex) => `scene ${eachSceneToUseIndex}: ${eachSceneToUse.visuals}`).join("\n")}`
+            const sceneBackgroundImageObjResponse = await makeSceneBackgroundImages(prompt, seenProject.id, scenesToUse, charactersInProject, activeCharacterClothing, window.location.origin)
+            console.log(`$sceneBackgroundImageObjResponse`, sceneBackgroundImageObjResponse);
+
+            //update scene backgrounds
+            project.current.scenes = project.current.scenes.map(eachScene => {
+                if (sceneBackgroundImageObjResponse[eachScene.id] !== undefined) {
+                    eachScene.backgroundImageSrc = sceneBackgroundImageObjResponse[eachScene.id].src
+                }
+
+                return eachScene
+            })
+
+            refreshProject(["scenes"])
+            toast.success("generated!")
+
+        } catch (error) {
+            consoleAndToastError(error)
+        }
+    }
+
+    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, reduceCharacterSchema?: z.Schema }, atTop = true) {
         //add on characters
         //edit characters for clothes
         const finalCharactersInProject = deepClone(charactersInProject).map(eachCharacterInProject => {
@@ -229,7 +262,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             //assign single clothing item
             eachCharacterInProject.clothing = [foundClothingItem]
 
-            return eachCharacterInProject
+            //reduce object further
+
+            return variables.reduceCharacterSchema === undefined ? eachCharacterInProject : variables.reduceCharacterSchema.parse(eachCharacterInProject)
         })
         seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(finalCharactersInProject, null, 2))
 
@@ -445,7 +480,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             <section>
                 <ShowMore
                     label='characters'
-                    startShowing={true}
                     content={(
                         <div className='container'>
                             <ShowMore
@@ -600,7 +634,12 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 />
 
                 <button
-                    onClick={handleGenerateStory}
+                    onClick={async () => {
+                        await handleGenerateStory()
+
+                        //run generate scene images
+                        await handleGenerateSceneBackgroundImages(project.current.scenes, project.current.activeCharacterClothingStarter)
+                    }}
                     disabled={storyLoading.current}
                     className="button1"
                 >
@@ -628,6 +667,12 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                     {editMode.current.scenes ? "close_small" : "edit"}
                                 </span>
                             </button>
+
+                            <button className="button2"
+                                onClick={() => {
+                                    handleGenerateSceneBackgroundImages(project.current.scenes, project.current.activeCharacterClothingStarter)
+                                }}
+                            >make images</button>
                         </div>
 
                         <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
@@ -739,12 +784,12 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                         }}
                                                                     />
 
-                                                                    <TextInput
-                                                                        name="makeScenesNewManualObjBackgroundImg"
-                                                                        value={makeScenesNewManualObj.current.backgroundImageSrc}
-                                                                        placeHolder="Set the backgroundImageSrc src for the new Scene."
+                                                                    <TextArea
+                                                                        name="makeScenesNewManualObjAppearance"
+                                                                        value={makeScenesNewManualObj.current.visuals}
+                                                                        placeHolder="Set the title for the new Scene."
                                                                         onChange={(e) => {
-                                                                            makeScenesNewManualObj.current.backgroundImageSrc = e.target.value
+                                                                            makeScenesNewManualObj.current.visuals = e.target.value
 
                                                                             //general refresh
                                                                             refreshProject([])
@@ -783,7 +828,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                 )}
                                             </>
                                         ) : (
-                                            <ViewScene scene={eachScene} charactersInProject={charactersInProject} />
+                                            <ViewScene scene={eachScene} charactersInProject={charactersInProject} project={project} />
                                         )}
                                     </React.Fragment>
                                 )
@@ -909,8 +954,26 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     )
 }
 
-function ViewScene({ scene, charactersInProject }: {
-    scene: sceneType, charactersInProject: characterType[]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function ViewScene({ scene, charactersInProject, project }: {
+    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>,
 }) {
     return (
         <div className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
@@ -919,7 +982,8 @@ function ViewScene({ scene, charactersInProject }: {
             </div>
 
             {scene.backgroundImageSrc !== "" && (
-                <Image alt={`scene_${scene.id}_Background`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+                <Image alt={`scene${scene.id}backgroundImage`} src={`/api/projects/images/download?projectId=${project.current.id}&src=${scene.backgroundImageSrc}`} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+
             )}
 
             <div className="container">
@@ -932,7 +996,6 @@ function ViewScene({ scene, charactersInProject }: {
         </div>
     )
 }
-
 function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
     scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
 }) {
@@ -1315,6 +1378,9 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
 
                 <ConfirmationBox text='' confirmationText='Are you sure you want to delete this scene?' successMessage='scene deleted!' iconName={"delete"} float={true}
                     runAction={async () => {
+                        //clean up attached background images
+                        await deleteSceneBackgroundImage(project.current.id, scene.id)
+
                         project.current.scenes = project.current.scenes.filter(eachSceneFilter => eachSceneFilter.id !== scene.id)
 
                         refreshProject(["scenes"])
@@ -1453,30 +1519,113 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                 errors={projectFormErrors[`scenes/${sceneIndex}/title`]}
             />
 
-            <label>scene backgroundImage</label>
+            <label>background image</label>
 
-            <TextInput
-                name={`scene${scene.id}backgroundImageSrc`}
-                value={scene.backgroundImageSrc}
-                placeHolder="Set the scene backgroundImage"
-                onChange={(e) => {
-                    project.current.scenes = project.current.scenes.map(eachScene => {
-                        if (eachScene.id === scene.id) {
-                            eachScene.backgroundImageSrc = e.target.value
-                        }
+            {scene.backgroundImageSrc !== "" ? (
+                <>
+                    <ConfirmationBox text='' confirmationText='Are you sure you want to delete this background image?' successMessage='image deleted!' iconName={"delete"}
+                        runAction={async () => {
+                            try {
+                                //delete image from folder
+                                await deleteSceneBackgroundImage(project.current.id, scene.backgroundImageSrc)
 
-                        return eachScene
-                    })
+                                //reset to empty
+                                project.current.scenes = project.current.scenes.map(eachScene => {
+                                    if (eachScene.id === scene.id) {
+                                        eachScene.backgroundImageSrc = ""
+                                    }
 
-                    //refresh
-                    refreshProject(["scenes"])
-                }}
-                onBlur={() => checkProjectErrors(project.current)}
-                errors={projectFormErrors[`scenes/${sceneIndex}/backgroundImageSrc`]}
-            />
+                                    return eachScene
+                                })
 
-            {scene.backgroundImageSrc !== "" && (
-                <Image alt={`scene${scene.id}backgroundImage`} src={defaultImg} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+                                refreshProject(["scenes"])
+
+                            } catch (error) {
+                                consoleAndToastError(error)
+                            }
+                        }}
+                    />
+
+                    <Image alt={`scene${scene.id}backgroundImage`} src={`/api/projects/images/download?projectId=${project.current.id}&src=${scene.backgroundImageSrc}`} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
+                </>
+            ) : (
+                <>
+                    <button className='button1' style={{ justifySelf: "flex-start" }}>
+                        <label htmlFor={`backgroundImageUpload${scene.id}`} style={{ cursor: "pointer" }}>
+                            upload
+                        </label>
+                    </button>
+
+                    <input id={`backgroundImageUpload${scene.id}`} type="file" placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
+                        onChange={async (e) => {
+                            try {
+                                if (!e.target.files) return
+
+                                let totalUploadSize = 0
+                                const uploadedFiles = e.target.files
+
+                                const file = uploadedFiles[0];
+
+                                //validation
+                                if (!allowedImageFileTypes.includes(file.type)) {
+                                    toast.error(`File ${file.name} is not a valid file type to upload.`);
+                                    return
+                                }
+
+                                // Check the file size
+                                if (file.size > maxFileUploadSize) {
+                                    toast.error(`File ${file.name} is too large. Maximum size is ${convertBtyes(maxFileUploadSize, "mb")} MB`);
+                                    return
+                                }
+
+                                //add file size to totalUploadSize
+                                totalUploadSize += file.size
+                                if (totalUploadSize > maxBodyToServerSize) {
+                                    toast.error(`Please upload less than ${convertBtyes(maxBodyToServerSize, "mb")} MB at a time`);
+                                    return
+                                }
+
+                                const fileEnding = file.name.split(".")[1]
+                                const fileSrc = `${scene.id}____${uuidV4()}.${fileEnding}`
+
+                                //add to formData
+                                const formData = new FormData();
+                                formData.append(fileSrc, file);
+
+                                //set formData info
+                                formData.append("projectId", project.current.id)
+
+                                const response = await fetch(`/api/projects/images/upload`, {
+                                    method: 'POST',
+                                    body: formData,
+                                })
+                                //get the srcs of files uploaded - confirmation
+                                const seenNamesObj = await response.json()
+
+                                //validate
+                                const validatedUploadFileApiResponse = uploadFileApiResponseSchema.parse(seenNamesObj)
+                                const addedImageId = validatedUploadFileApiResponse.names[0]
+
+                                project.current.scenes = project.current.scenes.map(eachScene => {
+                                    if (eachScene.id === scene.id) {
+                                        //react refresh
+                                        eachScene = { ...eachScene }
+
+                                        eachScene.backgroundImageSrc = addedImageId
+                                    }
+
+                                    return eachScene
+                                })
+
+                                //refresh
+                                refreshProject(["scenes"])
+
+                            } catch (error) {
+                                consoleAndToastError(error)
+                            }
+                        }}
+                    />
+                </>
             )}
 
             <ShowMore

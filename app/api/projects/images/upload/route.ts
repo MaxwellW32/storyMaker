@@ -3,9 +3,9 @@ import fs from "fs/promises";
 import { NextResponse } from "next/server";
 import { ensureDirectoryExists } from "@/utility/manageFiles";
 import { sessionCheck } from "@/serverFunctions/handleAuth";
-import { characterSchema } from "@/types";
+import { projectSchema } from "@/types";
 import { convertBtyes } from "@/utility/utility";
-import { charactersDirName, imagesDirName, uploadedDataDir } from "@/lib/dirPaths";
+import { imagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
 import { allowedImageFileTypes, maxFileUploadSize } from "@/lib/uploadFilesLib";
 
 export async function POST(request: Request) {
@@ -14,18 +14,18 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const body = Object.fromEntries(formData);
 
-    const seenCharacterId = characterSchema.shape.id.parse(body["characterId"])
+    const seenProjectId = projectSchema.shape.id.parse(body["projectId"])
 
     const addedFileNamesPre = await Promise.all(
         Object.entries(body).map(async eachEntry => {
             const eachEntryKey = eachEntry[0] //file id
             const eachEntryValue = eachEntry[1]
-            if (eachEntryKey === "type" || eachEntryKey === "characterId") return null //skip type declaration
+            if (eachEntryKey === "type" || eachEntryKey === "projectId") return null //skip type declaration
 
             const file = eachEntryValue as File;
 
             //ensure directory exists
-            const mainDirectory = path.join(uploadedDataDir, charactersDirName, seenCharacterId, imagesDirName)
+            const mainDirectory = path.join(uploadedDataDir, projectsDirName, seenProjectId, imagesDirName)
             await ensureDirectoryExists(mainDirectory)
 
             const documentPath = path.join(mainDirectory, eachEntryKey)
@@ -46,6 +46,8 @@ export async function POST(request: Request) {
         })
     )
     const addedFileNames = addedFileNamesPre.filter(eachInvoiceName => eachInvoiceName !== null)
+
+    console.log(`$on server`, addedFileNames);
 
     return NextResponse.json({
         names: addedFileNames,

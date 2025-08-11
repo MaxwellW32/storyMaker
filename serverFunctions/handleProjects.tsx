@@ -6,6 +6,9 @@ import { makeWhereClauses } from "@/utility/utility";
 import { and, desc, eq, SQLWrapper } from "drizzle-orm";
 import { ensureCanAccessResource, sessionCheck } from "./handleAuth";
 import { revalidatePath } from "next/cache";
+import path from "path";
+import { imagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
+import fs from "fs/promises"
 
 export async function addProject(newProjectObj: newProjectType): Promise<projectType> {
     const session = await sessionCheck()
@@ -92,4 +95,61 @@ export async function refreshProjectPath(projectId: projectType["id"]) {
     projectSchema.shape.id.parse(projectId)
 
     revalidatePath(`/projects/view/${projectId}`)
+}
+
+// export async function deleteSceneBackgroundImage(projectId: projectType["id"], imageSrc: string) {
+//     //validation
+//     projectSchema.shape.id.parse(projectId)
+
+//     //auth
+//     await ensureCanAccessResource("projects", projectId)
+
+//     //delete from folder
+//     const baseFolderPath = path.join(uploadedDataDir, projectsDirName, projectId, imagesDirName, imageSrc)
+
+//     //note - doesnt delete same image if file type is different
+
+//     await fs.rm(baseFolderPath, { force: true, recursive: true })
+// }
+
+export async function deleteSceneBackgroundImage(
+    projectId: projectType["id"],
+    imageSrc: string //containing scene id
+) {
+    // Validate projectId
+    projectSchema.shape.id.parse(projectId);
+
+    // Auth check
+    await ensureCanAccessResource("projects", projectId);
+
+    // Path to the folder containing images
+    const baseFolderPath = path.join(
+        uploadedDataDir,
+        projectsDirName,
+        projectId,
+        imagesDirName
+    );
+
+    try {
+        // Read all files in the folder
+        const files = await fs.readdir(baseFolderPath);
+
+        // Filter to find files containing the imageSrc in their name
+        const matchingFiles = files.filter((file) => file.includes(imageSrc));
+
+        // Delete each matching file
+        await Promise.all(
+            matchingFiles.map(async (file) => {
+                const filePath = path.join(baseFolderPath, file);
+                await fs.rm(filePath, { force: true });
+            })
+        );
+
+    } catch (err: any) {
+        if (err.code === "ENOENT") {
+            // Folder doesn’t exist, nothing to delete
+        }
+
+        throw err;
+    }
 }
