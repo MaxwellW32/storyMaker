@@ -10,7 +10,7 @@ export default function UseRateLimit({ concurrencyLimitVal = 5, checkInTime = 1_
         //increase amt in queue
         amtInQueue.current++
 
-        await new Promise(resolve => {
+        return await new Promise(resolve => {
             async function runCheck() {
                 if (amtInQueue.current > 0) {
                     //run if able
@@ -37,6 +37,8 @@ export default function UseRateLimit({ concurrencyLimitVal = 5, checkInTime = 1_
                         //keep checking in until available
                         setTimeout(runCheck, checkInTime)
                     }
+                } else {
+                    console.log(`$zero in queue`);
                 }
             }
             runCheck()

@@ -219,42 +219,41 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     async function handleGenerateSceneBackgroundImages(scenes: sceneType[]) {
         toast.success("generating images")
 
-        const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
-
         //generate for all
-        await Promise.all(scenesToUse.map(async eachScene => {
+        const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
+        scenesToUse.map(async eachScene => {
             //rate limit
             await sceneRateLimit(async () => {
                 await actualRun(eachScene)
             })
-        }))
 
-        toast.success("generated!")
+            toast.success("generated!")
+        })
 
         async function actualRun(eachScene: sceneType) {
             try {
                 const seenPrompt = `
-You are preparing a scene description for the GPT image generation API. 
-Your task: Convert the scene and dialogue below into a highly detailed, visual prompt suitable for consistent storybook illustration.
+            You are preparing a scene description for the GPT image generation API. 
+            Your task: Convert the scene and dialogue below into a highly detailed, visual prompt suitable for consistent storybook illustration. Keep specific note of character age and appearance.
 
-Requirements:
-- Preserve the exact reference image URLs as provided. Do not modify them in any way.
-- Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, soft warm tones, clean linework, gently textured backgrounds."
-- Focus on key visual elements: characters, their facial expressions, posture, clothing, props, and setting details.
-- Ensure character appearance matches their provided descriptions exactly.
-- Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
-- Avoid generic terms — be specific about colors, lighting, mood, and background details.
-- Keep the description concise yet visually rich so it fits the image generation API’s prompt limits.
+            Requirements:
+            - Preserve the exact reference image URLs as provided. Do not modify them in any way.
+            - Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, soft warm tones, clean linework, gently textured backgrounds."
+            - Focus on key visual elements: characters, their facial expressions, posture, clothing, props, and setting details.
+            - Ensure character appearance matches their provided descriptions exactly.
+            - Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
+            - Avoid generic terms — be specific about colors, lighting, mood, and background details.
+            - Keep the description concise yet visually rich so it fits the image generation API’s prompt limits.
 
-Scene:
-[[scene]]
+            Scene:
+            [[scene]]
 
-Characters (appearance & clothing):
-[[characters]]
+            Characters (appearance & clothing):
+            [[characters]]
 
-Reference character image URLs (do not alter):
-[[referencedCharacterImageUrls]]
-`
+            Reference character image URLs (do not alter):
+            [[referencedCharacterImageUrls]]
+            `
                 //go over each character
                 //get their active clothing
                 //get that image src and make it a full url
@@ -399,76 +398,77 @@ Reference character image URLs (do not alter):
 
         refreshProject(["alterDialogueObj"])
     }
-    async function handleDialogueAudio(eachDialogue: dialogueType, singleGeneration = true) {
+    async function handleDialogueAudio(eachDialogue: dialogueType) {
         //rate limit
         await audioRateLimit(async () => {
             await actualRun()
         })
 
-        if (!singleGeneration) {
-            toast.success("generated")
-        }
+        //after all resolved
+        toast.success("generated")
 
         async function actualRun() {
-            try {
-                const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
-                if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
+            await new Promise(resolve => {
+                setTimeout(() => {
+                    resolve(true)
+                    console.log(`$eachDialogue resolved`, eachDialogue);
+                }, 5000);
+            })
 
-                //start alterF=DialogueObj
-                if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
-                    project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
-                }
+            // try {
+            //     const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
+            //     if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
 
-                //ensure only generate audio for dialogue wanted
-                if (!project.current.alterDialogueObj[eachDialogue.id].audioEditable) {
-                    return
-                }
+            //     //start alterF=DialogueObj
+            //     if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
+            //         project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
+            //     }
 
-                //notify loading
-                if (singleGeneration) toast.success("generating!")
+            //     //ensure only generate audio for dialogue wanted
+            //     if (!project.current.alterDialogueObj[eachDialogue.id].audioEditable) {
+            //         return
+            //     }
 
-                //start loading
-                project.current.alterDialogueObj[eachDialogue.id].loading = true
+            //     //start loading
+            //     project.current.alterDialogueObj[eachDialogue.id].loading = true
 
-                const newMakeAudioBody: makeAudioBodyType = {
-                    line: eachDialogue.sentence,
-                    projectId: seenProject.id,
-                    dialogueId: eachDialogue.id,
-                    character: foundCharacter,
-                    variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
-                }
-                //validation
-                makeAudioBodySchema.parse(newMakeAudioBody)
+            //     const newMakeAudioBody: makeAudioBodyType = {
+            //         line: eachDialogue.sentence,
+            //         projectId: seenProject.id,
+            //         dialogueId: eachDialogue.id,
+            //         character: foundCharacter,
+            //         variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
+            //     }
+            //     //validation
+            //     makeAudioBodySchema.parse(newMakeAudioBody)
 
-                const response = await fetch(`/api/audio/make`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(newMakeAudioBody)
-                })
-                const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
+            //     const response = await fetch(`/api/audio/make`, {
+            //         method: "POST",
+            //         headers: {
+            //             "Content-Type": "application/json"
+            //         },
+            //         body: JSON.stringify(newMakeAudioBody)
+            //     })
+            //     const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
 
-                //add on audio fileName
-                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeAudioResponse.dialogueAudioFileName]
+            //     //add on audio fileName
+            //     project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeAudioResponse.dialogueAudioFileName]
 
-                //set variation Index to latest
-                project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1
+            //     //set variation Index to latest
+            //     project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1
 
-                //set audioEditable to false - ensures we don't overwrite if unecessary
-                project.current.alterDialogueObj[eachDialogue.id].audioEditable = false
+            //     //set audioEditable to false - ensures we don't overwrite if unecessary
+            //     project.current.alterDialogueObj[eachDialogue.id].audioEditable = false
 
-                //finish loading
-                project.current.alterDialogueObj[eachDialogue.id].loading = false
+            //     //finish loading
+            //     project.current.alterDialogueObj[eachDialogue.id].loading = false
 
-                //refresh
-                refreshProject(["alterDialogueObj"])
+            //     //refresh
+            //     refreshProject(["alterDialogueObj"])
 
-                if (singleGeneration) toast.success("finished!")
-
-            } catch (error) {
-                consoleAndToastError(error)
-            }
+            // } catch (error) {
+            //     consoleAndToastError(error)
+            // }
         }
     }
 
@@ -524,9 +524,27 @@ Reference character image URLs (do not alter):
 
     const seeingFixed = Object.entries(project.current.alterDialogueObj).filter(eachEntry => !eachEntry[1].audioEditable).length > 0
 
+    async function testFunc() {
+        //top level rate limit won't resolve until all calls finish
+        const seenVal = await sceneRateLimit(async () => {
+            //async function logic
+            await new Promise(resolve => setTimeout(() => {
+                resolve(true)
+
+                console.log(`$resolved`);
+            }, 5000))
+        })
+
+        //after all resolved
+        toast.success("resolved all")
+        console.log(`$resolved`, seenVal);
+    }
+
     return (
         <main className={styles.main}>
             <section>
+                <button onClick={testFunc} className="button1">test</button>
+
                 <ShowMore
                     label='characters'
                     content={(
@@ -881,14 +899,15 @@ Reference character image URLs (do not alter):
 
                         <div style={{ display: "flex", justifyContent: "center", gap: "var(--spacingS)" }}>
                             <button className="button1"
-                                onClick={async () => {
-                                    toast.success("generating all!")
+                                onClick={() => {
+                                    toast.success("generating!")
 
-                                    await Promise.all(project.current.scenes.map(async eachScene => {
-                                        return eachScene.dialogue.map(async eachDialogue => {
-                                            await handleDialogueAudio(eachDialogue, false)
+                                    //call handle dialogue for all
+                                    project.current.scenes.forEach(eachScene => {
+                                        eachScene.dialogue.forEach(eachDialogue => {
+                                            handleDialogueAudio(eachDialogue)
                                         })
-                                    }))
+                                    })
                                 }}
                             >generate audio</button>
 
@@ -942,6 +961,8 @@ Reference character image URLs (do not alter):
 
                                                             <button className="button2" disabled={!seenAlterDialogueObj.audioEditable}
                                                                 onClick={async () => {
+                                                                    toast.success("generating!")
+
                                                                     await handleDialogueAudio(eachDialogue)
                                                                 }}
                                                             >regenerate</button>

@@ -1,18 +1,14 @@
 //To Do
-//no visual on scenes
-//each scene is scanned, along with character appearance and clothing to then make highly detailed art of the scene
-//show prompt on front end
-//gather references
-//then condense and sent to image api
+//after effects
 
 
 
 
-//ideas
+//Ideas
 
 
 
-//notes
+//Notes
 //remember to sync env variables
 
 //naming
