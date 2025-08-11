@@ -105,9 +105,7 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
 
     return alteredScene
 }
-
 export async function makeSceneBackgroundImages(prompt: string, projectId: string, scene: sceneType, characters: characterType[], activeCharacterClothing: activeCharacterClothingType, domainName: string): Promise<{ src: string }> {
-    console.log(`$prompt`, prompt)
 
     function makeReferenceUrls() {
         return characters.map(eachCharacter => {
@@ -121,14 +119,12 @@ export async function makeSceneBackgroundImages(prompt: string, projectId: strin
         }).join("")
     }
     const finalPrompt = `${prompt}\n\nreferenceImages:${makeReferenceUrls()}`;
-    console.log(`$finalPrompt`, finalPrompt)
 
     //generate images for all scenes
     const result = await openai.images.generate({
         model: "dall-e-3",
         prompt: finalPrompt,
     });
-
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
     // Create images dir
@@ -154,7 +150,6 @@ export async function makeSceneBackgroundImages(prompt: string, projectId: strin
         src: imageName
     }
 }
-
 export async function makeDialogue(prompt: string, baseInstructions: string): Promise<dialogueType[]> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
