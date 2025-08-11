@@ -21,7 +21,6 @@ import ConfirmationBox from "../confirmationBox/ConfirmationBox"
 import { v4 as uuidV4 } from "uuid"
 import { convertBtyes, deepClone } from "@/utility/utility"
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from "@/lib/uploadFilesLib"
-import z from "zod"
 
 //how does gpt api work...
 //how does eleven labs api work - multi/single tts...
@@ -66,7 +65,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         dialogue: [],
         backgroundImageSrc: "",
         activeCharacterClothing: {},
-        visuals: ""
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
 
@@ -235,8 +233,38 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
         async function actualRun(eachScene: sceneType) {
             try {
-                const prompt = `Depict this scene. Note character appearance and clothing:\n${eachScene.visuals}`
-                const makeSceneBackgroundResponse = await makeSceneBackgroundImages(prompt, seenProject.id, eachScene, charactersInProject, eachScene.activeCharacterClothing, window.location.origin)
+                const seenPrompt = `
+You are preparing a scene description for the GPT image generation API. 
+Your task: Convert the scene and dialogue below into a highly detailed, visual prompt suitable for consistent storybook illustration.
+
+Requirements:
+- Preserve the exact reference image URLs as provided. Do not modify them in any way.
+- Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, soft warm tones, clean linework, gently textured backgrounds."
+- Focus on key visual elements: characters, their facial expressions, posture, clothing, props, and setting details.
+- Ensure character appearance matches their provided descriptions exactly.
+- Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
+- Avoid generic terms — be specific about colors, lighting, mood, and background details.
+- Keep the description concise yet visually rich so it fits the image generation API’s prompt limits.
+
+Scene:
+[[scene]]
+
+Characters (appearance & clothing):
+[[characters]]
+
+Reference character image URLs (do not alter):
+[[referencedCharacterImageUrls]]
+`
+                //go over each character
+                //get their active clothing
+                //get that image src and make it a full url
+
+                const prompt = addVariablesToBaseInstructions(seenPrompt, {
+                    activeCharacterClothing: eachScene.activeCharacterClothing,
+                    scene: eachScene,
+                    referencedCharacterImageUrls: true
+                })
+                const makeSceneBackgroundResponse = await makeSceneBackgroundImages(prompt, seenProject.id, eachScene)
                 console.log(`$makeSceneBackgroundResponse`, makeSceneBackgroundResponse);
 
                 //update scene backgrounds
@@ -248,6 +276,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     return eachSceneMap
                 })
 
+                //refresh
                 refreshProject(["scenes"])
 
             } catch (error) {
@@ -256,9 +285,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         }
     }
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, reduceCharacterSchema?: z.Schema }, atTop = true) {
+    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, referencedCharacterImageUrls?: true }, atTop = true) {
+        //eventually make this accept charactersInProject
+
+        let referencedCharacterImageUrls: string | undefined = undefined
+
         //add on characters
-        //edit characters for clothes
+        //ensure characters only have 1 clothing appearance sent to api
         const finalCharactersInProject = deepClone(charactersInProject).map(eachCharacterInProject => {
             const seenActiveCharacterClothingId: activeCharacterClothingType["key"] | undefined = variables.activeCharacterClothing[eachCharacterInProject.id]
             if (seenActiveCharacterClothingId === undefined) throw new Error(`not seeing clothing for ${eachCharacterInProject.name}`)
@@ -269,32 +302,37 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             //assign single clothing item
             eachCharacterInProject.clothing = [foundClothingItem]
 
-            //reduce object further
+            //assign images if clothing found
+            if (referencedCharacterImageUrls === undefined) referencedCharacterImageUrls = ""
+            referencedCharacterImageUrls += `${window.location.origin}/api/characters/images/download?characterId=${eachCharacterInProject.id}&src=${foundClothingItem.file.src}\n`
 
-            return variables.reduceCharacterSchema === undefined ? eachCharacterInProject : variables.reduceCharacterSchema.parse(eachCharacterInProject)
+            return eachCharacterInProject
         })
         seenBaseInstructions = seenBaseInstructions.replaceAll("[[characters]]", JSON.stringify(finalCharactersInProject, null, 2))
 
-        if (variables !== undefined) {
-            if (variables.scene !== undefined) {
-                //add on scene
-                seenBaseInstructions = seenBaseInstructions.replaceAll("[[scene]]", JSON.stringify(variables.scene, null, 2))
-            }
+        if (variables.scene !== undefined) {
+            //add on scene
+            seenBaseInstructions = seenBaseInstructions.replaceAll("[[scene]]", JSON.stringify(variables.scene, null, 2))
+        }
 
-            if (variables.referencedScenes !== undefined) {
-                //add on reference Scenes
-                if (variables.referencedScenes.length > 0) {
-                    seenBaseInstructions = seenBaseInstructions.replaceAll("[[referencedScenes]]", JSON.stringify(variables.referencedScenes, null, 2))
-                }
+        if (variables.referencedScenes !== undefined) {
+            //add on reference Scenes
+            if (variables.referencedScenes.length > 0) {
+                seenBaseInstructions = seenBaseInstructions.replaceAll("[[referencedScenes]]", JSON.stringify(variables.referencedScenes, null, 2))
             }
+        }
 
-            if (variables.baseInstructions !== undefined) {
-                //prevent loop
-                if (atTop) {
-                    //add on baseInstructions
-                    seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
-                }
+        if (variables.baseInstructions !== undefined) {
+            //prevent loop
+            if (atTop) {
+                //add on baseInstructions
+                seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
             }
+        }
+
+        //add on referencedCharacterImageUrls
+        if (variables.referencedCharacterImageUrls !== undefined && referencedCharacterImageUrls !== undefined) {
+            seenBaseInstructions = seenBaseInstructions.replaceAll("[[referencedCharacterImageUrls]]", referencedCharacterImageUrls)
         }
 
         return seenBaseInstructions
@@ -363,9 +401,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     }
     async function handleDialogueAudio(eachDialogue: dialogueType, singleGeneration = true) {
         //rate limit
-        audioRateLimit(async () => {
+        await audioRateLimit(async () => {
             await actualRun()
         })
+
+        if (!singleGeneration) {
+            toast.success("generated")
+        }
 
         async function actualRun() {
             try {
@@ -788,18 +830,6 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                         }}
                                                                     />
 
-                                                                    <TextArea
-                                                                        name="makeScenesNewManualObjAppearance"
-                                                                        value={makeScenesNewManualObj.current.visuals}
-                                                                        placeHolder="Set the title for the new Scene."
-                                                                        onChange={(e) => {
-                                                                            makeScenesNewManualObj.current.visuals = e.target.value
-
-                                                                            //general refresh
-                                                                            refreshProject([])
-                                                                        }}
-                                                                    />
-
                                                                     <button className="button1"
                                                                         onClick={() => {
                                                                             const newScene: sceneType = {
@@ -1000,9 +1030,7 @@ function ViewScene({ scene, charactersInProject, project }: {
         </div>
     )
 }
-function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: {
-    scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined>
-}) {
+function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: { scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: Record<string, string>; scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; referencedCharacterImageUrls?: true }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined> }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
     const wantedNewSceneIndex = useRef(sceneIndex)
@@ -1749,28 +1777,6 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                         )}
                     </div>
                 )}
-            />
-
-            <label>scene visuals</label>
-
-            <TextArea
-                name={`scene${scene.id}Visual`}
-                value={scene.visuals}
-                placeHolder="Set the scene visuals - detailed"
-                onChange={(e) => {
-                    project.current.scenes = project.current.scenes.map(eachScene => {
-                        if (eachScene.id === scene.id) {
-                            eachScene.visuals = e.target.value
-                        }
-
-                        return eachScene
-                    })
-
-                    //refresh
-                    refreshProject(["scenes"])
-                }}
-                onBlur={() => checkProjectErrors(project.current)}
-                errors={projectFormErrors[`scenes/${sceneIndex}/visuals`]}
             />
 
             <div className="container">

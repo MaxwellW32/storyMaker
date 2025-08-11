@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterClothingType, characterType } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterClothingType, gptCondensePromptResponseSchema } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import path from "path";
 import fs from "fs/promises";
@@ -105,25 +105,26 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
 
     return alteredScene
 }
-export async function makeSceneBackgroundImages(prompt: string, projectId: string, scene: sceneType, characters: characterType[], activeCharacterClothing: activeCharacterClothingType, domainName: string): Promise<{ src: string }> {
+export async function makeSceneBackgroundImages(prompt: string, projectId: string, scene: sceneType): Promise<{ src: string }> {
+    console.log(`$prompt`, prompt);
 
-    function makeReferenceUrls() {
-        return characters.map(eachCharacter => {
-            const foundClothingId = activeCharacterClothing[eachCharacter.id]
-            if (foundClothingId === undefined) throw new Error("not seeing found clothing id")
+    //condense prompt
+    const response = await openai.responses.parse({
+        model: "gpt-4.1",
+        input: prompt,
+        text: {
+            format: zodTextFormat(gptCondensePromptResponseSchema, "gptCondensePromptResponse"),
+        },
+    });
+    const seenGptCondensePromptResponse = gptCondensePromptResponseSchema.parse(response.output_parsed)
 
-            const activeClothing = eachCharacter.clothing.find(eachClothingItem => eachClothingItem.id === foundClothingId)
-            if (activeClothing === undefined) throw new Error("not seeing activeClothing")
+    const condensedPrompt = seenGptCondensePromptResponse.prompt
+    console.log(`$condensedPrompt`, condensedPrompt);
 
-            return `\n${domainName}/api/characters/images/download?characterId=${eachCharacter.id}&src=${activeClothing.file.src}`
-        }).join("")
-    }
-    const finalPrompt = `${prompt}\n\nreferenceImages:${makeReferenceUrls()}`;
-
-    //generate images for all scenes
+    //generate image for scene
     const result = await openai.images.generate({
         model: "dall-e-3",
-        prompt: finalPrompt,
+        prompt: condensedPrompt,
     });
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 

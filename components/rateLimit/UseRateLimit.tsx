@@ -28,13 +28,15 @@ export default function UseRateLimit({ concurrencyLimitVal = 5, checkInTime = 1_
                         amtInQueue.current--
                         if (amtInQueue.current < 0) amtInQueue.current = 0 //ensure in bounds
 
+                        //resolve
+                        if (amtInQueue.current === 0) {
+                            resolve(true)
+                        }
+
                     } else {
+                        //keep checking in until available
                         setTimeout(runCheck, checkInTime)
                     }
-
-                } else {
-                    //resovle finished
-                    resolve(true)
                 }
             }
             runCheck()
