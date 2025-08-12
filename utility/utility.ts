@@ -131,8 +131,6 @@ export function replaceSlashComments(originalText: string, slashComment: string,
             }
         }
 
-        console.log(`$line: "${eachLine}" keepLine: `, keepLine);
-
         return keepLine
     })
 
