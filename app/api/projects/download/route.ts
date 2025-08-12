@@ -4,7 +4,7 @@ import fs from "fs/promises";
 import { checkIfDirectoryExists, ensureDirectoryExists } from "@/utility/manageFiles";
 import { downloadProjectBodySchema } from "@/types";
 import { getSpecificProject } from "@/serverFunctions/handleProjects";
-import { afterEffectsProjectScriptFile, charactersDirName, imagesDirName, projectsDirName, projectStagingAreaDir, uploadedDataDir } from "@/lib/dirPaths";
+import { afterEffectsProjectScriptFile, charactersDirName, projectsDirName, projectStagingAreaDir, uploadedDataDir } from "@/lib/dirPaths";
 import { ensureCanAccessResource } from "@/serverFunctions/handleAuth";
 import { replaceSlashComments } from "@/utility/utility";
 
