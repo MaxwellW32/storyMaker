@@ -282,12 +282,14 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     },
                     body: JSON.stringify(newMakeSceneBackgroundImagesBody)
                 })
-                const makeSceneBackgroundImagesResponse = makeSceneBackgroundImageResponseSchema.parse(await response.json())
+                const makeSceneBackgroundImagesResponse = await response.json()
+                console.log(`$makeSceneBackgroundImagesResponse`, makeSceneBackgroundImagesResponse);
+                const makeSceneBackgroundImageObj = makeSceneBackgroundImageResponseSchema.parse(makeSceneBackgroundImagesResponse)
 
                 //update scene backgrounds
                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
                     if (eachSceneMap.id === eachScene.id) {
-                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundImagesResponse.src
+                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundImageObj.src
                     }
 
                     return eachSceneMap

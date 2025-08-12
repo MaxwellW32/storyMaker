@@ -1,17 +1,3 @@
-// AE Scripting Beginners Tutorial [2022]
-
-// Introduction
-// Scripting allows you automate the tasks you normally do by hand
-// You can run repetitive operations as many times as you want, instantly
-// Access any properties, comps, layers, effects, expressions, keyframes, menu items
-
-// Programs
-// Adobe ExtendScript (No longer works for Mac) - https://www.adobe.com/products/extendscript-toolkit.htmlESTK
-// Visual Studio Code - https://code.visualstudio.com/Download
-// Extensions To Use:
-// ExtendScript Debugger (by Adobe)
-// Adobe Script Runner (by renderTom)
-
 //<<replace in prod - seenProject>>
 var seenProject = {
     "id": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
@@ -465,28 +451,21 @@ for (var sceneIndex = 0; sceneIndex < seenProject.scenes.length; sceneIndex++) {
         textLayer.outPoint = currentTime;
 
 
-        // Add a text animator
-        var myAnim = textLayer.property("ADBE Text Properties")
-            .property("ADBE Text Animators")
-            .addProperty("ADBE Text Animator");
 
-        // Add a range selector
-        myAnim.property("ADBE Text Selectors")
-            .addProperty("ADBE Text Selector");
 
-        // Add opacity to animator properties
-        myAnim.property("ADBE Text Animator Properties")
-            .addProperty("ADBE Text Opacity")
-            .setValue(0); // Start fully hidden
 
-        // Get the selector
-        var selector = myAnim.property("ADBE Text Selectors").property(1);
 
-        // Animate the Start parameter from 0 to 100 over entire layer duration
-        var startProp = selector.property("ADBE Text Selector Start");
 
-        startProp.setValueAtTime(textLayer.inPoint, 0);
-        startProp.setValueAtTime(textLayer.outPoint, 100);
+
+
+        //add fade
+        var opacityProp = textLayer.property("Transform").property("Opacity");
+
+        // 0% at in point
+        opacityProp.setValueAtTime(textLayer.inPoint, 0);
+
+        // 100% after 1 second
+        opacityProp.setValueAtTime(textLayer.inPoint + 1, 100);
 
         app.endUndoGroup();
     }

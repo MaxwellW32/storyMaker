@@ -21,8 +21,7 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
 Please base the characters in the story from the below (emotions for each character in the dialogue must be taken from that character object only.)
 characters:
 [[characters]]
-
-Please describe what's happening visually in each scene in the "visuals" value. Keeping note of character appearance. Be detailed as this will be used to generate consistent images for each scene.`
+`
     }
 
     //assign either a new form, or the safe values on an update form

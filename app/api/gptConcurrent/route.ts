@@ -20,11 +20,12 @@ export async function POST(request: Request) {
 
     if (functionCallOption === "makeSceneBackgroundImage") {
         const makeSceneBackgroundImagesBody = makeSceneBackgroundImageBodySchema.parse(seenBody)
-        return makeSceneBackgroundImage(makeSceneBackgroundImagesBody)
+        return NextResponse.json(await makeSceneBackgroundImage(makeSceneBackgroundImagesBody))
 
     } else if (functionCallOption === "makeDialogueAudio") {
         const makeDialogueAudioBody = makeDialogueAudioBodySchema.parse(seenBody)
-        return makeDialogueAudio(makeDialogueAudioBody)
+        return NextResponse.json(await makeDialogueAudio(makeDialogueAudioBody))
+
 
     } else throw new Error("functionOption not supported")
 }
@@ -40,9 +41,9 @@ async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneB
             format: zodTextFormat(gptCondensePromptResponseSchema, "gptCondensePromptResponse"),
         },
     });
-    const seenGptCondensePromptResponse = gptCondensePromptResponseSchema.parse(response.output_parsed)
+    const gptCondensePromptResponse = gptCondensePromptResponseSchema.parse(response.output_parsed)
 
-    const condensedPrompt = seenGptCondensePromptResponse.prompt
+    const condensedPrompt = gptCondensePromptResponse.prompt
     console.log(`$condensedPrompt`, condensedPrompt);
 
     //generate image for scene
@@ -65,12 +66,13 @@ async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneB
     const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
     await fs.writeFile(documentPath, image_bytes);
 
+    // Return the image src in the response
     return {
         src: imageName
     }
 }
 
-async function makeDialogueAudio({ character, line, projectId, dialogueId, variationIndex }: makeDialogueAudioBodyType) {
+async function makeDialogueAudio({ character, line, projectId, dialogueId, variationIndex }: makeDialogueAudioBodyType): Promise<makeDialogueAudioResponseType> {
     const audio = await elevenlabs.textToSpeech.convert(character.voiceId, {
         text: line,
         modelId: 'eleven_multilingual_v2',
@@ -98,9 +100,7 @@ async function makeDialogueAudio({ character, line, projectId, dialogueId, varia
     await fs.writeFile(audioFilePath, buffer)
 
     // Return the image file in the response
-    const newMakeDialogueAudioResponse: makeDialogueAudioResponseType = {
+    return {
         dialogueAudioFileName: audioFileName
     }
-
-    return NextResponse.json(newMakeDialogueAudioResponse)
 } 

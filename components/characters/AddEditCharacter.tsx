@@ -22,6 +22,7 @@ import { handleWithFiles } from '@/utility/handleWithFiles'
 import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
 import { v4 as uuidV4 } from 'uuid'
+import ConfirmationBox from '../confirmationBox/ConfirmationBox'
 
 export default function AddEditCharacter({ sentCharacter, submissionAction }: { sentCharacter?: characterType, submissionAction?: () => void }) {
     const initialFormObj: newCharacterType = {
@@ -704,9 +705,10 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                             }
 
                             return (
-                                <div key={eachAppearance.id} className='container'>
-                                    <button style={{ justifySelf: "flex-end" }}
-                                        onClick={() => {
+                                <div key={eachAppearance.id} className='container' style={{ position: "relative" }}>
+                                    <ConfirmationBox text='' confirmationText='Are you sure you want to delete this appearance?' successMessage='appearance deleted!' iconName={"delete"} float={true}
+                                        style={{ justifySelf: "flex-end" }}
+                                        runAction={() => {
                                             //change status
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }
@@ -726,11 +728,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                                                 return newFormObj
                                             })
                                         }}
-                                    >
-                                        <span className="material-symbols-outlined">
-                                            delete
-                                        </span>
-                                    </button>
+                                    />
 
                                     <label>name</label>
                                     <TextInput
