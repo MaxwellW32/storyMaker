@@ -1,6 +1,7 @@
 import { characterType } from '@/types'
 import React from 'react'
 import styles from "./style.module.css"
+import Image from 'next/image'
 
 export default function ViewCharacter({ seenCharacter, selectionAction, viewAll = true }: { seenCharacter: characterType, selectionAction?: (eachCharacter: characterType) => void, viewAll?: boolean }) {
     //get tags
@@ -25,7 +26,21 @@ export default function ViewCharacter({ seenCharacter, selectionAction, viewAll 
                     <p>backstory: {seenCharacter.backstory}</p>
                     <p>occupation: {seenCharacter.occupation}</p>
                     <p>location: {seenCharacter.location}</p>
-                    <p>appearance: {seenCharacter.appearance}</p>
+
+                    <div className='container'>
+                        <p>appearance:</p>
+
+                        <div className='gridColumns snap'>
+                            {seenCharacter.appearances.map(eachAppearance => {
+                                return (
+                                    <div key={eachAppearance.id}>
+                                        <Image alt={`${eachAppearance.file.fileName} image`} width={500} height={500} src={`/api/characters/images/download?characterId=${seenCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+
                     <p>archetype: {seenCharacter.archetype}</p>
                 </>
             )}

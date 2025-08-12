@@ -97,21 +97,6 @@ export async function refreshProjectPath(projectId: projectType["id"]) {
     revalidatePath(`/projects/view/${projectId}`)
 }
 
-// export async function deleteSceneBackgroundImage(projectId: projectType["id"], imageSrc: string) {
-//     //validation
-//     projectSchema.shape.id.parse(projectId)
-
-//     //auth
-//     await ensureCanAccessResource("projects", projectId)
-
-//     //delete from folder
-//     const baseFolderPath = path.join(uploadedDataDir, projectsDirName, projectId, imagesDirName, imageSrc)
-
-//     //note - doesnt delete same image if file type is different
-
-//     await fs.rm(baseFolderPath, { force: true, recursive: true })
-// }
-
 export async function deleteSceneBackgroundImage(
     projectId: projectType["id"],
     imageSrc: string //containing scene id

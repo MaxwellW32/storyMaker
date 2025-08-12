@@ -1,4 +1,4 @@
-import { activeCharacterClothingType, alterDialogueObjType, alterScenesObjType, clothingType, sceneType } from "@/types";
+import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterAppearanceType, sceneType } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -31,7 +31,7 @@ export const projects = pgTable("projects", {
     scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
     alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),
-    activeCharacterClothingStarter: json("activeCharacterClothingStarter").$type<activeCharacterClothingType>().notNull().default({}),
+    activeCharacterAppearanceStarter: json("activeCharacterAppearanceStarter").$type<activeCharacterAppearanceType>().notNull().default({}),
 
     //regular
     name: text("name").notNull(),
@@ -65,11 +65,10 @@ export const characters = pgTable("characters", {
     age: integer("age").notNull(),
     userId: text("userId").notNull().references(() => users.id),
     voiceId: text("voiceId").notNull(),
-    personality: text("personality").notNull(), // e.g. "brooding and analytical", "cheerful and impulsive"
-    appearance: text("appearance").notNull(), // Highly detailed on their physical appearance to ensure consistency accross image generation, leave out clothing detail.
     //appearance
-    clothing: json("clothing").$type<clothingType[]>().notNull(),
+    appearances: json("appearances").$type<characterAppearanceType[]>().notNull(),
     //behaviour
+    personality: text("personality").notNull(), // e.g. "brooding and analytical", "cheerful and impulsive"
     toneOfVoice: text("toneOfVoice").notNull(), // e.g. "sarcastic", "soft-spoken", "authoritative"
     dialogueStyle: text("dialogueStyle").notNull(), // e.g. "uses short, clipped sentences", "speaks in metaphors"
     alignment: text("alignment").notNull(), // e.g. "Lawful Good", "Chaotic Neutral", or your own moral scale

@@ -1,10 +1,22 @@
 //To Do
 //after effects
+//add artsytle choise to whole app
 
 
 
 
 //Ideas
+//character generations
+//no appearance at first
+//appearance image generation
+//same prompt/base instructions starts at default
+//generate image
+//download/upload image
+
+//no more clothing
+//each character has appearanceVariations
+//then each project has active appearance id on the character to project - this sets the starter + make new scenes
+//each scene has active appearance id
 
 
 

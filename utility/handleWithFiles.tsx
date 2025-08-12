@@ -1,4 +1,4 @@
-import { dbFileTypeType, dbWithFileType, uploadFileApiResponseType } from "@/types";
+import { dbFileCategoryType, dbWithFileType, uploadFileApiResponseType } from "@/types";
 import toast from "react-hot-toast";
 import { deepClone } from "./utility";
 

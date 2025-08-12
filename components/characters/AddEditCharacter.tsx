@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, clothingType } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, characterAppearanceType } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
@@ -17,7 +17,7 @@ import { getTags } from '@/serverFunctions/handleTags'
 import ViewTag from '../tags/ViewTag'
 import { addCharacterToTag, deleteCharacterToTag, getCharacterToTags } from '@/serverFunctions/handleCharactersToTags'
 import TextArea from '../inputs/textArea/TextArea'
-import { makeCharacter } from '@/serverFunctions/handleGpt'
+import { makeCharacter, makeCharacterAppearanceImage } from '@/serverFunctions/handleGpt'
 import { handleWithFiles } from '@/utility/handleWithFiles'
 import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
@@ -29,9 +29,8 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
         age: 20,
         userId: "dummyData",
         voiceId: "",
+        appearances: [],
         personality: "",
-        appearance: "",
-        clothing: [],
         toneOfVoice: "",
         dialogueStyle: "",
         alignment: "",
@@ -56,16 +55,39 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
         searchItems: [],
     })
     const [chosenTagIds, chosenTagIdsSet] = useState<(tagType["id"])[] | undefined>(undefined)
-
     const [makeNewCharacterInstructionsObj, makeNewCharacterInstructionsObjSet] = useState<{
         prompt: string,
         baseInstructions: string,
         loading: boolean,
     }>({
         prompt: "",
-        baseInstructions: `Make a new character based on the users prompt.\n\npersonality:  // e.g. "brooding and analytical", "cheerful and impulsive"\ntoneOfVoice:  // e.g. "sarcastic", "soft-spoken", "authoritative"\ndialogueStyle:  // e.g. "uses short, clipped sentences", "speaks in metaphors"\nalignment:  // e.g. "Lawful Good", "Chaotic Neutral", or your own moral scale\ngoal:  // What drives the character\nfear:  // What the character is afraid of\nfatalFlaw:  // e.g. "trusts too easily", "overconfident"\nbackstory:  // Important past experiences\noccupation:  // Their role in the story or world\nlocation:  // Where they're usually found\narchetype:  // e.g. "The Hero", "The Trickster", "The Mentor\nappearance:  //Highly detailed on their physical appearance to ensure consistency accross image generation, leave out clothing detail."`,
+        baseInstructions: `Create a new fictional character based on the user’s initial concept.  
+Fill out each attribute below with rich, specific, and internally consistent details.  
+Avoid generic descriptions — make the character unique and memorable.  
+Do not include physical appearance details here; those are handled separately.  
+
+personality: // Core temperament, values, and worldview  
+toneOfVoice: // How they sound when speaking (intonation, rhythm, formality)  
+dialogueStyle: // Word choice, sentence length, recurring phrases, quirks  
+alignment: // Moral/ethical compass (can use anything e.g "Lawful Good", "Chaotic Neutral")  
+goal: // Main driving force behind their actions  
+fear: // Deepest anxiety or dread  
+fatalFlaw: // Trait that often causes trouble or conflict  
+backstory: // Brief but vivid past experiences that shaped them  
+occupation: // Job, trade, or societal role  
+location: // Usual setting or habitat  
+archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")  
+`,
         loading: false
     })
+
+    const [appearanceInstructionsObj, appearanceInstructionsObjSet] = useState<{
+        [key: string]: {
+            prompt: string,
+            loading: boolean,
+            imageSrc: string,
+        }
+    }>({})
     const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
     //get chosen emotions
@@ -134,9 +156,9 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 //send up to server
                 const addedCharacter = await addCharacter(validatedNewCharacter)
 
-                //clothing
-                if (addedCharacter.clothing !== undefined) {
-                    addedCharacter.clothing = await handleWithFiles(addedCharacter.clothing, imageFormData, {
+                //appearances
+                if (addedCharacter.appearances !== undefined) {
+                    addedCharacter.appearances = await handleWithFiles(addedCharacter.appearances, imageFormData, {
                         upload: async () => {
                             if (imageFormData === null) throw new Error("imageFormData null")
 
@@ -163,7 +185,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                     })
 
                     //update same character
-                    await updateCharacter(addedCharacter.id, { clothing: addedCharacter.clothing })
+                    await updateCharacter(addedCharacter.id, { appearances: addedCharacter.appearances })
                 }
 
                 //add emotions
@@ -198,9 +220,9 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 //validate
                 const validatedUpdatedCharacter = updateCharacterSchema.parse(formObj)
 
-                //clothing
-                if (validatedUpdatedCharacter.clothing !== undefined) {
-                    validatedUpdatedCharacter.clothing = await handleWithFiles(validatedUpdatedCharacter.clothing, imageFormData, {
+                //appearances
+                if (validatedUpdatedCharacter.appearances !== undefined) {
+                    validatedUpdatedCharacter.appearances = await handleWithFiles(validatedUpdatedCharacter.appearances, imageFormData, {
                         upload: async () => {
                             if (imageFormData === null) throw new Error("imageFormData null")
 
@@ -358,6 +380,63 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
         }
     }
 
+    async function handleGenerateAppearanceImage(appearance: characterAppearanceType) {
+        try {
+            const seenAppearanceInstructionsObj = appearanceInstructionsObj[appearance.id]
+            if (seenAppearanceInstructionsObj === undefined) throw new Error("not seeing seenAppearanceInstructionsObj")
+
+            toast.success("generating image!")
+
+            //set loading
+            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+                if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+
+                //react refresh
+                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+                newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+
+                newAppearanceInstructionsObj[appearance.id].loading = true
+
+                return newAppearanceInstructionsObj
+            })
+
+            const finalPromt = `${seenAppearanceInstructionsObj.prompt}\n${appearance.description}`
+            const makeCharacterAppearanceImageResponse = await makeCharacterAppearanceImage(finalPromt)
+
+            //update src
+            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+                if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+
+                //react refresh
+                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+                newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+
+                newAppearanceInstructionsObj[appearance.id].imageSrc = makeCharacterAppearanceImageResponse.src
+
+                return newAppearanceInstructionsObj
+            })
+
+            //finish loading
+            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+                if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+
+                //react refresh
+                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+                newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+
+                newAppearanceInstructionsObj[appearance.id].loading = false
+
+                return newAppearanceInstructionsObj
+            })
+
+            toast.success("finished!")
+
+        } catch (error) {
+            consoleAndToastError(error)
+        }
+    }
+
+    console.log(`$s`, formObj);
     return (
         <form className={styles.form} action={() => { }}>
             <ShowMore
@@ -601,81 +680,47 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                 </>
             )}
 
-            {formObj.personality !== undefined && (
+            {formObj.appearances !== undefined && (
                 <>
-                    <TextInput
-                        name={"personality"}
-                        value={formObj.personality}
-                        type={"text"}
-                        label={"character personality"}
-                        placeHolder={`e.g. "brooding and analytical", "cheerful and impulsive"`}
-                        required=''
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                            formObjSet(prevFormObj => {
-                                const newFormObj = { ...prevFormObj }
-                                if (newFormObj.personality === undefined) return prevFormObj
-
-                                newFormObj.personality = e.target.value
-
-                                return newFormObj
-                            })
-                        }}
-                        onBlur={() => { checkIfValid(formObj, "personality") }}
-                        errors={formErrors["personality"]}
-                    />
-                </>
-            )}
-
-            {formObj.appearance !== undefined && (
-                <>
-                    <TextArea
-                        name={"appearance"}
-                        value={formObj.appearance}
-                        label={"character appearance"}
-                        placeHolder={"Highly detailed character appearance..."}
-                        required=''
-                        onChange={e => {
-                            formObjSet(prevFormObj => {
-                                const newFormObj = { ...prevFormObj }
-                                if (newFormObj.appearance === undefined) return prevFormObj
-
-                                newFormObj.appearance = e.target.value
-
-                                return newFormObj
-                            })
-                        }}
-                        onBlur={() => { checkIfValid(formObj, "appearance") }}
-                        errors={formErrors["appearance"]}
-                    />
-                </>
-            )}
-
-            {formObj.clothing !== undefined && (
-                <>
-                    <label>Clothing options*</label>
+                    <label>appearance options*</label>
 
                     <div className='gridColumns snap'>
-                        {formObj.clothing.map(eachClothingItem => {
-                            if (eachClothingItem.file.status === "to-delete") return null
+                        {formObj.appearances.map(eachAppearance => {
+                            if (eachAppearance.file.status === "to-delete") return null
+
+                            const seenAppearanceInstructionsObj = appearanceInstructionsObj[eachAppearance.id]
+                            if (seenAppearanceInstructionsObj === undefined) {
+                                appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+                                    const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+
+                                    newAppearanceInstructionsObj[eachAppearance.id] = {
+                                        loading: false,
+                                        prompt: `Generate a single, high-quality illustration of the character described below. Strictly follow the provided physical appearance details without adding or removing features. Preserve exact facial structure, age, proportions, skin tone, hair color, hairstyle, and any notable marks or features. Clothing, accessories, and style should match the description exactly unless otherwise stated. Avoid adding elements not mentioned. Render in a consistent [storybook illustration / soft watercolor / gentle pastel / hand-drawn children’s book] style with bright, friendly lighting.\n\nAppearance description:`,
+                                        imageSrc: ""
+                                    }
+
+                                    return newAppearanceInstructionsObj
+                                })
+                            }
 
                             return (
-                                <div key={eachClothingItem.id} className='container'>
+                                <div key={eachAppearance.id} className='container'>
                                     <button style={{ justifySelf: "flex-end" }}
                                         onClick={() => {
                                             //change status
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }
-                                                if (newFormObj.clothing === undefined) return prevFormObj
+                                                if (newFormObj.appearances === undefined) return prevFormObj
 
                                                 //react refresh
-                                                newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
-                                                    if (eachClothingMap.id === eachClothingItem.id) {
-                                                        eachClothingMap = { ...eachClothingMap }
-                                                        eachClothingMap.file = { ...eachClothingMap.file }
-                                                        eachClothingMap.file.status = "to-delete"
+                                                newFormObj.appearances = newFormObj.appearances.map(eachAppearanceMap => {
+                                                    if (eachAppearanceMap.id === eachAppearance.id) {
+                                                        eachAppearanceMap = { ...eachAppearanceMap }
+                                                        eachAppearanceMap.file = { ...eachAppearanceMap.file }
+                                                        eachAppearanceMap.file.status = "to-delete"
                                                     }
 
-                                                    return eachClothingMap
+                                                    return eachAppearanceMap
                                                 })
 
                                                 return newFormObj
@@ -689,21 +734,22 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
 
                                     <label>name</label>
                                     <TextInput
-                                        name={`${eachClothingItem.id}clothingName`}
-                                        value={eachClothingItem.name}
-                                        placeHolder="Clothing name. E.g Default, Summer wear..."
+                                        name={`${eachAppearance.id}appearanceName`}
+                                        value={eachAppearance.name}
+                                        placeHolder="Appearance name. E.g Default, Summer..."
                                         onChange={(e) => {
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }
-                                                if (newFormObj.clothing === undefined) return prevFormObj
+                                                if (newFormObj.appearances === undefined) return prevFormObj
 
                                                 //react refresh
-                                                newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
-                                                    if (eachClothingMap.id === eachClothingItem.id) {
-                                                        eachClothingMap.name = e.target.value
+                                                newFormObj.appearances = newFormObj.appearances.map(eachAppearanceMap => {
+                                                    if (eachAppearanceMap.id === eachAppearance.id) {
+                                                        eachAppearanceMap = { ...eachAppearanceMap }
+                                                        eachAppearanceMap.name = e.target.value
                                                     }
 
-                                                    return eachClothingMap
+                                                    return eachAppearanceMap
                                                 })
 
                                                 return newFormObj
@@ -713,21 +759,22 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
 
                                     <label>description</label>
                                     <TextArea
-                                        name={`${eachClothingItem.id}clothingDescription`}
-                                        value={eachClothingItem.description}
-                                        placeHolder="Descibe in detail the clothes on the character..."
+                                        name={`${eachAppearance.id}appearanceDescription`}
+                                        value={eachAppearance.description}
+                                        placeHolder="Descibe in detail the appearance of the character..."
                                         onChange={(e) => {
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }
-                                                if (newFormObj.clothing === undefined) return prevFormObj
+                                                if (newFormObj.appearances === undefined) return prevFormObj
 
                                                 //react refresh
-                                                newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
-                                                    if (eachClothingMap.id === eachClothingItem.id) {
-                                                        eachClothingMap.description = e.target.value
+                                                newFormObj.appearances = newFormObj.appearances.map(eachAppearanceMap => {
+                                                    if (eachAppearanceMap.id === eachAppearance.id) {
+                                                        eachAppearanceMap = { ...eachAppearanceMap }
+                                                        eachAppearanceMap.description = e.target.value
                                                     }
 
-                                                    return eachClothingMap
+                                                    return eachAppearanceMap
                                                 })
 
                                                 return newFormObj
@@ -735,13 +782,62 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                         }}
                                     />
 
+                                    <ShowMore
+                                        label='generate image'
+                                        content={(
+                                            <>
+                                                {seenAppearanceInstructionsObj !== undefined && (
+                                                    <div className='container'>
+                                                        <ShowMore
+                                                            label='prompt'
+                                                            content={(
+                                                                <TextArea
+                                                                    name={`${eachAppearance.id}generateImagePrompt`}
+                                                                    value={seenAppearanceInstructionsObj.prompt}
+                                                                    placeHolder="Enter the prompt for this image generation..."
+                                                                    onChange={(e) => {
+                                                                        appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+                                                                            if (prevAppearanceInstructionsObj[eachAppearance.id] === undefined) return prevAppearanceInstructionsObj
+
+                                                                            //react refresh
+                                                                            const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+                                                                            newAppearanceInstructionsObj[eachAppearance.id] = { ...newAppearanceInstructionsObj[eachAppearance.id] }
+
+                                                                            newAppearanceInstructionsObj[eachAppearance.id].prompt = e.target.value
+
+                                                                            return newAppearanceInstructionsObj
+                                                                        })
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        />
+
+                                                        {seenAppearanceInstructionsObj.imageSrc !== "" && (
+                                                            <>
+                                                                <label>Image preview</label>
+
+                                                                <Image alt={`${eachAppearance.id} image preview`} width={500} height={500} src={seenAppearanceInstructionsObj.imageSrc} style={{ objectFit: "contain", width: "100%" }} />
+                                                            </>
+                                                        )}
+
+                                                        <button className='button1'
+                                                            onClick={() => handleGenerateAppearanceImage(eachAppearance)}
+                                                        >
+                                                            {seenAppearanceInstructionsObj.loading ? "generating..." : "generate"}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    />
+
                                     <button className='button1' style={{ justifySelf: "flex-start" }}>
-                                        <label htmlFor={`characterImageUpload${eachClothingItem.id}`} style={{ cursor: "pointer" }}>
+                                        <label htmlFor={`characterImageUpload${eachAppearance.id}`} style={{ cursor: "pointer" }}>
                                             upload
                                         </label>
                                     </button>
 
-                                    <input id={`characterImageUpload${eachClothingItem.id}`} type="file" placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
+                                    <input id={`characterImageUpload${eachAppearance.id}`} type="file" placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
                                         onChange={(e) => {
                                             if (!e.target.files) return
 
@@ -769,7 +865,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                                 const newDate = new Date()
 
                                                 const fileEnding = file.name.split(".")[1]
-                                                const fileSrc = `${eachClothingItem.id}.${fileEnding}`
+                                                const fileSrc = `${eachAppearance.id}.${fileEnding}`
 
                                                 const newDbUploadFile: dbFileType = {
                                                     src: fileSrc,
@@ -777,21 +873,21 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                                     fileName: file.name,
                                                     status: "to-upload",
                                                     uploadedAlready: false,
-                                                    dbFileType: "image"
+                                                    fileCategory: "image"
                                                 }
 
                                                 formObjSet(prevFormObj => {
                                                     const newFormObj = { ...prevFormObj }
-                                                    if (newFormObj.clothing === undefined) return prevFormObj
+                                                    if (newFormObj.appearances === undefined) return prevFormObj
 
                                                     //react refresh
-                                                    newFormObj.clothing = newFormObj.clothing.map(eachClothingMap => {
-                                                        if (eachClothingMap.id === eachClothingItem.id) {
-                                                            eachClothingMap.file = { ...eachClothingMap.file }
-                                                            eachClothingMap.file = { ...newDbUploadFile }
+                                                    newFormObj.appearances = newFormObj.appearances.map(eachAppearanceMap => {
+                                                        if (eachAppearanceMap.id === eachAppearance.id) {
+                                                            eachAppearanceMap = { ...eachAppearanceMap }
+                                                            eachAppearanceMap.file = { ...newDbUploadFile }
                                                         }
 
-                                                        return eachClothingMap
+                                                        return eachAppearanceMap
                                                     })
 
                                                     return newFormObj
@@ -813,10 +909,10 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                         }}
                                     />
 
-                                    {eachClothingItem.file.uploadedAlready && sentCharacter !== undefined ? (
-                                        <Image alt={`${eachClothingItem.file.fileName} image`} width={100} height={100} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachClothingItem.file.src}`} style={{ objectFit: "contain" }} />
+                                    {eachAppearance.file.uploadedAlready && sentCharacter !== undefined ? (
+                                        <Image alt={`${eachAppearance.file.fileName} image`} width={100} height={100} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain" }} />
                                     ) : (
-                                        <p>{eachClothingItem.file.fileName}</p>
+                                        <p>{eachAppearance.file.fileName}</p>
                                     )}
                                 </div>
                             )
@@ -827,9 +923,9 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                 onClick={() => {
                                     formObjSet(prevFormObj => {
                                         const newFormObj = { ...prevFormObj }
-                                        if (newFormObj.clothing === undefined) return prevFormObj
+                                        if (newFormObj.appearances === undefined) return prevFormObj
 
-                                        const newClothingOption: clothingType = {
+                                        const newAppearance: characterAppearanceType = {
                                             id: uuidV4(),
                                             name: "",
                                             description: "",
@@ -839,12 +935,12 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                                                 fileName: "",
                                                 status: "to-upload",
                                                 uploadedAlready: false,
-                                                dbFileType: "image"
+                                                fileCategory: "image"
                                             },
                                             uploadedFrom: "main"
                                         }
 
-                                        newFormObj.clothing = [...newFormObj.clothing, newClothingOption]
+                                        newFormObj.appearances = [...newFormObj.appearances, newAppearance]
 
                                         return newFormObj
                                     })
@@ -852,6 +948,31 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                             >make new</button>
                         </div>
                     </div>
+                </>
+            )}
+
+            {formObj.personality !== undefined && (
+                <>
+                    <TextInput
+                        name={"personality"}
+                        value={formObj.personality}
+                        type={"text"}
+                        label={"character personality"}
+                        placeHolder={`e.g. "brooding and analytical", "cheerful and impulsive"`}
+                        required=''
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            formObjSet(prevFormObj => {
+                                const newFormObj = { ...prevFormObj }
+                                if (newFormObj.personality === undefined) return prevFormObj
+
+                                newFormObj.personality = e.target.value
+
+                                return newFormObj
+                            })
+                        }}
+                        onBlur={() => { checkIfValid(formObj, "personality") }}
+                        errors={formErrors["personality"]}
+                    />
                 </>
             )}
 
@@ -1067,30 +1188,6 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
                         }}
                         onBlur={() => { checkIfValid(formObj, "location") }}
                         errors={formErrors["location"]}
-                    />
-                </>
-            )}
-
-            {formObj.appearance !== undefined && (
-                <>
-                    <TextInput
-                        name={"appearance"}
-                        value={formObj.appearance}
-                        type={"text"}
-                        label={"character appearance"}
-                        placeHolder={`Short description e.g. "tall, with silver hair and a jagged scar"`}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                            formObjSet(prevFormObj => {
-                                const newFormObj = { ...prevFormObj }
-                                if (newFormObj.appearance === undefined) return prevFormObj
-
-                                newFormObj.appearance = e.target.value
-
-                                return newFormObj
-                            })
-                        }}
-                        onBlur={() => { checkIfValid(formObj, "appearance") }}
-                        errors={formErrors["appearance"]}
                     />
                 </>
             )}

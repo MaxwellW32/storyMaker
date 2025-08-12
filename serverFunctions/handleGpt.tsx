@@ -2,7 +2,7 @@
 import OpenAI from "openai";
 import dotenv from 'dotenv';
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterClothingType, gptCondensePromptResponseSchema } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterAppearanceType, gptCondensePromptResponseSchema } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import path from "path";
 import fs from "fs/promises";
@@ -17,7 +17,7 @@ const openai = new OpenAI({
     apiKey: apiKey
 });
 
-export async function makeStory(prompt: string, baseInstructions: string, activeCharacterClothingStarter: activeCharacterClothingType): Promise<sceneType[]> {
+export async function makeStory(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeCharacterAppearanceType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
@@ -40,20 +40,20 @@ export async function makeStory(prompt: string, baseInstructions: string, active
             ...eachScene,
             id: uuidV4(),
             backgroundImageSrc: "",
-            activeCharacterClothing: activeCharacterClothingStarter
+            activeCharacterAppearance: activeCharacterAppearanceStarter
         }
         return newScene
     })
 
     return newScenes
 }
-export async function makeScenes(prompt: string, baseInstructions: string, activeCharacterClothingStarter: activeCharacterClothingType): Promise<sceneType[]> {
+export async function makeScenes(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeCharacterAppearanceType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
         model: "gpt-4.1",
         instructions: baseInstructions,
         input: prompt,
         text: {
-            format: zodTextFormat(gptMakeScenesResponseSchema, "gptMakeScenesResponseSchema"),
+            format: zodTextFormat(gptMakeScenesResponseSchema, "gptMakeScenesResponse"),
         },
     });
 
@@ -71,7 +71,7 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
             ...eachScene,
             id: uuidV4(),
             backgroundImageSrc: "",
-            activeCharacterClothing: activeCharacterClothingStarter
+            activeCharacterAppearance: activeCharacterAppearanceStarter
         }
         return newScene
     })
@@ -84,7 +84,7 @@ export async function alterScene(prompt: string, baseInstructions: string, scene
         instructions: baseInstructions,
         input: prompt,
         text: {
-            format: zodTextFormat(gptAlterSceneResponseSchema, "gptSceneResponseSchema"),
+            format: zodTextFormat(gptAlterSceneResponseSchema, "gptSceneResponse"),
         },
     });
 
@@ -125,6 +125,7 @@ export async function makeSceneBackgroundImages(prompt: string, projectId: strin
     const result = await openai.images.generate({
         model: "dall-e-3",
         prompt: condensedPrompt,
+        response_format: "b64_json"
     });
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
@@ -136,16 +137,9 @@ export async function makeSceneBackgroundImages(prompt: string, projectId: strin
     const documentPath = path.join(mainDirectory, imageName);
 
     // If base64 is returned
-    if (result.data[0].b64_json) {
-        const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
-        await fs.writeFile(documentPath, image_bytes);
-
-    } else if (result.data[0].url) {
-        // If URL is returned
-        const res = await fetch(result.data[0].url);
-        const buffer = Buffer.from(await res.arrayBuffer());
-        await fs.writeFile(documentPath, buffer);
-    }
+    if (result.data[0].b64_json === undefined) throw new Error("not seing image b64")
+    const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
+    await fs.writeFile(documentPath, image_bytes);
 
     return {
         src: imageName
@@ -157,7 +151,7 @@ export async function makeDialogue(prompt: string, baseInstructions: string): Pr
         instructions: baseInstructions,
         input: prompt,
         text: {
-            format: zodTextFormat(gptMakeDialogueResponseSchema, "gptMakeDialogueResponseSchema"),
+            format: zodTextFormat(gptMakeDialogueResponseSchema, "gptMakeDialogueResponse"),
         },
     });
 
@@ -179,7 +173,7 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
         instructions: baseInstructions,
         input: prompt,
         text: {
-            format: zodTextFormat(gptNewCharacterResponseSchema, "gptNewCharacterResponseSchema"),
+            format: zodTextFormat(gptNewCharacterResponseSchema, "gptNewCharacterResponse"),
         },
     });
 
@@ -190,8 +184,24 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
         ...seenGptNewCharacterResponse.newCharacter,
         userId: "DummyData",
         voiceId: "",
-        clothing: [],
+        appearances: [],
     }
 
     return newCharacter
+}
+export async function makeCharacterAppearanceImage(prompt: string): Promise<{ src: string }> {
+    //generate image for scene
+    const result = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: prompt,
+        response_format: "url"
+    });
+    if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
+
+    //ensure url
+    if (result.data[0].url === undefined) throw new Error("not seing image url")
+
+    return {
+        src: result.data[0].url
+    }
 }

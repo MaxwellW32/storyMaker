@@ -16,8 +16,8 @@ export type tableNames = keyof schemaType
 
 
 
-export const activeCharacterClothingSchema = z.lazy(() => z.record(characterSchema.shape.id, clothingSchema.shape.id)) //each character id, maps to a specific clothing id in that scene
-export type activeCharacterClothingType = z.infer<typeof activeCharacterClothingSchema>
+export const activeCharacterAppearanceSchema = z.lazy(() => z.record(characterSchema.shape.id, characterAppearanceSchema.shape.id)) //each maps character id to a specific appearance id in that scene
+export type activeCharacterAppearanceType = z.infer<typeof activeCharacterAppearanceSchema>
 
 export const dialogueSchema = z.object({
     id: z.string().min(1),
@@ -32,14 +32,14 @@ export const sceneSchema = z.object({
     title: z.string().min(1),
     dialogue: dialogueSchema.array(),
     backgroundImageSrc: z.string(),
-    activeCharacterClothing: activeCharacterClothingSchema,
+    activeCharacterAppearance: activeCharacterAppearanceSchema,
 })
 export type sceneType = z.infer<typeof sceneSchema>
 
 export const sceneForGptSchema = sceneSchema.omit({
     id: true,
     backgroundImageSrc: true,
-    activeCharacterClothing: true,
+    activeCharacterAppearance: true,
 })
 export type sceneForGptType = z.infer<typeof sceneForGptSchema>
 
@@ -70,7 +70,7 @@ export const gptNewCharacterResponseSchema = z.object({
     newCharacter: z.lazy(() => newCharacterSchema.omit({
         userId: true,
         voiceId: true,
-        clothing: true,
+        appearances: true,
     })),
 })
 export type gptNewCharacterResponseType = z.infer<typeof gptNewCharacterResponseSchema>
@@ -149,13 +149,16 @@ export type writeFileOptions =
         imageFile: string,
     }
 
+export const dbFileCategorySchema = z.enum(["image", "other"])
+export type dbFileCategoryType = z.infer<typeof dbFileCategorySchema>
+
 export const dbFileSchema = z.object({
     createdAt: dateSchma,
     fileName: z.string().min(1),
     src: z.string().min(1),
     status: z.enum(["to-delete", "to-upload", "uploaded"]),
     uploadedAlready: z.boolean(),
-    dbFileType: z.lazy(() => dbFileTypeSchema),
+    fileCategory: dbFileCategorySchema,
 })
 export type dbFileType = z.infer<typeof dbFileSchema>
 
@@ -163,14 +166,6 @@ export type dbWithFileType = {
     file: dbFileType;
 } & Record<string, unknown>;
 
-export const dbFileTypeSchema = z.enum(["other", "image"])
-export type dbFileTypeType = z.infer<typeof dbFileTypeSchema>
-
-export const uploadFileBodySchema = z.object({
-    type: dbFileTypeSchema,
-    characterId: z.lazy(() => characterSchema.shape.id),
-})
-export type uploadFileBodyType = z.infer<typeof uploadFileBodySchema>
 
 export const uploadFileApiResponseSchema = z.object({
     names: z.string().array(),
@@ -241,7 +236,7 @@ export const projectSchema = z.object({
     scenes: sceneSchema.array(),
     alterScenesObj: alterScenesObjSchema,
     alterDialogueObj: alterDialogueObjSchema,
-    activeCharacterClothingStarter: activeCharacterClothingSchema,
+    activeCharacterAppearanceStarter: activeCharacterAppearanceSchema,
 
     //null
 
@@ -255,7 +250,7 @@ export type projectType = z.infer<typeof projectSchema> & {
     fromUser?: userType
 }
 
-export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, activeCharacterClothingStarter: true })
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, activeCharacterAppearanceStarter: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
 export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true, userId: true })
@@ -264,14 +259,14 @@ export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 
 
-export const clothingSchema = z.object({
+export const characterAppearanceSchema = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     description: z.string().min(1),
     file: dbFileSchema, //reference image
     uploadedFrom: z.enum(["main", "project"]), //use eventually
 })
-export type clothingType = z.infer<typeof clothingSchema>
+export type characterAppearanceType = z.infer<typeof characterAppearanceSchema>
 
 export const characterSchema = z.object({
     id: z.string().min(1),
@@ -280,9 +275,8 @@ export const characterSchema = z.object({
     age: z.number(),
     userId: z.string().min(1),
     voiceId: z.string().min(1, "please provide a voice id from eleven labs"),
+    appearances: characterAppearanceSchema.array().min(1, "please add character appearance"),
     personality: z.string().min(1),
-    appearance: z.string().min(1),
-    clothing: clothingSchema.array().min(1, "please add character clothing"),
     toneOfVoice: z.string(),
     dialogueStyle: z.string(),
     alignment: z.string(),

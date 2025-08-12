@@ -2,7 +2,7 @@
 import ShowMore from "@/components/showMore/ShowMore"
 import { alterScene, makeDialogue, makeSceneBackgroundImages, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { activeCharacterClothingType, alterDialogueObjType, alterScenesObjType, characterType, clothingType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema } from "@/types"
+import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterType, characterAppearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -64,7 +64,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         title: "",
         dialogue: [],
         backgroundImageSrc: "",
-        activeCharacterClothing: {},
+        activeCharacterAppearance: {},
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
 
@@ -149,7 +149,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     async function handleGenerateStory() {
         try {
-            //ensure chracters and activeCharacterClothingStarter
+            //ensure chracters and activeCharacterAppearanceStarter
             if (charactersInProject.length < 1) throw new Error("please add characters to this project generate a story")
 
             //loading
@@ -158,8 +158,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             toast.success("Generating story...")
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions, { activeCharacterClothing: project.current.activeCharacterClothingStarter })
-            const madeScenes = await makeStory(project.current.prompt, finalBaseInstructions, project.current.activeCharacterClothingStarter)
+            const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions, { activeCharacterAppearance: project.current.activeCharacterAppearanceStarter })
+            const madeScenes = await makeStory(project.current.prompt, finalBaseInstructions, project.current.activeCharacterAppearanceStarter)
 
             //add ontp scenes
             project.current.scenes = [...project.current.scenes, ...madeScenes]
@@ -193,8 +193,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { activeCharacterClothing: project.current.activeCharacterClothingStarter, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
-            const madeScenes = await makeScenes(newScenePrompt, finalBaseInstructions, project.current.activeCharacterClothingStarter)
+            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { activeCharacterAppearance: project.current.activeCharacterAppearanceStarter, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const madeScenes = await makeScenes(newScenePrompt, finalBaseInstructions, project.current.activeCharacterAppearanceStarter)
 
             //add the scenes
             project.current.scenes = [
@@ -227,6 +227,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 await actualRun(eachScene)
             })
 
+            //notify after all finished
             toast.success("generated!")
         })
 
@@ -239,7 +240,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             Requirements:
             - Preserve the exact reference image URLs as provided. Do not modify them in any way.
             - Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, soft warm tones, clean linework, gently textured backgrounds."
-            - Focus on key visual elements: characters, their facial expressions, posture, clothing, props, and setting details.
+            - Focus on key visual elements: characters, their facial expressions, posture, appearances, props, and setting details.
             - Ensure character appearance matches their provided descriptions exactly.
             - Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
             - Avoid generic terms — be specific about colors, lighting, mood, and background details.
@@ -248,18 +249,18 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             Scene:
             [[scene]]
 
-            Characters (appearance & clothing):
+            Characters (appearance & appearances):
             [[characters]]
 
             Reference character image URLs (do not alter):
             [[referencedCharacterImageUrls]]
             `
                 //go over each character
-                //get their active clothing
+                //get their active appearances
                 //get that image src and make it a full url
 
                 const prompt = addVariablesToBaseInstructions(seenPrompt, {
-                    activeCharacterClothing: eachScene.activeCharacterClothing,
+                    activeCharacterAppearance: eachScene.activeCharacterAppearance,
                     scene: eachScene,
                     referencedCharacterImageUrls: true
                 })
@@ -284,26 +285,26 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         }
     }
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: activeCharacterClothingType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, referencedCharacterImageUrls?: true }, atTop = true) {
+    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterAppearance: activeCharacterAppearanceType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, referencedCharacterImageUrls?: true }, atTop = true) {
         //eventually make this accept charactersInProject
 
         let referencedCharacterImageUrls: string | undefined = undefined
 
         //add on characters
-        //ensure characters only have 1 clothing appearance sent to api
+        //ensure characters only have 1 appearances appearance sent to api
         const finalCharactersInProject = deepClone(charactersInProject).map(eachCharacterInProject => {
-            const seenActiveCharacterClothingId: activeCharacterClothingType["key"] | undefined = variables.activeCharacterClothing[eachCharacterInProject.id]
-            if (seenActiveCharacterClothingId === undefined) throw new Error(`not seeing clothing for ${eachCharacterInProject.name}`)
+            const seenActiveCharacterAppearanceId: activeCharacterAppearanceType["key"] | undefined = variables.activeCharacterAppearance[eachCharacterInProject.id]
+            if (seenActiveCharacterAppearanceId === undefined) throw new Error(`not seeing appearances for ${eachCharacterInProject.name}`)
 
-            const foundClothingItem = eachCharacterInProject.clothing.find(eachClothingItem => eachClothingItem.id === seenActiveCharacterClothingId)
-            if (foundClothingItem === undefined) throw new Error(`not seeing clothing item in character ${eachCharacterInProject.name} array`)
+            const activeAppearance = eachCharacterInProject.appearances.find(eachAppearance => eachAppearance.id === seenActiveCharacterAppearanceId)
+            if (activeAppearance === undefined) throw new Error(`not seeing appearances item in character ${eachCharacterInProject.name} array`)
 
-            //assign single clothing item
-            eachCharacterInProject.clothing = [foundClothingItem]
+            //assign single appearances item
+            eachCharacterInProject.appearances = [activeAppearance]
 
-            //assign images if clothing found
+            //assign images if appearances found
             if (referencedCharacterImageUrls === undefined) referencedCharacterImageUrls = ""
-            referencedCharacterImageUrls += `${window.location.origin}/api/characters/images/download?characterId=${eachCharacterInProject.id}&src=${foundClothingItem.file.src}\n`
+            referencedCharacterImageUrls += `${window.location.origin}/api/characters/images/download?characterId=${eachCharacterInProject.id}&src=${activeAppearance.file.src}\n`
 
             return eachCharacterInProject
         })
@@ -408,67 +409,60 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         toast.success("generated")
 
         async function actualRun() {
-            await new Promise(resolve => {
-                setTimeout(() => {
-                    resolve(true)
-                    console.log(`$eachDialogue resolved`, eachDialogue);
-                }, 5000);
-            })
+            try {
+                const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
+                if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
 
-            // try {
-            //     const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
-            //     if (foundCharacter === undefined) throw new Error("not seeing character for dialogue id")
+                //start alterF=DialogueObj
+                if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
+                    project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
+                }
 
-            //     //start alterF=DialogueObj
-            //     if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
-            //         project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
-            //     }
+                //ensure only generate audio for dialogue wanted
+                if (!project.current.alterDialogueObj[eachDialogue.id].audioEditable) {
+                    return
+                }
 
-            //     //ensure only generate audio for dialogue wanted
-            //     if (!project.current.alterDialogueObj[eachDialogue.id].audioEditable) {
-            //         return
-            //     }
+                //start loading
+                project.current.alterDialogueObj[eachDialogue.id].loading = true
 
-            //     //start loading
-            //     project.current.alterDialogueObj[eachDialogue.id].loading = true
+                const newMakeAudioBody: makeAudioBodyType = {
+                    line: eachDialogue.sentence,
+                    projectId: seenProject.id,
+                    dialogueId: eachDialogue.id,
+                    character: foundCharacter,
+                    variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
+                }
+                //validation
+                makeAudioBodySchema.parse(newMakeAudioBody)
 
-            //     const newMakeAudioBody: makeAudioBodyType = {
-            //         line: eachDialogue.sentence,
-            //         projectId: seenProject.id,
-            //         dialogueId: eachDialogue.id,
-            //         character: foundCharacter,
-            //         variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
-            //     }
-            //     //validation
-            //     makeAudioBodySchema.parse(newMakeAudioBody)
+                const response = await fetch(`/api/audio/make`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(newMakeAudioBody)
+                })
+                const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
 
-            //     const response = await fetch(`/api/audio/make`, {
-            //         method: "POST",
-            //         headers: {
-            //             "Content-Type": "application/json"
-            //         },
-            //         body: JSON.stringify(newMakeAudioBody)
-            //     })
-            //     const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
+                //add on audio fileName
+                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeAudioResponse.dialogueAudioFileName]
 
-            //     //add on audio fileName
-            //     project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeAudioResponse.dialogueAudioFileName]
+                //set variation Index to latest
+                project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1
 
-            //     //set variation Index to latest
-            //     project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1
+                //set audioEditable to false - ensures we don't overwrite if unecessary
+                project.current.alterDialogueObj[eachDialogue.id].audioEditable = false
 
-            //     //set audioEditable to false - ensures we don't overwrite if unecessary
-            //     project.current.alterDialogueObj[eachDialogue.id].audioEditable = false
+                //finish loading
+                project.current.alterDialogueObj[eachDialogue.id].loading = false
 
-            //     //finish loading
-            //     project.current.alterDialogueObj[eachDialogue.id].loading = false
+                //refresh
+                refreshProject(["alterDialogueObj"])
 
-            //     //refresh
-            //     refreshProject(["alterDialogueObj"])
-
-            // } catch (error) {
-            //     consoleAndToastError(error)
-            // }
+            } catch (error) {
+                consoleAndToastError(error)
+            }
         }
     }
 
@@ -524,27 +518,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     const seeingFixed = Object.entries(project.current.alterDialogueObj).filter(eachEntry => !eachEntry[1].audioEditable).length > 0
 
-    async function testFunc() {
-        //top level rate limit won't resolve until all calls finish
-        const seenVal = await sceneRateLimit(async () => {
-            //async function logic
-            await new Promise(resolve => setTimeout(() => {
-                resolve(true)
-
-                console.log(`$resolved`);
-            }, 5000))
-        })
-
-        //after all resolved
-        toast.success("resolved all")
-        console.log(`$resolved`, seenVal);
-    }
-
     return (
         <main className={styles.main}>
             <section>
-                <button onClick={testFunc} className="button1">test</button>
-
                 <ShowMore
                     label='characters'
                     content={(
@@ -611,16 +587,16 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                                     <ViewItems
                                         itemObjs={charactersInProject.map(eachCharacterInProject => {
-                                            const seenActiveCharacterClothingId: activeCharacterClothingType["key"] = project.current.activeCharacterClothingStarter[eachCharacterInProject.id]
-                                            const foundClothing: clothingType | undefined = seenActiveCharacterClothingId !== undefined ? eachCharacterInProject.clothing.find(eachClothingItem => eachClothingItem.id === seenActiveCharacterClothingId) : undefined
+                                            const seenActiveCharacterAppearanceId: activeCharacterAppearanceType["key"] = project.current.activeCharacterAppearanceStarter[eachCharacterInProject.id]
+                                            const foundAppearance: characterAppearanceType | undefined = seenActiveCharacterAppearanceId !== undefined ? eachCharacterInProject.appearances.find(eachAppearance => eachAppearance.id === seenActiveCharacterAppearanceId) : undefined
 
                                             //ensure exists for character for first time
-                                            if (seenActiveCharacterClothingId === undefined) {
-                                                //update activeCharacterClothingStarter
-                                                project.current.activeCharacterClothingStarter[eachCharacterInProject.id] = eachCharacterInProject.clothing[0].id
+                                            if (seenActiveCharacterAppearanceId === undefined) {
+                                                //update activeCharacterAppearanceStarter
+                                                project.current.activeCharacterAppearanceStarter[eachCharacterInProject.id] = eachCharacterInProject.appearances[0].id
 
                                                 //refresh
-                                                refreshProject(["activeCharacterClothingStarter"])
+                                                refreshProject(["activeCharacterAppearanceStarter"])
                                             }
 
                                             return {
@@ -629,22 +605,22 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                     <div className="container">
                                                         <ViewCharacter seenCharacter={eachCharacterInProject} viewAll={false} />
 
-                                                        {seenActiveCharacterClothingId !== undefined && foundClothing !== undefined && (
+                                                        {seenActiveCharacterAppearanceId !== undefined && foundAppearance !== undefined && (
                                                             <>
-                                                                <b>Clothing start</b>
+                                                                <b>Appearance start</b>
 
                                                                 <Select
-                                                                    name={`${eachCharacterInProject.id}ActiveCharacterClothingStarter`}
-                                                                    value={foundClothing.name}
-                                                                    valueOptions={eachCharacterInProject.clothing.map(eachClothingItem => eachClothingItem.name)}
+                                                                    name={`${eachCharacterInProject.id}ActiveCharacterAppearanceStarter`}
+                                                                    value={foundAppearance.name}
+                                                                    valueOptions={eachCharacterInProject.appearances.map(eachAppearance => eachAppearance.name)}
                                                                     onChange={value => {
-                                                                        const foundClothingItem: clothingType | undefined = eachCharacterInProject.clothing.find(eachClothingItem => eachClothingItem.name === value)
-                                                                        if (foundClothingItem === undefined) throw new Error("not seeing foundClothingItem from name")
+                                                                        const activeAppearance: characterAppearanceType | undefined = eachCharacterInProject.appearances.find(eachAppearance => eachAppearance.name === value)
+                                                                        if (activeAppearance === undefined) throw new Error("not seeing activeAppearance from name")
 
-                                                                        project.current.activeCharacterClothingStarter[eachCharacterInProject.id] = foundClothingItem.id
+                                                                        project.current.activeCharacterAppearanceStarter[eachCharacterInProject.id] = activeAppearance.id
 
                                                                         //refresh
-                                                                        refreshProject(["activeCharacterClothingStarter"])
+                                                                        refreshProject(["activeCharacterAppearanceStarter"])
                                                                     }}
                                                                 />
                                                             </>
@@ -658,6 +634,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                             )}
                         </div>
                     )}
+                    startShowing={charactersInProject.length === 0}
                 />
 
                 <h2>Story Prompt</h2>
@@ -853,7 +830,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                                                                             const newScene: sceneType = {
                                                                                 ...makeScenesNewManualObj.current,
                                                                                 id: uuidV4(),
-                                                                                activeCharacterClothing: project.current.activeCharacterClothingStarter,
+                                                                                activeCharacterAppearance: project.current.activeCharacterAppearanceStarter,
                                                                             }
 
                                                                             //validation
@@ -893,7 +870,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
             </section>
 
             <section>
-                {project.current.scenes.length > 0 && (
+                {project.current.scenes.length > 0 ? (
                     <>
                         <h2>audio</h2>
 
@@ -994,8 +971,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                             })}
                         </div>
                     </>
-                )
-                }
+                ) : (
+                    <p>Your audio will appear here.</p>
+                )}
             </section>
 
             <section>
@@ -1051,7 +1029,7 @@ function ViewScene({ scene, charactersInProject, project }: {
         </div>
     )
 }
-function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: { scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterClothing: Record<string, string>; scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; referencedCharacterImageUrls?: true }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined> }) {
+function EditScene({ scene, charactersInProject, project, refreshProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addVariablesToBaseInstructions, addingSceneIndex }: { scene: sceneType, charactersInProject: characterType[], project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterAppearance: Record<string, string>; scene?: sceneType; referencedScenes?: sceneType[]; baseInstructions?: string; referencedCharacterImageUrls?: true }, atTop?: boolean): string, addingSceneIndex: React.RefObject<number | undefined> }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
     const wantedNewSceneIndex = useRef(sceneIndex)
@@ -1112,7 +1090,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { activeCharacterClothing: sceneToReplace.activeCharacterClothing, scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const finalBaseInstructions = addVariablesToBaseInstructions(sceneBaseInstructions, { activeCharacterAppearance: sceneToReplace.activeCharacterAppearance, scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const alteredScene = await alterScene(scenePrompt, finalBaseInstructions, sceneToReplace)
 
             const newReplacedScene = { ...alteredScene }
@@ -1324,7 +1302,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { activeCharacterClothing: scene.activeCharacterClothing, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const finalBaseInstructions = addVariablesToBaseInstructions(newDialogueBaseInstructions, { activeCharacterAppearance: scene.activeCharacterAppearance, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const madeDialogue = await makeDialogue(newDialoguePrompt, finalBaseInstructions)
 
             //add the dialogue
@@ -1682,16 +1660,16 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             )}
 
             <ShowMore
-                label="active character clothing"
+                label="active character appearances"
                 content={(
                     <div className="container">
                         <div className="container">
-                            {Object.entries(scene.activeCharacterClothing).map(eachEntry => {
+                            {Object.entries(scene.activeCharacterAppearance).map(eachEntry => {
                                 const eachKey = eachEntry[0] //character id
-                                const eachValue = eachEntry[1] //clothing id
+                                const eachValue = eachEntry[1] //appearances id
 
                                 const foundCharacter: characterType | undefined = charactersInProject.find(eachCharacterInProject => eachCharacterInProject.id === eachKey)
-                                const foundClothing: clothingType | undefined = foundCharacter !== undefined ? foundCharacter.clothing.find(eachClothingItem => eachClothingItem.id === eachValue) : undefined
+                                const foundAppearance: characterAppearanceType | undefined = foundCharacter !== undefined ? foundCharacter.appearances.find(eachAppearance => eachAppearance.id === eachValue) : undefined
 
                                 return (
                                     <div key={eachKey} style={{ display: "flex", alignItems: "center", gap: "var(--spacingR)" }}>
@@ -1701,23 +1679,23 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                             <>
                                                 <p>{foundCharacter.name}</p>
 
-                                                {foundClothing !== undefined ? (
+                                                {foundAppearance !== undefined ? (
                                                     <>
                                                         <Select
-                                                            name={`${scene.id}ActiveCharacterClothing`}
-                                                            value={foundClothing.name}
-                                                            valueOptions={foundCharacter.clothing.map(eachClothingItem => eachClothingItem.name)}
+                                                            name={`${scene.id}ActiveCharacterAppearance`}
+                                                            value={foundAppearance.name}
+                                                            valueOptions={foundCharacter.appearances.map(eachAppearance => eachAppearance.name)}
                                                             onChange={value => {
                                                                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
                                                                     if (eachSceneMap.id === scene.id) {
                                                                         //react refresh
                                                                         eachSceneMap = { ...eachSceneMap }
-                                                                        eachSceneMap.activeCharacterClothing = { ...eachSceneMap.activeCharacterClothing }
+                                                                        eachSceneMap.activeCharacterAppearance = { ...eachSceneMap.activeCharacterAppearance }
 
-                                                                        const foundClothingItem: clothingType | undefined = foundCharacter.clothing.find(eachClothingItem => eachClothingItem.name === value)
-                                                                        if (foundClothingItem === undefined) throw new Error("not seeing foundClothingItem from name")
+                                                                        const activeAppearance: characterAppearanceType | undefined = foundCharacter.appearances.find(eachAppearance => eachAppearance.name === value)
+                                                                        if (activeAppearance === undefined) throw new Error("not seeing activeAppearance from name")
 
-                                                                        eachSceneMap.activeCharacterClothing[eachKey] = foundClothingItem.id
+                                                                        eachSceneMap.activeCharacterAppearance[eachKey] = activeAppearance.id
                                                                     }
 
                                                                     return eachSceneMap
@@ -1730,7 +1708,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                                     </>
                                                 ) : (
                                                     <div className="container">
-                                                        <p>not seeing active clothing selection for character</p>
+                                                        <p>not seeing active appearances selection for character</p>
 
                                                         <button className="button2"
                                                             onClick={() => {
@@ -1738,13 +1716,13 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                                                     if (eachSceneMap.id === scene.id) {
                                                                         //react refresh
                                                                         eachSceneMap = { ...eachSceneMap }
-                                                                        eachSceneMap.activeCharacterClothing = { ...eachSceneMap.activeCharacterClothing }
+                                                                        eachSceneMap.activeCharacterAppearance = { ...eachSceneMap.activeCharacterAppearance }
 
                                                                         const foundCharacter = charactersInProject.find(eachCharacterInProject => eachCharacterInProject.id === eachKey)
                                                                         if (foundCharacter === undefined) throw new Error("not seeing character")
 
-                                                                        //set first in clothing array as default
-                                                                        eachSceneMap.activeCharacterClothing[eachKey] = foundCharacter.clothing[0].id
+                                                                        //set first in appearances array as default
+                                                                        eachSceneMap.activeCharacterAppearance[eachKey] = foundCharacter.appearances[0].id
                                                                     }
 
                                                                     return eachSceneMap
@@ -1763,29 +1741,29 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                             })}
                         </div>
 
-                        {Object.entries(scene.activeCharacterClothing).length !== charactersInProject.length && (
+                        {Object.entries(scene.activeCharacterAppearance).length !== charactersInProject.length && (
                             <button className="button1"
                                 onClick={() => {
-                                    const newActiveCharacterClothingPre = charactersInProject.map(eachCharacterInProject => {
-                                        if (scene.activeCharacterClothing === undefined) return null
+                                    const newActiveCharacterAppearancePre = charactersInProject.map(eachCharacterInProject => {
+                                        if (scene.activeCharacterAppearance === undefined) return null
 
-                                        if (scene.activeCharacterClothing[eachCharacterInProject.id] === undefined) {
+                                        if (scene.activeCharacterAppearance[eachCharacterInProject.id] === undefined) {
 
                                             //add first time
-                                            return [eachCharacterInProject.id, eachCharacterInProject.clothing[0].id]
+                                            return [eachCharacterInProject.id, eachCharacterInProject.appearances[0].id]
 
                                         } else {
                                             //seeing already so just return original
-                                            return [eachCharacterInProject.id, scene.activeCharacterClothing[eachCharacterInProject.id]]
+                                            return [eachCharacterInProject.id, scene.activeCharacterAppearance[eachCharacterInProject.id]]
                                         }
                                     })
-                                    const newActiveCharacterClothing: sceneType["activeCharacterClothing"] = Object.fromEntries(newActiveCharacterClothingPre.filter(eachEntryArr => eachEntryArr !== null))
+                                    const newActiveCharacterAppearance: sceneType["activeCharacterAppearance"] = Object.fromEntries(newActiveCharacterAppearancePre.filter(eachEntryArr => eachEntryArr !== null))
 
                                     project.current.scenes = project.current.scenes.map(eachSceneMap => {
                                         if (eachSceneMap.id === scene.id) {
                                             //react refresh
                                             eachSceneMap = { ...eachSceneMap }
-                                            eachSceneMap.activeCharacterClothing = { ...newActiveCharacterClothing }
+                                            eachSceneMap.activeCharacterAppearance = { ...newActiveCharacterAppearance }
                                         }
 
                                         return eachSceneMap
@@ -1794,7 +1772,7 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                                     //refresh
                                     refreshProject(["scenes"])
                                 }}
-                            >Add clothing</button>
+                            >Add appearances</button>
                         )}
                     </div>
                 )}
