@@ -79,8 +79,7 @@ export async function POST(request: Request) {
   const scriptUpdatedWithSeenProject = replaceSlashComments(scriptUpdatedWithProjectBaseDir, "//<<replace in prod - seenProject>>", `var seenProject = ${JSON.stringify(seenProject, null, 2)}`)
 
   //get the script file name
-  const afterEffectsProjectScriptSplitArr = afterEffectsProjectScriptFile.split("\\")
-  const afterEffectsScriptFileName = afterEffectsProjectScriptSplitArr[afterEffectsProjectScriptSplitArr.length - 1]
+  const afterEffectsScriptFileName = path.basename(afterEffectsProjectScriptFile)
 
   //write the script to the staging area
   const stagingAfterEffectsScriptFilePath = path.join(stagingBaseDir, afterEffectsScriptFileName)
