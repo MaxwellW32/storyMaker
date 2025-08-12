@@ -8,6 +8,7 @@ import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
 import { elevenlabs } from "@/lib/elevenlabs";
 import { NextResponse } from "next/server";
+import { errorZodErrorAsString } from "@/useful/consoleErrorWithToast";
 
 export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -18,16 +19,21 @@ export async function POST(request: Request) {
     //get data
     const seenBody = await request.json()
 
-    if (functionCallOption === "makeSceneBackgroundImage") {
-        const makeSceneBackgroundImagesBody = makeSceneBackgroundImageBodySchema.parse(seenBody)
-        return NextResponse.json(await makeSceneBackgroundImage(makeSceneBackgroundImagesBody))
+    try {
+        if (functionCallOption === "makeSceneBackgroundImage") {
+            const makeSceneBackgroundImagesBody = makeSceneBackgroundImageBodySchema.parse(seenBody)
+            return NextResponse.json(await makeSceneBackgroundImage(makeSceneBackgroundImagesBody))
 
-    } else if (functionCallOption === "makeDialogueAudio") {
-        const makeDialogueAudioBody = makeDialogueAudioBodySchema.parse(seenBody)
-        return NextResponse.json(await makeDialogueAudio(makeDialogueAudioBody))
+        } else if (functionCallOption === "makeDialogueAudio") {
+            const makeDialogueAudioBody = makeDialogueAudioBodySchema.parse(seenBody)
+            return NextResponse.json(await makeDialogueAudio(makeDialogueAudioBody))
 
 
-    } else throw new Error("functionOption not supported")
+        } else throw new Error("functionOption not supported")
+
+    } catch (error) {
+        throw new Error(errorZodErrorAsString(error))
+    }
 }
 
 async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneBackgroundImageBodyType): Promise<makeSceneBackgroundImageResponseType> {

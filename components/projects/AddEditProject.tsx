@@ -16,7 +16,7 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
     const initialFormObj: newProjectType = {
         name: "",
         userId: "dummyData",
-        baseInstructions: `Write incredible short children stories.
+        baseInstructions: `Write incredible short children stories. Each scene will represent one visual moment, so create new scenes if you want to show different angles, events. The dialogue will match the scene. 
 
 Please base the characters in the story from the below (emotions for each character in the dialogue must be taken from that character object only.)
 characters:

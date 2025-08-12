@@ -22,10 +22,6 @@ import { v4 as uuidV4 } from "uuid"
 import { convertBtyes, deepClone } from "@/utility/utility"
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from "@/lib/uploadFilesLib"
 
-//how does gpt api work...
-//how does eleven labs api work - multi/single tts...
-//how does after effects integration work - layers, importing, images, audio
-
 type editModeType = {
     scenes: boolean;
 }
@@ -72,6 +68,35 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         scenes: false
     })
     const addingSceneIndex = useRef<number | undefined>(undefined)
+    const makeImagesInstructionsObj = useRef<{
+        prompt: string,
+        showing: boolean
+    }>({
+        prompt: `You are preparing a scene description for the GPT image generation API. 
+Your task: Convert the scene and dialogue below into a highly detailed, visual prompt suitable for consistent storybook illustration. Keep specific note of character age and appearance.
+
+Requirements:
+- Preserve the exact reference image URLs as provided. Do not modify them in any way.
+- Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, clean linework."
+- Focus on key visual elements: characters, their facial expressions, posture, appearances, props, and setting details.
+- Ensure character appearance matches their provided descriptions exactly.
+- Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
+- Avoid generic terms — be specific about colors, lighting, mood, and background details.
+- Keep the description concise yet visually rich so it fits the image generation API’s prompt limits.
+
+Scene:
+[[scene]]
+
+Characters (appearance & appearances):
+[[characters]]
+
+Reference character image URLs (do not alter):
+[[referencedCharacterImageUrls]]
+`,
+        showing: false,
+    })
+    const projectSaving = useRef(false)
+
 
     //handle changes from above
     useEffect(() => {
@@ -108,6 +133,22 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     }, [projectRefresher])
 
+    //warn if not saved
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (projectSaving.current) {
+                event.preventDefault();
+                event.returnValue = ""; // Required for Chrome to show the prompt
+            }
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
+    }, []); // No deps: listener stays active; logic depends on ref value
+
     async function handleProjectSave(latestProject: Partial<projectType>, specificKeys: (keyof projectType)[] = []) {
         const debounceKey = specificKeys.length > 0 ? specificKeys.join(",") : "default"
         if (projectSaveDebounce.current[debounceKey]) clearTimeout(projectSaveDebounce.current[debounceKey])
@@ -115,6 +156,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         //send off one batch update
         projectSaveDebounce.current[debounceKey] = setTimeout(async () => {
             try {
+                //saving
+                projectSaving.current = true
+
                 const pickShape = Object.fromEntries(
                     specificKeys.map(key => [key, true])
                 ) as { [K in keyof typeof updateProjectSchema.shape]?: true };
@@ -128,6 +172,9 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 await updateProject(seenProject.id, validatedProject)
 
                 console.log(`$update confirmed on server`);
+
+                //saved
+                projectSaving.current = false
 
             } catch (error) {
                 consoleAndToastError(error)
@@ -233,33 +280,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
         async function actualRun(eachScene: sceneType) {
             try {
-                const seenPrompt = `
-            You are preparing a scene description for the GPT image generation API. 
-            Your task: Convert the scene and dialogue below into a highly detailed, visual prompt suitable for consistent storybook illustration. Keep specific note of character age and appearance.
+                if (makeImagesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
 
-            Requirements:
-            - Preserve the exact reference image URLs as provided. Do not modify them in any way.
-            - Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, soft warm tones, clean linework, gently textured backgrounds."
-            - Focus on key visual elements: characters, their facial expressions, posture, appearances, props, and setting details.
-            - Ensure character appearance matches their provided descriptions exactly.
-            - Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
-            - Avoid generic terms — be specific about colors, lighting, mood, and background details.
-            - Keep the description concise yet visually rich so it fits the image generation API’s prompt limits.
-
-            Scene:
-            [[scene]]
-
-            Characters (appearance & appearances):
-            [[characters]]
-
-            Reference character image URLs (do not alter):
-            [[referencedCharacterImageUrls]]
-            `
                 //go over each character
                 //get their active appearances
                 //get that image src and make it a full url
 
-                const prompt = addVariablesToBaseInstructions(seenPrompt, {
+                const finalPrompt = addVariablesToBaseInstructions(makeImagesInstructionsObj.current.prompt, {
                     activeCharacterAppearance: eachScene.activeCharacterAppearance,
                     scene: eachScene,
                     referencedCharacterImageUrls: true
@@ -269,7 +296,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneBackgroundImage"
                 //new body
                 const newMakeSceneBackgroundImagesBody: makeSceneBackgroundImageBodyType = {
-                    prompt,
+                    prompt: finalPrompt,
                     projectId: seenProject.id,
                     scene: eachScene
                 }
@@ -734,12 +761,45 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
                             <button className="button2"
                                 onClick={() => {
-                                    handleGenerateSceneBackgroundImages(project.current.scenes)
+                                    makeImagesInstructionsObj.current.showing = !makeImagesInstructionsObj.current.showing
+                                    //general refresh
+                                    refreshProject([])
                                 }}
-                            >make images</button>
+                            >{makeImagesInstructionsObj.current.showing ? "show less" : "make images"}</button>
                         </div>
 
                         <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
+                            {makeImagesInstructionsObj.current.showing && (
+                                <div className="container">
+                                    <label>scene image generation</label>
+
+                                    <ShowMore
+                                        label="prompt"
+                                        content={(
+                                            <TextArea
+                                                name={`sceneBackgroundGenerationPrompt`}
+                                                value={makeImagesInstructionsObj.current.prompt}
+                                                placeHolder="Set the prompt for the image generation..."
+                                                onChange={(e) => {
+                                                    makeImagesInstructionsObj.current.prompt = e.target.value
+
+                                                    //general refresh
+                                                    refreshProject([])
+                                                }}
+                                            />
+                                        )}
+                                    />
+
+                                    {makeImagesInstructionsObj.current.showing && (
+                                        <button className="button2"
+                                            onClick={() => {
+                                                handleGenerateSceneBackgroundImages(project.current.scenes)
+                                            }}
+                                        >make images</button>
+                                    )}
+                                </div>
+                            )}
+
                             {project.current.scenes.map((eachScene, eachSceneIndex) => {
 
                                 return (
@@ -1802,239 +1862,261 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
             />
 
             <div className="container">
-                {scene.dialogue.map((eachDialogue, eachDialogueIndex) => {
-                    const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
+                {scene.dialogue.length > 0 ? (
+                    <>
+                        {scene.dialogue.map((eachDialogue, eachDialogueIndex) => {
+                            const foundCharacter = charactersInProject.find(eachCharacter => eachCharacter.id === eachDialogue.characterId)
 
-                    return (//scene edit dialogue
-                        <div key={eachDialogue.id} className="container" style={{ position: "relative" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)", justifyContent: "flex-end" }}>
-                                <button className="button2"
-                                    onClick={() => {
-                                        addingDialogueIndex.current = addingDialogueIndex.current === undefined ? eachDialogueIndex + 1 : undefined
+                            return (//scene edit dialogue
+                                <div key={eachDialogue.id} className="container" style={{ position: "relative" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)", justifyContent: "flex-end" }}>
+                                        <button className="button2"
+                                            onClick={() => {
+                                                addingDialogueIndex.current = addingDialogueIndex.current === undefined ? eachDialogueIndex + 1 : undefined
 
-                                        //general refresh
-                                        refreshProject([])
-                                    }}
-                                >
-                                    <span className="material-symbols-outlined">
-                                        {addingDialogueIndex.current === undefined ? "add" : "check_indeterminate_small"}
-                                    </span>
-                                </button>
+                                                //general refresh
+                                                refreshProject([])
+                                            }}
+                                        >
+                                            <span className="material-symbols-outlined">
+                                                {addingDialogueIndex.current === undefined ? "add" : "check_indeterminate_small"}
+                                            </span>
+                                        </button>
 
-                                <div style={{ display: "flex", alignItems: "center" }}>
-                                    <button
-                                        onClick={() => { //dialogue swap setting
-                                            changeDialogueIndex(eachDialogueIndex, "prev")
-                                        }}
-                                    >
-                                        <span className="material-symbols-outlined">
-                                            arrow_drop_up
-                                        </span>
-                                    </button>
+                                        <div style={{ display: "flex", alignItems: "center" }}>
+                                            <button
+                                                onClick={() => { //dialogue swap setting
+                                                    changeDialogueIndex(eachDialogueIndex, "prev")
+                                                }}
+                                            >
+                                                <span className="material-symbols-outlined">
+                                                    arrow_drop_up
+                                                </span>
+                                            </button>
 
-                                    <button
-                                        onClick={() => {
-                                            changeDialogueIndex(eachDialogueIndex, "next")
-                                        }}
-                                    >
-                                        <span className="material-symbols-outlined">
-                                            arrow_drop_down
-                                        </span>
-                                    </button>
-                                </div>
+                                            <button
+                                                onClick={() => {
+                                                    changeDialogueIndex(eachDialogueIndex, "next")
+                                                }}
+                                            >
+                                                <span className="material-symbols-outlined">
+                                                    arrow_drop_down
+                                                </span>
+                                            </button>
+                                        </div>
 
-                                <ConfirmationBox text='' confirmationText='Are you sure you want to delete this dialogue?' successMessage='dialogue deleted!' iconName={"delete"} float={true}
-                                    runAction={async () => {
-                                        project.current.scenes = project.current.scenes.map(eachScene => {
-                                            if (eachScene.id === scene.id) {
-                                                eachScene.dialogue = eachScene.dialogue.filter(eachDialogueFilter => eachDialogueFilter.id !== eachDialogue.id)
-                                            }
+                                        <ConfirmationBox text='' confirmationText='Are you sure you want to delete this dialogue?' successMessage='dialogue deleted!' iconName={"delete"} float={true}
+                                            runAction={async () => {
+                                                project.current.scenes = project.current.scenes.map(eachScene => {
+                                                    if (eachScene.id === scene.id) {
+                                                        eachScene.dialogue = eachScene.dialogue.filter(eachDialogueFilter => eachDialogueFilter.id !== eachDialogue.id)
+                                                    }
 
-                                            return eachScene
-                                        })
+                                                    return eachScene
+                                                })
 
-                                        refreshProject(["scenes"])
-                                    }}
-                                />
-                            </div>
+                                                refreshProject(["scenes"])
+                                            }}
+                                        />
+                                    </div>
 
-                            {foundCharacter !== undefined ? (
-                                <>
-                                    <Select
-                                        name={`${eachDialogue.id}characterId`}
-                                        value={`${foundCharacter.name}____${eachDialogue.characterId}`}
-                                        valueOptions={charactersInProject.map(eachCharacterInProject => `${eachCharacterInProject.name}____${eachCharacterInProject.id}`)}
-                                        style={{ fontWeight: "bold" }}
-                                        onChange={value => {
-                                            const usableValue = value.split("____")
-
-                                            updateDialogue(usableValue[1], "characterId", eachDialogue.id)
-                                        }}
-                                    />
-
-                                    <TextArea
-                                        name={`dialogueSentence${eachDialogue.id}`}
-                                        value={eachDialogue.sentence}
-                                        placeHolder="Edit the dialogue..."
-                                        onChange={(e) => {
-                                            updateDialogue(e.target.value, "sentence", eachDialogue.id)
-                                        }}
-                                    />
-
-                                    {foundCharacter.charactersToEmotions !== undefined ? (
+                                    {foundCharacter !== undefined ? (
                                         <>
                                             <Select
-                                                name={`dialogueEmotion${eachDialogue.id}`}
-                                                value={eachDialogue.emotions ?? "null"}
-                                                valueOptions={["null", ...foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)]}
+                                                name={`${eachDialogue.id}characterId`}
+                                                value={`${foundCharacter.name}____${eachDialogue.characterId}`}
+                                                valueOptions={charactersInProject.map(eachCharacterInProject => `${eachCharacterInProject.name}____${eachCharacterInProject.id}`)}
+                                                style={{ fontWeight: "bold" }}
                                                 onChange={value => {
-                                                    updateDialogue(value, "emotions", eachDialogue.id)
+                                                    const usableValue = value.split("____")
+
+                                                    updateDialogue(usableValue[1], "characterId", eachDialogue.id)
                                                 }}
                                             />
+
+                                            <TextArea
+                                                name={`dialogueSentence${eachDialogue.id}`}
+                                                value={eachDialogue.sentence}
+                                                placeHolder="Edit the dialogue..."
+                                                onChange={(e) => {
+                                                    updateDialogue(e.target.value, "sentence", eachDialogue.id)
+                                                }}
+                                            />
+
+                                            {foundCharacter.charactersToEmotions !== undefined ? (
+                                                <>
+                                                    <Select
+                                                        name={`dialogueEmotion${eachDialogue.id}`}
+                                                        value={eachDialogue.emotions ?? "null"}
+                                                        valueOptions={["null", ...foundCharacter.charactersToEmotions.map(eachCharacterToEmotion => eachCharacterToEmotion.emotionType)]}
+                                                        onChange={value => {
+                                                            updateDialogue(value, "emotions", eachDialogue.id)
+                                                        }}
+                                                    />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p>not seeing charactersToEmotions</p>
+                                                </>
+                                            )}
                                         </>
                                     ) : (
-                                        <>
-                                            <p>not seeing charactersToEmotions</p>
-                                        </>
+                                        <div className="container">
+                                            <p>not seeing character for dialogue</p>
+
+                                            <button className="button2"
+                                                onClick={() => {
+                                                    if (charactersInProject.length < 1) return
+
+                                                    updateDialogue(charactersInProject[0].id, "characterId", eachDialogue.id)
+                                                }}
+                                            >pair</button>
+                                        </div>
                                     )}
-                                </>
-                            ) : (
-                                <div className="container">
-                                    <p>not seeing character for dialogue</p>
 
-                                    <button className="button2"
-                                        onClick={() => {
-                                            if (charactersInProject.length < 1) return
+                                    {addingDialogueIndex.current === eachDialogueIndex + 1 && (
+                                        <div className="container">
+                                            <h2>Make Dialogue</h2>
 
-                                            updateDialogue(charactersInProject[0].id, "characterId", eachDialogue.id)
-                                        }}
-                                    >pair</button>
-                                </div>
-                            )}
+                                            <ShowMore
+                                                label='generate'
+                                                content={
+                                                    <div className="container">
+                                                        <ShowMore
+                                                            label="base instructions"
+                                                            content={
+                                                                <TextArea
+                                                                    name="newDialogueBaseInstructions"
+                                                                    value={makeDialogueGenerateObj.current.baseInstructions}
+                                                                    placeHolder="Set the base instructions for the new dialogue."
+                                                                    onChange={(e) => {
+                                                                        makeDialogueGenerateObj.current.baseInstructions = e.target.value
 
-                            {addingDialogueIndex.current === eachDialogueIndex + 1 && (
-                                <div className="container">
-                                    <h2>Make Dialogue</h2>
+                                                                        //general refresh
+                                                                        refreshProject([])
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
 
-                                    <ShowMore
-                                        label='generate'
-                                        content={
-                                            <div className="container">
-                                                <ShowMore
-                                                    label="base instructions"
-                                                    content={
-                                                        <TextArea
-                                                            name="newDialogueBaseInstructions"
-                                                            value={makeDialogueGenerateObj.current.baseInstructions}
-                                                            placeHolder="Set the base instructions for the new dialogue."
+                                                        <ShowMore
+                                                            label="new dialogue prompt"
+                                                            content={
+                                                                <TextArea
+                                                                    name="newDialoguePrompt"
+                                                                    value={makeDialogueGenerateObj.current.prompt}
+                                                                    placeHolder="Add a new dialogue based on your prompt"
+                                                                    onChange={(e) => {
+                                                                        makeDialogueGenerateObj.current.prompt = e.target.value
+
+                                                                        //refresh
+                                                                        refreshProject([])
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
+
+                                                        <ShowMore
+                                                            label="referenced scene id's"
+                                                            content={
+                                                                <TextInput
+                                                                    name="newDialogueReferencedSceneIds"
+                                                                    value={makeDialogueGenerateObj.current.referencedSceneIds}
+                                                                    placeHolder="Enter other scene id's. e.g ID1, ID2"
+                                                                    onChange={(e) => {
+                                                                        makeDialogueGenerateObj.current.referencedSceneIds = e.target.value
+
+                                                                        //general refresh
+                                                                        refreshProject([])
+                                                                    }}
+                                                                />
+                                                            }
+                                                        />
+
+                                                        <button className="button1"
+                                                            onClick={() => {
+                                                                handleMakeDialogue(makeDialogueGenerateObj.current.referencedSceneIds)
+                                                            }}
+                                                        >make</button>
+                                                    </div>
+                                                }
+                                            />
+
+                                            <ShowMore
+                                                label='manual'
+                                                content={
+                                                    <div className="container">
+                                                        <TextInput
+                                                            name={`makeDialogueNewManualObjSentence${eachDialogue.id}`}
+                                                            value={makeDialogueNewManualObj.current.sentence}
+                                                            placeHolder="Set the sentence for the new dialogue."
                                                             onChange={(e) => {
-                                                                makeDialogueGenerateObj.current.baseInstructions = e.target.value
+                                                                makeDialogueNewManualObj.current.sentence = e.target.value
 
                                                                 //general refresh
                                                                 refreshProject([])
                                                             }}
                                                         />
-                                                    }
-                                                />
 
-                                                <ShowMore
-                                                    label="new dialogue prompt"
-                                                    content={
-                                                        <TextArea
-                                                            name="newDialoguePrompt"
-                                                            value={makeDialogueGenerateObj.current.prompt}
-                                                            placeHolder="Add a new dialogue based on your prompt"
-                                                            onChange={(e) => {
-                                                                makeDialogueGenerateObj.current.prompt = e.target.value
+                                                        <button className="button1"
+                                                            onClick={() => {
+                                                                //make new id
+                                                                makeDialogueNewManualObj.current.id = uuidV4()
+
+                                                                //assign same character id
+                                                                makeDialogueNewManualObj.current.characterId = eachDialogue.characterId
+
+                                                                //validation
+                                                                dialogueSchema.parse(makeDialogueNewManualObj.current)
+
+                                                                //add onto scenes dialogue
+                                                                project.current.scenes = project.current.scenes.map(eachScene => {
+                                                                    if (eachScene.id === scene.id) {
+                                                                        eachScene.dialogue = [
+                                                                            ...eachScene.dialogue.slice(0, addingDialogueIndex.current), //before
+                                                                            makeDialogueNewManualObj.current,
+                                                                            ...eachScene.dialogue.slice(addingDialogueIndex.current), //after
+                                                                        ]
+                                                                    }
+
+                                                                    return eachScene
+                                                                })
+
+                                                                //reset
+                                                                makeDialogueNewManualObj.current = { ...initialMakeDialogueNewManualObj }
 
                                                                 //refresh
-                                                                refreshProject([])
+                                                                refreshProject(["scenes"])
                                                             }}
-                                                        />
-                                                    }
-                                                />
-
-                                                <ShowMore
-                                                    label="referenced scene id's"
-                                                    content={
-                                                        <TextInput
-                                                            name="newDialogueReferencedSceneIds"
-                                                            value={makeDialogueGenerateObj.current.referencedSceneIds}
-                                                            placeHolder="Enter other scene id's. e.g ID1, ID2"
-                                                            onChange={(e) => {
-                                                                makeDialogueGenerateObj.current.referencedSceneIds = e.target.value
-
-                                                                //general refresh
-                                                                refreshProject([])
-                                                            }}
-                                                        />
-                                                    }
-                                                />
-
-                                                <button className="button1"
-                                                    onClick={() => {
-                                                        handleMakeDialogue(makeDialogueGenerateObj.current.referencedSceneIds)
-                                                    }}
-                                                >make</button>
-                                            </div>
-                                        }
-                                    />
-
-                                    <ShowMore
-                                        label='manual'
-                                        content={
-                                            <div className="container">
-                                                <TextInput
-                                                    name={`makeDialogueNewManualObjSentence${eachDialogue.id}`}
-                                                    value={makeDialogueNewManualObj.current.sentence}
-                                                    placeHolder="Set the sentence for the new dialogue."
-                                                    onChange={(e) => {
-                                                        makeDialogueNewManualObj.current.sentence = e.target.value
-
-                                                        //general refresh
-                                                        refreshProject([])
-                                                    }}
-                                                />
-
-                                                <button className="button1"
-                                                    onClick={() => {
-                                                        //make new id
-                                                        makeDialogueNewManualObj.current.id = uuidV4()
-
-                                                        //assign same character id
-                                                        makeDialogueNewManualObj.current.characterId = eachDialogue.characterId
-
-                                                        //validation
-                                                        dialogueSchema.parse(makeDialogueNewManualObj.current)
-
-                                                        //add onto scenes dialogue
-                                                        project.current.scenes = project.current.scenes.map(eachScene => {
-                                                            if (eachScene.id === scene.id) {
-                                                                eachScene.dialogue = [
-                                                                    ...eachScene.dialogue.slice(0, addingDialogueIndex.current), //before
-                                                                    makeDialogueNewManualObj.current,
-                                                                    ...eachScene.dialogue.slice(addingDialogueIndex.current), //after
-                                                                ]
-                                                            }
-
-                                                            return eachScene
-                                                        })
-
-                                                        //reset
-                                                        makeDialogueNewManualObj.current = { ...initialMakeDialogueNewManualObj }
-
-                                                        //refresh
-                                                        refreshProject(["scenes"])
-                                                    }}
-                                                >add</button>
-                                            </div>
-                                        }
-                                    />
+                                                        >add</button>
+                                                    </div>
+                                                }
+                                            />
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
-                    )
-                })}
+                            )
+                        })}
+                    </>
+                ) : (
+                    <button className="button2"
+                        onClick={() => {
+                            project.current.scenes.map(eachScene => {
+                                if (eachScene.id === scene.id) {
+                                    eachScene.dialogue = [...eachScene.dialogue, { characterId: charactersInProject[0].id, emotions: null, id: uuidV4(), sentence: "" }]
+                                }
+
+                                return eachScene
+                            })
+                            //general refresh
+                            refreshProject([])
+                        }}
+                    >
+                        <span className="material-symbols-outlined">
+                            {addingDialogueIndex.current === undefined ? "add" : "check_indeterminate_small"}
+                        </span>
+                    </button>
+                )}
             </div>
         </div>
     )

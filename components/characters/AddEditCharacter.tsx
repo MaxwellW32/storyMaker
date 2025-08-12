@@ -437,7 +437,6 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         }
     }
 
-    console.log(`$s`, formObj);
     return (
         <form className={styles.form} action={() => { }}>
             <ShowMore
@@ -696,7 +695,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
 
                                     newAppearanceInstructionsObj[eachAppearance.id] = {
                                         loading: false,
-                                        prompt: `Generate a single, high-quality illustration of the character described below. Strictly follow the provided physical appearance details without adding or removing features. Preserve exact facial structure, age, proportions, skin tone, hair color, hairstyle, and any notable marks or features. Clothing, accessories, and style should match the description exactly unless otherwise stated. Avoid adding elements not mentioned. Render in a consistent [storybook illustration / soft watercolor / gentle pastel / hand-drawn children’s book] style with bright, friendly lighting.\n\nAppearance description:`,
+                                        prompt: `Generate a single, high-quality illustration of the character described below. Strictly follow the provided physical appearance details without adding or removing features. Preserve exact facial structure, age, proportions, skin tone, hair color, hairstyle, and any notable marks or features. Clothing, accessories, and style should match the description exactly unless otherwise stated. Avoid adding elements not mentioned.\n\nAppearance description:`,
                                         imageSrc: ""
                                     }
 
