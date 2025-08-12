@@ -1,8 +1,8 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
-import { alterScene, makeDialogue, makeSceneBackgroundImages, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
+import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterType, characterAppearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, makeAudioBodySchema, makeAudioBodyType, makeAudioResponseSchema, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema } from "@/types"
+import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterType, characterAppearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeDialogueAudioBodyType, makeDialogueAudioResponseSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -264,13 +264,30 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                     scene: eachScene,
                     referencedCharacterImageUrls: true
                 })
-                const makeSceneBackgroundResponse = await makeSceneBackgroundImages(prompt, seenProject.id, eachScene)
-                console.log(`$makeSceneBackgroundResponse`, makeSceneBackgroundResponse);
+
+                //what function to call
+                const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneBackgroundImage"
+                //new body
+                const newMakeSceneBackgroundImagesBody: makeSceneBackgroundImageBodyType = {
+                    prompt,
+                    projectId: seenProject.id,
+                    scene: eachScene
+                }
+
+                //send off to gpt api
+                const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(newMakeSceneBackgroundImagesBody)
+                })
+                const makeSceneBackgroundImagesResponse = makeSceneBackgroundImageResponseSchema.parse(await response.json())
 
                 //update scene backgrounds
                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
                     if (eachSceneMap.id === eachScene.id) {
-                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundResponse.src
+                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundImagesResponse.src
                     }
 
                     return eachSceneMap
@@ -426,27 +443,29 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 //start loading
                 project.current.alterDialogueObj[eachDialogue.id].loading = true
 
-                const newMakeAudioBody: makeAudioBodyType = {
+                //what function to call
+                const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeDialogueAudio"
+                //new body
+                const newMakeDialogueAudioBody: makeDialogueAudioBodyType = {
                     line: eachDialogue.sentence,
                     projectId: seenProject.id,
                     dialogueId: eachDialogue.id,
                     character: foundCharacter,
                     variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
                 }
-                //validation
-                makeAudioBodySchema.parse(newMakeAudioBody)
 
-                const response = await fetch(`/api/audio/make`, {
+                //send off to gpt api
+                const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify(newMakeAudioBody)
+                    body: JSON.stringify(newMakeDialogueAudioBody)
                 })
-                const makeAudioResponse = makeAudioResponseSchema.parse(await response.json())
+                const makeDialogueAudioResponse = makeDialogueAudioResponseSchema.parse(await response.json())
 
                 //add on audio fileName
-                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeAudioResponse.dialogueAudioFileName]
+                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeDialogueAudioResponse.dialogueAudioFileName]
 
                 //set variation Index to latest
                 project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1

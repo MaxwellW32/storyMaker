@@ -1,6 +1,6 @@
 //To Do
 //after effects
-//add artsytle choise to whole app
+//take out artstyle prompts - ensure thats in the description
 
 
 
