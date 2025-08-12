@@ -12,527 +12,258 @@
 // ExtendScript Debugger (by Adobe)
 // Adobe Script Runner (by renderTom)
 
-
-// var seenProject = {
-//     "id": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
-//     "dateCreated": "2025-08-01T06:06:02.178Z",
-//     "prompt": "please write a story on grapes",
-//     "scenes": [
-//         {
-//             "id": "fce4d960-4c37-4556-af2b-1a31a078cbb3",
-//             "title": "The Case of the Missing Grapes",
-//             "dialogue": [
-//                 {
-//                     "id": "6aab5440-2367-478e-b97b-08998891716a",
-//                     "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                     "sentence": "Did you know that grapes come in bunches, but when one goes missing, the whole bunch feels lighter? Huh, just like when you lose a sock! Was it always there to begin with?",
-//                     "emotions": "excited"
-//                 },
-//                 {
-//                     "id": "945781e3-de07-4d44-8c66-870b1cb31a65",
-//                     "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                     "sentence": "Whoa, Max! I just saw a grape—no, a whole parade of grapes—rolling down the street. I swear! Or maybe it was just my snack escaping. Wait, where was I? Right! Grape rescue mission!",
-//                     "emotions": "excited"
-//                 }
-//             ],
-//             "backgroundImageSrc": null
-//         },
-//         {
-//             "id": "f0e49db3-372b-4def-ab9b-dd8913ef5836",
-//             "title": "Grape Detectives",
-//             "dialogue": [
-//                 {
-//                     "id": "d9e2ec2e-20d4-4c10-abd6-f1b60c1bc635",
-//                     "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                     "sentence": "Let’s follow the grape trail. If we map the direction and velocity, maybe we can predict the endpoint! Or... do you think grapes believe in destiny?",
-//                     "emotions": "excited"
-//                 },
-//                 {
-//                     "id": "7747902c-89b6-4052-8986-5a56ec412269",
-//                     "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                     "sentence": "Destiny? Maybe! Or maybe they just wanna roll into adventure, like me! You think grapes get bored hanging on the vine? Haha, let’s roll!",
-//                     "emotions": "excited"
-//                 }
-//             ],
-//             "backgroundImageSrc": null
-//         },
-//         {
-//             "id": "ffacd6b0-77fe-49c3-a193-c7be19cb751a",
-//             "title": "The Grape Reunion",
-//             "dialogue": [
-//                 {
-//                     "id": "a90a2298-31c9-45d6-b371-4c7f31ce6683",
-//                     "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                     "sentence": "We found them! Turns out, some grapes had rolled under the playground slide. Gravity—always a sneaky accomplice, huh? Like a grape conspiracy!",
-//                     "emotions": "happy"
-//                 },
-//                 {
-//                     "id": "8f3c6bc2-35bd-4ee3-84ff-6699c64978cf",
-//                     "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                     "sentence": "I knew it! Never trust grapes alone with a slide. Want one? Oops—no more rolling away, promise! Or... do they taste better if they’ve had an adventure first?",
-//                     "emotions": "excited"
-//                 }
-//             ],
-//             "backgroundImageSrc": null
-//         },
-//         {
-//             "id": "4402a917-47a9-476e-8498-24e7e76a243f",
-//             "title": "Mystery Solved, Snack Time!",
-//             "dialogue": [
-//                 {
-//                     "id": "ee73cf8a-56fa-4b9a-86e0-ee1fd59c791e",
-//                     "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                     "sentence": "Think of it as a snack with a story: these grapes discovered the world beyond the bowl, just like us sometimes. I wonder—does every grape want to explore?",
-//                     "emotions": "happy"
-//                 },
-//                 {
-//                     "id": "ee186bbd-b1e3-43ec-9f1c-a2d638ca7747",
-//                     "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                     "sentence": "If I was a grape? Totally. Next time, let’s chase strawberries—no, whole fruit markets! Let’s snack and solve at the same time!",
-//                     "emotions": "excited"
-//                 }
-//             ],
-//             "backgroundImageSrc": null
-//         }
-//     ],
-//     "alterScenesObj": {
-//         "7079bff5-37f0-4d1d-b3d8-ba8cffd75bcf": {
-//             "prompt": "orange",
-//             "baseInstructions": "BaseInstructions:\n[[baseInstructions]]\n\n\nPlease alter the scene below using the users prompt.\nScene:\n[[scene]]\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]",
-//             "loading": false,
-//             "referencedScenes": "",
-//             "variationIndex": 1,
-//             "variations": [
-//                 {
-//                     "id": "7079bff5-37f0-4d1d-b3d8-ba8cffd75bcf",
-//                     "title": "meep",
-//                     "dialogue": [],
-//                     "backgroundImageSrc": null
-//                 },
-//                 {
-//                     "id": "7079bff5-37f0-4d1d-b3d8-ba8cffd75bcf",
-//                     "title": "The Curious Quest for the Orange Glow",
-//                     "dialogue": [
-//                         {
-//                             "id": "80421cba-c64a-4b12-8668-024769581b3b",
-//                             "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                             "sentence": "Kim, have you ever wondered why oranges are so bright, almost like they’re little suns with peels?",
-//                             "emotions": "excited"
-//                         },
-//                         {
-//                             "id": "91f04503-ef83-4044-b9aa-2c54990ba8fd",
-//                             "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                             "sentence": "Haha, Max! Everything’s more fun when it’s orange—y’know? Plus, squeezing ‘em makes the best mess. Wanna race to see who can peel one fastest? Oops, wait—what were you saying about the sun?",
-//                             "emotions": "excited"
-//                         },
-//                         {
-//                             "id": "37ad683c-8d64-46cb-bd68-9a690d64e3be",
-//                             "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                             "sentence": "Well, you know how the sun helps things grow? Oranges soak up all that sunlight, and inside their peel, there’s something called carotenoids! It’s like a secret code for orange colors in nature.",
-//                             "emotions": "happy"
-//                         },
-//                         {
-//                             "id": "366bacc3-faba-409b-9998-e8a9c9f3faa1",
-//                             "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                             "sentence": "Secret code?! Okay, so if I eat enough oranges, will I glow too? Maybe not like a lamp, but it’d be wild! Let’s try!",
-//                             "emotions": "excited"
-//                         }
-//                     ],
-//                     "backgroundImageSrc": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80"
-//                 }
-//             ]
-//         },
-//         "74257321-231c-40f2-ba97-2a51d78cc34f": {
-//             "prompt": "Enter your prompt here",
-//             "baseInstructions": "BaseInstructions:\n[[baseInstructions]]\n\n\nPlease alter the scene below using the users prompt.\nScene:\n[[scene]]\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]",
-//             "loading": false,
-//             "referencedScenes": "",
-//             "variationIndex": 1,
-//             "variations": []
-//         }
-//     },
-//     "alterDialogueObj": {
-//         "6aab5440-2367-478e-b97b-08998891716a": {
-//             "audioFileNameArray": [
-//                 "6aab5440-2367-478e-b97b-08998891716a__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": false,
-//             "audioEditable": false
-//         },
-//         "945781e3-de07-4d44-8c66-870b1cb31a65": {
-//             "audioFileNameArray": [
-//                 "945781e3-de07-4d44-8c66-870b1cb31a65__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": false,
-//             "audioEditable": false
-//         },
-//         "d9e2ec2e-20d4-4c10-abd6-f1b60c1bc635": {
-//             "audioFileNameArray": [
-//                 "d9e2ec2e-20d4-4c10-abd6-f1b60c1bc635__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": false,
-//             "audioEditable": false
-//         },
-//         "7747902c-89b6-4052-8986-5a56ec412269": {
-//             "audioFileNameArray": [
-//                 "7747902c-89b6-4052-8986-5a56ec412269__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": false,
-//             "audioEditable": false
-//         },
-//         "a90a2298-31c9-45d6-b371-4c7f31ce6683": {
-//             "audioFileNameArray": [
-//                 "a90a2298-31c9-45d6-b371-4c7f31ce6683__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": false,
-//             "audioEditable": false
-//         },
-//         "8f3c6bc2-35bd-4ee3-84ff-6699c64978cf": {
-//             "audioFileNameArray": [
-//                 "8f3c6bc2-35bd-4ee3-84ff-6699c64978cf__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": true,
-//             "audioEditable": true
-//         },
-//         "ee73cf8a-56fa-4b9a-86e0-ee1fd59c791e": {
-//             "audioFileNameArray": [
-//                 "ee73cf8a-56fa-4b9a-86e0-ee1fd59c791e__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": true,
-//             "audioEditable": true
-//         },
-//         "ee186bbd-b1e3-43ec-9f1c-a2d638ca7747": {
-//             "audioFileNameArray": [
-//                 "ee186bbd-b1e3-43ec-9f1c-a2d638ca7747__1.mp3"
-//             ],
-//             "variationIndex": 0,
-//             "loading": true,
-//             "audioEditable": true
-//         }
-//     },
-//     "name": "first project",
-//     "userId": "c39a84cd-746e-470b-875e-27ce02ee78fa",
-//     "baseInstructions": "write incredible short children stories. Please base the characters in the story from this [[characters]] emotions for each character in the dialogue must be taken from that character object only.",
-//     "charactersToProjects": [
-//         {
-//             "simpleId": "79773044-3a81-45bf-a07f-97584e153256",
-//             "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//             "projectId": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
-//             "character": {
-//                 "id": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                 "name": "max",
-//                 "age": 24,
-//                 "userId": "c39a84cd-746e-470b-875e-27ce02ee78fa",
-//                 "voiceId": "Dslrhjl3ZpzrctukrQSN",
-//                 "personality": "cheerful and analytical",
-//                 "toneOfVoice": "friendly with a curious edge",
-//                 "dialogueStyle": "asks a lot of questions, often uses analogies to explain thoughts",
-//                 "alignment": "Neutral Good",
-//                 "goal": "to uncover hidden truths in the world and help others understand them",
-//                 "fear": "being wrong in a critical moment or leading someone astray",
-//                 "fatalFlaw": "tends to overthink and miss opportunities due to analysis paralysis",
-//                 "backstory": "Raised by a scientist and a schoolteacher in a tech-savvy town, Max grew up asking 'why' about everything. After solving a major local mystery as a teen, he became obsessed with understanding systems—social, mechanical, and emotional.",
-//                 "occupation": "information broker and freelance investigator",
-//                 "location": "a cozy apartment above a busy bookstore in the heart of a futuristic city",
-//                 "appearance": "slim build, tousled dark hair, round glasses, and always seen carrying a digital notepad",
-//                 "archetype": "The Thinker",
-//                 "images": [
-//                     {
-//                         "emotionType": "happy",
-//                         "file": {
-//                             "createdAt": "2025-08-09T18:18:12.781Z",
-//                             "fileName": "square_happy.jpg",
-//                             "src": "happy____78533ae5-4f1d-4c74-8cec-65ec78d9dde0____square_happy.jpg",
-//                             "status": "uploaded",
-//                             "uploadedAlready": true,
-//                             "dbFileType": "image"
-//                         }
-//                     },
-//                     {
-//                         "emotionType": "excited",
-//                         "file": {
-//                             "createdAt": "2025-08-09T18:18:17.020Z",
-//                             "fileName": "square_excited.jpg",
-//                             "src": "excited____91fdd2fa-2e9e-45be-b7ba-69352ac9effe____square_excited.jpg",
-//                             "status": "uploaded",
-//                             "uploadedAlready": true,
-//                             "dbFileType": "image"
-//                         }
-//                     }
-//                 ],
-//                 "charactersToEmotions": [
-//                     {
-//                         "simpleId": "e0869e87-752b-43af-b8a6-d3cdabf18a00",
-//                         "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                         "emotionType": "excited"
-//                     },
-//                     {
-//                         "simpleId": "7533a35d-d759-4e3a-b700-4f307612362a",
-//                         "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-//                         "emotionType": "happy"
-//                     }
-//                 ]
-//             }
-//         },
-//         {
-//             "simpleId": "c6bfa0f9-f6cb-469b-963e-0188e96bf10b",
-//             "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//             "projectId": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
-//             "character": {
-//                 "id": "89b09350-30f5-4c85-a553-064e69706f26",
-//                 "name": "kim",
-//                 "age": 26,
-//                 "userId": "c39a84cd-746e-470b-875e-27ce02ee78fa",
-//                 "voiceId": "rCmVtv8cYU60uhlsOo1M",
-//                 "personality": "cheerful and impulsive",
-//                 "toneOfVoice": "playful and energetic, often teasing",
-//                 "dialogueStyle": "uses slang, interrupts herself mid-sentence, and changes topics quickly",
-//                 "alignment": "Chaotic Good",
-//                 "goal": "to experience as much of life as possible without being tied down",
-//                 "fear": "being stuck in a boring routine or losing her freedom",
-//                 "fatalFlaw": "acts before thinking, often causing unintended consequences",
-//                 "backstory": "Kim grew up in a quiet suburb but always craved excitement. She left home at 18 and has been bouncing from city to city ever since—chasing music festivals, spontaneous adventures, and fleeting jobs. She’s earned both friends and enemies with her wild charm.",
-//                 "occupation": "travel vlogger and part-time street performer",
-//                 "location": "wherever the wind takes her—currently crashing on a friend's couch in a neon-lit coastal city",
-//                 "appearance": "short, spiky pink hair, eclectic clothing full of bright patterns, and an infectious smile",
-//                 "archetype": "The Free Spirit",
-//                 "images": [],
-//                 "charactersToEmotions": [
-//                     {
-//                         "simpleId": "befff823-4080-484e-b2e1-8a5759428a56",
-//                         "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-//                         "emotionType": "excited"
-//                     }
-//                 ]
-//             }
-//         }
-//     ]
-// }
 var seenProject = {
   "id": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
   "dateCreated": "2025-08-01T06:06:02.178Z",
-  "prompt": "please write a story on grapes",
+  "prompt": "please write a story going through the forest, looking for a worm",
   "scenes": [
     {
-      "id": "fce4d960-4c37-4556-af2b-1a31a078cbb3",
-      "title": "The Case of the Missing Grapes",
+      "id": "2ba808b7-1858-4cdb-85c8-49efc077052a",
+      "title": "Into the Whistling Woods",
       "dialogue": [
         {
-          "id": "6aab5440-2367-478e-b97b-08998891716a",
+          "id": "ec6e236d-7d63-4077-8643-1dd83432eeee",
           "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-          "sentence": "Did you know that grapes come in bunches, but when one goes missing, the whole bunch feels lighter? Huh, just like when you lose a sock! Was it always there to begin with?",
-          "emotions": "excited"
-        },
-        {
-          "id": "945781e3-de07-4d44-8c66-870b1cb31a65",
-          "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-          "sentence": "Whoa, Max! I just saw a grape—no, a whole parade of grapes—rolling down the street. I swear! Or maybe it was just my snack escaping. Wait, where was I? Right! Grape rescue mission!",
-          "emotions": "excited"
-        }
-      ],
-      "backgroundImageSrc": null
-    },
-    {
-      "id": "f0e49db3-372b-4def-ab9b-dd8913ef5836",
-      "title": "Grape Detectives",
-      "dialogue": [
-        {
-          "id": "d9e2ec2e-20d4-4c10-abd6-f1b60c1bc635",
-          "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-          "sentence": "Let’s follow the grape trail. If we map the direction and velocity, maybe we can predict the endpoint! Or... do you think grapes believe in destiny?",
-          "emotions": "excited"
-        },
-        {
-          "id": "7747902c-89b6-4052-8986-5a56ec412269",
-          "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-          "sentence": "Destiny? Maybe! Or maybe they just wanna roll into adventure, like me! You think grapes get bored hanging on the vine? Haha, let’s roll!",
-          "emotions": "excited"
-        }
-      ],
-      "backgroundImageSrc": null
-    },
-    {
-      "id": "ffacd6b0-77fe-49c3-a193-c7be19cb751a",
-      "title": "The Grape Reunion",
-      "dialogue": [
-        {
-          "id": "a90a2298-31c9-45d6-b371-4c7f31ce6683",
-          "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-          "sentence": "We found them! Turns out, some grapes had rolled under the playground slide. Gravity—always a sneaky accomplice, huh? Like a grape conspiracy!",
+          "sentence": "Wow, Kim! The forest is like a giant green puzzle. I wonder what secrets are hiding under all these leaves.",
           "emotions": "happy"
         },
         {
-          "id": "8f3c6bc2-35bd-4ee3-84ff-6699c64978cf",
+          "id": "562f73b2-f6e5-4aaf-9f86-dcebb4a7b947",
           "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-          "sentence": "I knew it! Never trust grapes alone with a slide. Want one? Oops—no more rolling away, promise! Or... do they taste better if they’ve had an adventure first?",
+          "sentence": "Secrets? Maybe we’ll find a treasure map! Or a—oh! What if we see a unicorn? Or, you know, just a really big worm.",
           "emotions": "excited"
         }
       ],
-      "backgroundImageSrc": null
+      "backgroundImageSrc": "2ba808b7-1858-4cdb-85c8-49efc077052a___5914c58c-ca45-4d29-bafd-a594afb9c0f5.png",
+      "activeCharacterAppearance": {
+        "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8": "b5c92147-e099-4972-96ec-bcd9903ba549",
+        "89b09350-30f5-4c85-a553-064e69706f26": "9996aeec-793f-4888-9249-201ac3018cf8"
+      }
     },
     {
-      "id": "4402a917-47a9-476e-8498-24e7e76a243f",
-      "title": "Mystery Solved, Snack Time!",
+      "id": "2295516a-4acb-44db-899a-b98eadf4046e",
+      "title": "By the Mossy Log",
       "dialogue": [
         {
-          "id": "ee73cf8a-56fa-4b9a-86e0-ee1fd59c791e",
+          "id": "856575dd-ae25-4325-b2e7-cbf1cd4bba55",
+          "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
+          "sentence": "Hey, Max, check this out! There are tiny mushrooms growing here. Think worms like mushroom houses?",
+          "emotions": "excited"
+        },
+        {
+          "id": "9169a440-b26e-47fa-82ef-d22a689f70d4",
           "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-          "sentence": "Think of it as a snack with a story: these grapes discovered the world beyond the bowl, just like us sometimes. I wonder—does every grape want to explore?",
+          "sentence": "Maybe! Worms are like nature’s secret engineers. If I were a worm, I’d definitely live where it’s damp and cozy.",
+          "emotions": "excited"
+        }
+      ],
+      "backgroundImageSrc": "2295516a-4acb-44db-899a-b98eadf4046e___554a474f-57a9-4270-87bb-e621f8b96a71.png",
+      "activeCharacterAppearance": {
+        "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8": "b5c92147-e099-4972-96ec-bcd9903ba549",
+        "89b09350-30f5-4c85-a553-064e69706f26": "9996aeec-793f-4888-9249-201ac3018cf8"
+      }
+    },
+    {
+      "id": "adea21f9-fcda-43e4-b8ca-38a5e7f3c12b",
+      "title": "Digging Down",
+      "dialogue": [
+        {
+          "id": "14eef3b2-adb0-4b43-ad52-aaf1ba69204d",
+          "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
+          "sentence": "Let’s gently lift this log together. Careful—there might be lots of little critters underneath.",
           "emotions": "happy"
         },
         {
-          "id": "ee186bbd-b1e3-43ec-9f1c-a2d638ca7747",
+          "id": "8394a70d-90c7-4a0f-b4a9-bd74392b70c2",
           "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-          "sentence": "If I was a grape? Totally. Next time, let’s chase strawberries—no, whole fruit markets! Let’s snack and solve at the same time!",
+          "sentence": "On three! One... two... three—Whoa! Is that a wiggly tail?",
+          "emotions": null
+        }
+      ],
+      "backgroundImageSrc": "adea21f9-fcda-43e4-b8ca-38a5e7f3c12b___0fe5876e-cbc2-4d06-bd28-d7596581ac93.png",
+      "activeCharacterAppearance": {
+        "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8": "b5c92147-e099-4972-96ec-bcd9903ba549",
+        "89b09350-30f5-4c85-a553-064e69706f26": "9996aeec-793f-4888-9249-201ac3018cf8"
+      }
+    },
+    {
+      "id": "706e7c5d-bd1f-496e-b0b2-65dae8383859",
+      "title": "The Wiggly Discovery",
+      "dialogue": [
+        {
+          "id": "42da91a5-99a3-4276-a54c-29bb4a55bb74",
+          "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
+          "sentence": "It’s a worm! And it’s HUGE! Like, it could star in its own movie. ‘Sir Wiggles: Hero of the Forest!’",
+          "emotions": "excited"
+        },
+        {
+          "id": "df73d456-d795-43f6-ba51-9b925f993cf0",
+          "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
+          "sentence": "Look how carefully it moves, Kim! Worms help the soil breathe—kind of like tiny gardeners.",
           "emotions": "excited"
         }
       ],
-      "backgroundImageSrc": null
+      "backgroundImageSrc": "706e7c5d-bd1f-496e-b0b2-65dae8383859___7ad846c6-98b8-406c-9809-1c5800141813.png",
+      "activeCharacterAppearance": {
+        "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8": "b5c92147-e099-4972-96ec-bcd9903ba549",
+        "89b09350-30f5-4c85-a553-064e69706f26": "9996aeec-793f-4888-9249-201ac3018cf8"
+      }
+    },
+    {
+      "id": "c2b47b14-da89-4204-9652-4c449a2b3c40",
+      "title": "Home Again",
+      "dialogue": [
+        {
+          "id": "d84c7ac1-a2d4-4ea0-b0e3-f498f097c0c4",
+          "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
+          "sentence": "Let’s gently put the log back so Sir Wiggles can get back to work. It’s amazing how important even the smallest creatures are.",
+          "emotions": "happy"
+        },
+        {
+          "id": "1456a659-c04f-4030-a040-03bcb20aabba",
+          "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
+          "sentence": "Next time, we look for flying frogs! Or—wait! Maybe a worm with wings. Think that’s a thing?",
+          "emotions": null
+        }
+      ],
+      "backgroundImageSrc": "c2b47b14-da89-4204-9652-4c449a2b3c40___328c4814-7417-4f7f-81fb-cc7dbc46a225.png",
+      "activeCharacterAppearance": {
+        "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8": "b5c92147-e099-4972-96ec-bcd9903ba549",
+        "89b09350-30f5-4c85-a553-064e69706f26": "9996aeec-793f-4888-9249-201ac3018cf8"
+      }
     }
   ],
-  "alterScenesObj": {
-    "7079bff5-37f0-4d1d-b3d8-ba8cffd75bcf": {
-      "prompt": "orange",
-      "baseInstructions": "BaseInstructions:\n[[baseInstructions]]\n\n\nPlease alter the scene below using the users prompt.\nScene:\n[[scene]]\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]",
+  "alterScenesObj": {},
+  "alterDialogueObj": {
+    "ec6e236d-7d63-4077-8643-1dd83432eeee": {
+      "audioFileNameArray": [
+        "ec6e236d-7d63-4077-8643-1dd83432eeee__1.mp3"
+      ],
+      "variationIndex": 0,
       "loading": false,
-      "referencedScenes": "",
-      "variationIndex": 1,
-      "variations": [
-        {
-          "id": "7079bff5-37f0-4d1d-b3d8-ba8cffd75bcf",
-          "title": "meep",
-          "dialogue": [],
-          "backgroundImageSrc": null
-        },
-        {
-          "id": "7079bff5-37f0-4d1d-b3d8-ba8cffd75bcf",
-          "title": "The Curious Quest for the Orange Glow",
-          "dialogue": [
-            {
-              "id": "80421cba-c64a-4b12-8668-024769581b3b",
-              "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-              "sentence": "Kim, have you ever wondered why oranges are so bright, almost like they’re little suns with peels?",
-              "emotions": "excited"
-            },
-            {
-              "id": "91f04503-ef83-4044-b9aa-2c54990ba8fd",
-              "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-              "sentence": "Haha, Max! Everything’s more fun when it’s orange—y’know? Plus, squeezing ‘em makes the best mess. Wanna race to see who can peel one fastest? Oops, wait—what were you saying about the sun?",
-              "emotions": "excited"
-            },
-            {
-              "id": "37ad683c-8d64-46cb-bd68-9a690d64e3be",
-              "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-              "sentence": "Well, you know how the sun helps things grow? Oranges soak up all that sunlight, and inside their peel, there’s something called carotenoids! It’s like a secret code for orange colors in nature.",
-              "emotions": "happy"
-            },
-            {
-              "id": "366bacc3-faba-409b-9998-e8a9c9f3faa1",
-              "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
-              "sentence": "Secret code?! Okay, so if I eat enough oranges, will I glow too? Maybe not like a lamp, but it’d be wild! Let’s try!",
-              "emotions": "excited"
-            }
-          ],
-          "backgroundImageSrc": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80"
-        }
-      ]
+      "audioEditable": false
     },
-    "74257321-231c-40f2-ba97-2a51d78cc34f": {
-      "prompt": "Enter your prompt here",
-      "baseInstructions": "BaseInstructions:\n[[baseInstructions]]\n\n\nPlease alter the scene below using the users prompt.\nScene:\n[[scene]]\n\n\nYou can use these scenes for reference context if needed.\n[[referencedScenes]]",
+    "562f73b2-f6e5-4aaf-9f86-dcebb4a7b947": {
+      "audioFileNameArray": [
+        "562f73b2-f6e5-4aaf-9f86-dcebb4a7b947__1.mp3"
+      ],
+      "variationIndex": 0,
       "loading": false,
-      "referencedScenes": "",
-      "variationIndex": 1,
-      "variations": []
+      "audioEditable": false
+    },
+    "856575dd-ae25-4325-b2e7-cbf1cd4bba55": {
+      "audioFileNameArray": [
+        "856575dd-ae25-4325-b2e7-cbf1cd4bba55__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "9169a440-b26e-47fa-82ef-d22a689f70d4": {
+      "audioFileNameArray": [
+        "9169a440-b26e-47fa-82ef-d22a689f70d4__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "14eef3b2-adb0-4b43-ad52-aaf1ba69204d": {
+      "audioFileNameArray": [
+        "14eef3b2-adb0-4b43-ad52-aaf1ba69204d__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "8394a70d-90c7-4a0f-b4a9-bd74392b70c2": {
+      "audioFileNameArray": [
+        "8394a70d-90c7-4a0f-b4a9-bd74392b70c2__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "42da91a5-99a3-4276-a54c-29bb4a55bb74": {
+      "audioFileNameArray": [
+        "42da91a5-99a3-4276-a54c-29bb4a55bb74__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "df73d456-d795-43f6-ba51-9b925f993cf0": {
+      "audioFileNameArray": [
+        "df73d456-d795-43f6-ba51-9b925f993cf0__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "d84c7ac1-a2d4-4ea0-b0e3-f498f097c0c4": {
+      "audioFileNameArray": [
+        "d84c7ac1-a2d4-4ea0-b0e3-f498f097c0c4__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
+    },
+    "1456a659-c04f-4030-a040-03bcb20aabba": {
+      "audioFileNameArray": [
+        "1456a659-c04f-4030-a040-03bcb20aabba__1.mp3"
+      ],
+      "variationIndex": 0,
+      "loading": false,
+      "audioEditable": false
     }
   },
-  "alterDialogueObj": {
-    "6aab5440-2367-478e-b97b-08998891716a": {
-      "audioFileNameArray": [
-        "6aab5440-2367-478e-b97b-08998891716a__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": false,
-      "audioEditable": false
-    },
-    "945781e3-de07-4d44-8c66-870b1cb31a65": {
-      "audioFileNameArray": [
-        "945781e3-de07-4d44-8c66-870b1cb31a65__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": false,
-      "audioEditable": false
-    },
-    "d9e2ec2e-20d4-4c10-abd6-f1b60c1bc635": {
-      "audioFileNameArray": [
-        "d9e2ec2e-20d4-4c10-abd6-f1b60c1bc635__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": false,
-      "audioEditable": false
-    },
-    "7747902c-89b6-4052-8986-5a56ec412269": {
-      "audioFileNameArray": [
-        "7747902c-89b6-4052-8986-5a56ec412269__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": false,
-      "audioEditable": false
-    },
-    "a90a2298-31c9-45d6-b371-4c7f31ce6683": {
-      "audioFileNameArray": [
-        "a90a2298-31c9-45d6-b371-4c7f31ce6683__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": false,
-      "audioEditable": false
-    },
-    "8f3c6bc2-35bd-4ee3-84ff-6699c64978cf": {
-      "audioFileNameArray": [
-        "8f3c6bc2-35bd-4ee3-84ff-6699c64978cf__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": true,
-      "audioEditable": true
-    },
-    "ee73cf8a-56fa-4b9a-86e0-ee1fd59c791e": {
-      "audioFileNameArray": [
-        "ee73cf8a-56fa-4b9a-86e0-ee1fd59c791e__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": true,
-      "audioEditable": true
-    },
-    "ee186bbd-b1e3-43ec-9f1c-a2d638ca7747": {
-      "audioFileNameArray": [
-        "ee186bbd-b1e3-43ec-9f1c-a2d638ca7747__1.mp3"
-      ],
-      "variationIndex": 0,
-      "loading": true,
-      "audioEditable": true
-    }
+  "activeCharacterAppearanceStarter": {
+    "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8": "b5c92147-e099-4972-96ec-bcd9903ba549",
+    "89b09350-30f5-4c85-a553-064e69706f26": "9996aeec-793f-4888-9249-201ac3018cf8"
   },
   "name": "first project",
   "userId": "c39a84cd-746e-470b-875e-27ce02ee78fa",
-  "baseInstructions": "write incredible short children stories. Please base the characters in the story from this [[characters]] emotions for each character in the dialogue must be taken from that character object only.",
+  "baseInstructions": "Write incredible short children stories.\n\nPlease base the characters in the story from the below (emotions for each character in the dialogue must be taken from that character object only.)\ncharacters:\n[[characters]]\n\nPlease describe what's happening visually in each scene in the \"visuals\" value. Keeping note of character appearance. Be detailed as this will be used to generate consistent images for each scene.",
   "charactersToProjects": [
     {
-      "simpleId": "79773044-3a81-45bf-a07f-97584e153256",
+      "simpleId": "ff224be7-348d-4579-bc81-71777444432b",
       "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
       "projectId": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
       "character": {
         "id": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
         "name": "max",
-        "age": 24,
+        "age": 8,
         "userId": "c39a84cd-746e-470b-875e-27ce02ee78fa",
         "voiceId": "Dslrhjl3ZpzrctukrQSN",
+        "appearances": [
+          {
+            "id": "b5c92147-e099-4972-96ec-bcd9903ba549",
+            "name": "default",
+            "description": "A boy with a round, youthful face and slightly flushed cheeks, lightly dusted with small freckles across the bridge of his nose. Hazel eyes, large and almond-shaped, with a bright, curious expression, framed by long, dark lashes. Hair is a tousled mop of soft chestnut brown, with natural golden highlights that catch the light, falling in messy layers just above the eyebrows and ears.\n\nWearing a short-sleeved sky-blue T-shirt with a small embroidered patch of a magnifying glass on the left chest. Comfortable, medium-wash denim shorts ending just above the knees. Mismatched ankle socks—one patterned with tiny rocket ships, the other with bright yellow stars. Well-worn white sneakers, slightly scuffed at the toes. Around his neck is a thin lanyard with a small notepad and stubby pencil hanging from it. A couple of colorful braided friendship bracelets on his left wrist.",
+            "file": {
+              "createdAt": "2025-08-12T09:29:29.555Z",
+              "fileName": "generation 1.webp",
+              "src": "b5c92147-e099-4972-96ec-bcd9903ba549.webp",
+              "status": "uploaded",
+              "uploadedAlready": true,
+              "fileCategory": "image"
+            },
+            "uploadedFrom": "main"
+          },
+          {
+            "id": "6f254653-276c-4eb6-8a09-e1c445108505",
+            "name": "sports",
+            "description": "An 8-year-old boy with a round, youthful face and slightly flushed cheeks, lightly dusted with small freckles across the bridge of his nose. Hazel eyes, large and almond-shaped, with a bright, curious expression, framed by long, dark lashes. Hair is a tousled mop of soft chestnut brown, with natural golden highlights that catch the light, falling in messy layers just above the eyebrows and ears.\n\nWearing a lightweight red sports jersey with white side stripes and the number “7” printed on the front, slightly oversized so it hangs loosely on his frame. Black athletic shorts with white piping down the sides, ending just above the knees. White crew socks pulled halfway up the shin, and sporty black-and-white running shoes with visible grass stains. A simple sweatband in matching red sits loosely around his right wrist, and a water bottle hangs from a crossbody mesh strap slung over his shoulder.",
+            "file": {
+              "createdAt": "2025-08-12T09:30:47.832Z",
+              "fileName": "generation 2.webp",
+              "src": "6f254653-276c-4eb6-8a09-e1c445108505.webp",
+              "status": "uploaded",
+              "uploadedAlready": true,
+              "fileCategory": "image"
+            },
+            "uploadedFrom": "main"
+          }
+        ],
         "personality": "cheerful and analytical",
         "toneOfVoice": "friendly with a curious edge",
         "dialogueStyle": "asks a lot of questions, often uses analogies to explain thoughts",
@@ -541,58 +272,49 @@ var seenProject = {
         "fear": "being wrong in a critical moment or leading someone astray",
         "fatalFlaw": "tends to overthink and miss opportunities due to analysis paralysis",
         "backstory": "Raised by a scientist and a schoolteacher in a tech-savvy town, Max grew up asking 'why' about everything. After solving a major local mystery as a teen, he became obsessed with understanding systems—social, mechanical, and emotional.",
-        "occupation": "information broker and freelance investigator",
-        "location": "a cozy apartment above a busy bookstore in the heart of a futuristic city",
-        "appearance": "slim build, tousled dark hair, round glasses, and always seen carrying a digital notepad",
+        "occupation": "student",
+        "location": "a cozy apartment above a busy bookstore in the heart of the country side",
         "archetype": "The Thinker",
-        "images": [
-          {
-            "emotionType": "happy",
-            "file": {
-              "createdAt": "2025-08-09T18:18:12.781Z",
-              "fileName": "square_happy.jpg",
-              "src": "happy____78533ae5-4f1d-4c74-8cec-65ec78d9dde0____square_happy.jpg",
-              "status": "uploaded",
-              "uploadedAlready": true,
-              "dbFileType": "image"
-            }
-          },
-          {
-            "emotionType": "excited",
-            "file": {
-              "createdAt": "2025-08-09T18:18:17.020Z",
-              "fileName": "square_excited.jpg",
-              "src": "excited____91fdd2fa-2e9e-45be-b7ba-69352ac9effe____square_excited.jpg",
-              "status": "uploaded",
-              "uploadedAlready": true,
-              "dbFileType": "image"
-            }
-          }
-        ],
         "charactersToEmotions": [
           {
-            "simpleId": "e0869e87-752b-43af-b8a6-d3cdabf18a00",
-            "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
-            "emotionType": "excited"
-          },
-          {
-            "simpleId": "7533a35d-d759-4e3a-b700-4f307612362a",
+            "simpleId": "b72b7f4e-e05f-4f38-a1bc-2760705a7aa0",
             "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
             "emotionType": "happy"
+          },
+          {
+            "simpleId": "f7276c4f-a7c1-4da1-a05a-adf6a7cce7b5",
+            "characterId": "c046ca3a-31fc-4bc5-bea5-ba522e3c61c8",
+            "emotionType": "excited"
           }
         ]
       }
     },
     {
-      "simpleId": "c6bfa0f9-f6cb-469b-963e-0188e96bf10b",
+      "simpleId": "1d9dc1a9-79ec-457e-bba0-2bd6bc42635e",
       "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
       "projectId": "fc5aba52-55ed-46fe-8fe4-169c6bf1e2a1",
       "character": {
         "id": "89b09350-30f5-4c85-a553-064e69706f26",
         "name": "kim",
-        "age": 26,
+        "age": 10,
         "userId": "c39a84cd-746e-470b-875e-27ce02ee78fa",
         "voiceId": "rCmVtv8cYU60uhlsOo1M",
+        "appearances": [
+          {
+            "id": "9996aeec-793f-4888-9249-201ac3018cf8",
+            "name": "Default",
+            "description": "A lively girl with a sun-kissed, warm beige complexion and a dusting of freckles across her cheeks and nose. Her face is round with expressive almond-shaped brown eyes that sparkle with mischief, framed by thick lashes. Her hair is jet-black, cut into a playful chin-length bob with choppy bangs that sometimes fall into her eyes, always slightly tousled as if she’s just been running around. Her cheeks are often flushed from excitement, and her bright, wide smile reveals a small gap between her front teeth.\n\nShe’s wearing a loose, lemon-yellow hoodie with an oversized kangaroo pocket, the sleeves a little too long so they bunch at her wrists. Her shorts are denim with frayed hems, and she’s got mismatched socks—one striped in rainbow colors and one plain pink—peeking out of worn red sneakers decorated with tiny doodles in marker. A thin friendship bracelet made of colorful yarn wraps around her left wrist.",
+            "file": {
+              "createdAt": "2025-08-12T09:40:37.602Z",
+              "fileName": "generation 3.webp",
+              "src": "9996aeec-793f-4888-9249-201ac3018cf8.webp",
+              "status": "uploaded",
+              "uploadedAlready": true,
+              "fileCategory": "image"
+            },
+            "uploadedFrom": "main"
+          }
+        ],
         "personality": "cheerful and impulsive",
         "toneOfVoice": "playful and energetic, often teasing",
         "dialogueStyle": "uses slang, interrupts herself mid-sentence, and changes topics quickly",
@@ -603,12 +325,10 @@ var seenProject = {
         "backstory": "Kim grew up in a quiet suburb but always craved excitement. She left home at 18 and has been bouncing from city to city ever since—chasing music festivals, spontaneous adventures, and fleeting jobs. She’s earned both friends and enemies with her wild charm.",
         "occupation": "travel vlogger and part-time street performer",
         "location": "wherever the wind takes her—currently crashing on a friend's couch in a neon-lit coastal city",
-        "appearance": "short, spiky pink hair, eclectic clothing full of bright patterns, and an infectious smile",
         "archetype": "The Free Spirit",
-        "images": [],
         "charactersToEmotions": [
           {
-            "simpleId": "befff823-4080-484e-b2e1-8a5759428a56",
+            "simpleId": "0c7fbf50-3599-4cdd-b185-08188d32d2e0",
             "characterId": "89b09350-30f5-4c85-a553-064e69706f26",
             "emotionType": "excited"
           }
@@ -618,7 +338,6 @@ var seenProject = {
   ]
 }
 
-
 app.beginUndoGroup("Import project");
 
 //clear all
@@ -626,7 +345,7 @@ clearProject()
 
 var mainComp = app.project.items.addComp("main", 1920, 1080, 1, 1 * 60 * 60, 60); //make 1hr
 
-var projectBaseDir = "C:/Users/max/Downloads" + "/" + seenProject.name;
+var projectBaseDir = ".";
 var charactersDirName = "characters";
 var projectDirName = "project";
 var audioDirName = "audio";

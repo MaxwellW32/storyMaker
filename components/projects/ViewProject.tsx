@@ -518,6 +518,8 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
                 },
                 body: JSON.stringify(newDownloadProjectBody),
             })
+
+            //notify
             toast.success("downloaded!")
 
             //download action

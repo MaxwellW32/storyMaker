@@ -6,12 +6,13 @@ import { downloadProjectBodySchema } from "@/types";
 import { getSpecificProject } from "@/serverFunctions/handleProjects";
 import { afterEffectsProjectScriptFile, charactersDirName, imagesDirName, projectsDirName, projectStagingAreaDir, uploadedDataDir } from "@/lib/dirPaths";
 import { ensureCanAccessResource } from "@/serverFunctions/handleAuth";
+import { replaceSlashComments } from "@/utility/utility";
 
 export async function POST(request: Request) {
   //parse body
   const seenDownloadProjectBody = downloadProjectBodySchema.parse(await request.json())
 
-  //fetch website
+  //fetch project
   const seenProject = await getSpecificProject(seenDownloadProjectBody.projectId)
   if (seenProject === undefined) throw new Error("not seeing project")
 
@@ -37,22 +38,14 @@ export async function POST(request: Request) {
 
 
 
+
+
+
+
+
+
   //copy the characters to my base path
   if (seenProject.charactersToProjects === undefined || seenProject.charactersToProjects.length === 0) throw new Error("not seeing charactersInProject")
-
-  //ensure required character folders exist: character folder, images
-  await Promise.all(seenProject.charactersToProjects.map(async eachCharacterInProject => {
-    //character folder path
-    const characterFolderPath = path.join(uploadedDataDir, charactersDirName, eachCharacterInProject.characterId)
-    await ensureDirectoryExists(characterFolderPath)
-
-    //character images path
-    const characterFolderImagesPath = path.join(characterFolderPath, imagesDirName)
-    await ensureDirectoryExists(characterFolderImagesPath)
-
-    //add more when needed
-  })
-  )
 
   //copy to the stagin folder
   await Promise.all(seenProject.charactersToProjects.map(async eachCharacterInProject => {
@@ -62,8 +55,9 @@ export async function POST(request: Request) {
 
     //get the character folder
     const characterFolderPath = path.join(uploadedDataDir, charactersDirName, eachCharacterInProject.characterId)
+    await ensureDirectoryExists(characterFolderPath)
 
-    //copy to the staging area
+    //copy 
     await fs.cp(characterFolderPath, stagingCharactersDir, { recursive: true })
   })
   )
@@ -73,48 +67,24 @@ export async function POST(request: Request) {
 
 
 
+
+
+
   //make script
-  //get file name
+  //read and update script
+  const afterEffectsProjectScriptText = await fs.readFile(afterEffectsProjectScriptFile, { encoding: "utf-8" })
+
+  //replace contents in script
+  const scriptUpdatedWithProjectBaseDir = replaceSlashComments(afterEffectsProjectScriptText, "//<<replace in prod - projectBaseDir>>", `var projectBaseDir = ".";`)
+  const scriptUpdatedWithSeenProject = replaceSlashComments(scriptUpdatedWithProjectBaseDir, "//<<replace in prod - seenProject>>", `var seenProject = ${JSON.stringify(seenProject, null, 2)}`)
+
+  //get the script file name
   const afterEffectsProjectScriptSplitArr = afterEffectsProjectScriptFile.split("\\")
   const afterEffectsScriptFileName = afterEffectsProjectScriptSplitArr[afterEffectsProjectScriptSplitArr.length - 1]
 
-  //read and update script
-  const afterEffectsProjectScriptText = await fs.readFile(afterEffectsProjectScriptFile, { encoding: "utf-8" })
-  const updatedAfterEffectsProjectScriptText = afterEffectsProjectScriptText.replace("[[seenProject]]", JSON.stringify(seenProject, null, 2))
-
   //write the script to the staging area
   const stagingAfterEffectsScriptFilePath = path.join(stagingBaseDir, afterEffectsScriptFileName)
-  await fs.writeFile(stagingAfterEffectsScriptFilePath, updatedAfterEffectsProjectScriptText);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  await fs.writeFile(stagingAfterEffectsScriptFilePath, scriptUpdatedWithSeenProject);
 
 
 

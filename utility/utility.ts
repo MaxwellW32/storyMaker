@@ -110,3 +110,40 @@ export function convertBtyes(bytes: number, option: "kb" | "mb" | "gb") {
         return ((bytes / 1024) / 1024) / 1024
     }
 }
+
+export function replaceSlashComments(originalText: string, slashComment: string, additionalText?: string) {
+    const lines = originalText.split("\n")
+
+    let foundAtLineIndex: number | null = null
+    let keepLine = true
+
+    let linesWithoutSlashComments = lines.filter((eachLine, eachLineIndex) => {
+        //as long as doesnt have the searched slash comment can keep
+        const hasSlashComment = eachLine.includes(slashComment)
+
+        //stop keeping lines once slash comment read
+        if (hasSlashComment) {
+            keepLine = !keepLine
+
+            //set the original line it was found at
+            if (foundAtLineIndex === null) {
+                foundAtLineIndex = eachLineIndex
+            }
+        }
+
+        console.log(`$line: "${eachLine}" keepLine: `, keepLine);
+
+        return keepLine
+    })
+
+    //add in text if wanted
+    if (additionalText !== undefined && foundAtLineIndex !== null) {
+        linesWithoutSlashComments = [
+            ...linesWithoutSlashComments.slice(0, foundAtLineIndex),
+            additionalText,
+            ...linesWithoutSlashComments.slice(foundAtLineIndex + 1),//ensure we skip last slash Comment that was included
+        ]
+    }
+
+    return linesWithoutSlashComments.join("\n")
+}
