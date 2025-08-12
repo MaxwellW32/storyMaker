@@ -74,8 +74,6 @@ export async function downloadFile(filePath: string) {
             break;
     }
 
-    console.log(`$ext`, ext)
-
     // Return the image file in the response
     return new Response(new Uint8Array(fileBuffer), {
         status: 200,
