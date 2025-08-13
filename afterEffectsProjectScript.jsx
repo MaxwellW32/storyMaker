@@ -334,7 +334,7 @@ clearProject()
 var compWidth = 1920
 var compHeight = 1080
 
-var mainComp = app.project.items.addComp("main", compWidth, compHeight, 1, 1 * 60 * 60, 60); //make 1hr
+var mainComp = app.project.items.addComp("main", compWidth, compHeight, 1, 1 * 60 * 60, 24); //make 1hr, 24 fps
 
 //<<replace in prod - projectBaseDir>>
 var projectBaseDir = "C:/Users/max/Downloads" + "/" + seenProject.name;

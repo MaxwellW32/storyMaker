@@ -1,7 +1,10 @@
 //To Do
 //canvas dimensions - sets after effects, and image
 //refine create character image prompt for image references
-//remove previewImages on cleanup
+//master art style confirmed for each scene
+//map scene location - ensures scene generation is on the same page
+//so will be scene physical description, character reference url/description and
+//scene location reference: magical forest entrance, deep, end, school, amy house...etc  
 
 
 
