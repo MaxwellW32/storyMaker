@@ -27,7 +27,7 @@ export const projects = pgTable("projects", {
     //defaults
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     dateCreated: timestamp("dateCreated", { mode: "date" }).notNull().defaultNow(),
-    prompt: text("prompt").notNull().default(""),
+    prompt: text("prompt").notNull().default("Describe your story idea..."),
     scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
     alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),

@@ -54,7 +54,7 @@ async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneB
 
     //generate image for scene
     const result = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: condensedPrompt,
         response_format: "b64_json"
     });

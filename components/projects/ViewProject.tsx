@@ -77,7 +77,7 @@ Your task: Convert the scene and dialogue below into a highly detailed, visual p
 
 Requirements:
 - Preserve the exact reference image URLs as provided. Do not modify them in any way.
-- Maintain a consistent art style across all scenes. Use the style: "whimsical watercolor children's storybook, clean linework."
+- Maintain a consistent art style across all scenes. Use the style: "storybook clean linework."
 - Focus on key visual elements: characters, their facial expressions, posture, appearances, props, and setting details.
 - Ensure character appearance matches their provided descriptions exactly.
 - Integrate reference character image URLs naturally in the prompt to maintain visual consistency.

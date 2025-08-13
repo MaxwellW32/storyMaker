@@ -139,7 +139,7 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
 export async function makeCharacterAppearanceImage(prompt: string): Promise<{ src: string }> {
     //generate image for scene
     const result = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: prompt,
         response_format: "url"
     });

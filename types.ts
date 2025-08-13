@@ -251,7 +251,7 @@ export const projectSchema = z.object({
     //defaults
     id: z.string().min(1),
     dateCreated: dateSchma,
-    prompt: z.string().min(1),
+    prompt: z.string().min(1, "please enter your story prompt"),
     scenes: sceneSchema.array(),
     alterScenesObj: alterScenesObjSchema,
     alterDialogueObj: alterDialogueObjSchema,
