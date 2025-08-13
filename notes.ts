@@ -1,6 +1,6 @@
 //To Do
-//locations - server action..., add edit..., view...
-//find way to pass reference images to this generation
+//find way to pass reference images to this generation...
+//maybe check out responses api
 //allow location views generation
 //location selector for project - need location to projects db
 //one active location at a time - each scene pulls a view it thinks it should happen at
@@ -81,3 +81,12 @@
 //generate locations in db...
 //every location has a name, description and views e.g max house...
 //each view has a name (e.g front door, bedroom), reference image and locationVariationName: e.g summer house, winter house...
+//locations - server action..., add edit..., view...
+
+
+
+
+
+
+
+

@@ -1,6 +1,6 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
-import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
+import { alterScene, makeDialogue, makeSceneImages, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
 import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterType, characterAppearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeDialogueAudioBodyType, makeDialogueAudioResponseSchema } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
@@ -74,26 +74,21 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         prompt: string,
         showing: boolean
     }>({
-        prompt: `You are preparing a scene description for the GPT image generation API. 
-Your task: Convert the scene and dialogue below into a highly detailed, visual prompt suitable for consistent storybook illustration. Keep specific note of character age and appearance.
+        prompt: `Add the following characters to the provided scene image, positioning and posing them naturally based on the dialogue and scene context.  
 
 Requirements:
-- Preserve the exact reference image URLs as provided. Do not modify them in any way.
-- Maintain a consistent art style across all scenes. Use the style: "storybook clean linework."
-- Focus on key visual elements: characters, their facial expressions, posture, appearances, props, and setting details.
-- Ensure character appearance matches their provided descriptions exactly.
-- Integrate reference character image URLs naturally in the prompt to maintain visual consistency.
-- Avoid generic terms — be specific about colors, lighting, mood, and background details.
-- Keep the description concise yet visually rich so it fits the image generation API’s prompt limits.
+- Match the provided art style exactly.
+- Maintain consistent proportions, lighting, and perspective.
+- Preserve the characters’ established appearances.
 
-Scene:
-[[scene]]
+Art Style:
+[[artStyle]]
 
-Characters (appearance & appearances):
+Character Descriptions:
 [[characters]]
 
-Reference character image URLs (do not alter):
-[[referencedCharacterImageUrls]]
+Scene Description:
+[[scene]]
 `,
         showing: false,
     })
@@ -306,8 +301,10 @@ Reference character image URLs (do not alter):
         toast.success("generating images")
 
         //generate for all
-        const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
-        scenesToUse.map(async eachScene => {
+        // const scenesToUse = scenes.filter(eachScene => eachScene.backgroundImageSrc === "")
+        scenes.map(async (eachScene, eachSceneIndex) => {
+            if (eachSceneIndex !== 0) return
+
             //rate limit
             await sceneRateLimit(async () => {
                 await actualRun(eachScene)
@@ -319,43 +316,58 @@ Reference character image URLs (do not alter):
 
         async function actualRun(eachScene: sceneType) {
             try {
-                if (makeImagesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
+                // if (makeImagesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
 
                 //go over each character
                 //get their active appearances
                 //get that image src and make it a full url
 
-                const finalPrompt = addVariablesToBaseInstructions(makeImagesInstructionsObj.current.prompt, {
-                    activeCharacterAppearance: eachScene.activeCharacterAppearance,
+                // const finalPrompt = addVariablesToBaseInstructions(makeImagesInstructionsObj.current.prompt, {
+                //     activeCharacterAppearance: eachScene.activeCharacterAppearance,
+                //     scene: eachScene,
+                // })
+
+                // //what function to call
+                // const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneBackgroundImage"
+                // //new body
+                // const newMakeSceneBackgroundImagesBody: makeSceneBackgroundImageBodyType = {
+                //     prompt: finalPrompt,
+                //     projectId: seenProject.id,
+                //     scene: eachScene
+                // }
+
+                // //send off to gpt api
+                // const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
+                //     method: "POST",
+                //     headers: {
+                //         "Content-Type": "application/json"
+                //     },
+                //     body: JSON.stringify(newMakeSceneBackgroundImagesBody)
+                // })
+                // const makeSceneBackgroundImagesResponse = await response.json()
+                // console.log(`$makeSceneBackgroundImagesResponse`, makeSceneBackgroundImagesResponse);
+                // const makeSceneBackgroundImageObj = makeSceneBackgroundImageResponseSchema.parse(makeSceneBackgroundImagesResponse)
+
+                const promptEx = addVariablesToBaseInstructions(makeImagesInstructionsObj.current.prompt, {
+                    activeCharacterAppearance: eachScene.activeCharacterAppearance,//used to slim character appearance down to 1
                     scene: eachScene,
-                    referencedCharacterImageUrls: true
+                    artStyle: project.current.artStyle
                 })
+                console.log(`$promptEx`, promptEx);
 
-                //what function to call
-                const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneBackgroundImage"
-                //new body
-                const newMakeSceneBackgroundImagesBody: makeSceneBackgroundImageBodyType = {
-                    prompt: finalPrompt,
-                    projectId: seenProject.id,
-                    scene: eachScene
-                }
+                const charactersInScene = charactersInProject.filter(eachCharacterInProject => {
+                    const foundInDialogue = eachScene.dialogue.find(eachDialogue => eachDialogue.characterId === eachCharacterInProject.id) !== undefined
 
-                //send off to gpt api
-                const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(newMakeSceneBackgroundImagesBody)
+                    return foundInDialogue
                 })
-                const makeSceneBackgroundImagesResponse = await response.json()
-                console.log(`$makeSceneBackgroundImagesResponse`, makeSceneBackgroundImagesResponse);
-                const makeSceneBackgroundImageObj = makeSceneBackgroundImageResponseSchema.parse(makeSceneBackgroundImagesResponse)
+                console.log(`$charactersInScene`, charactersInScene);
+
+                const sceneImageObj = await makeSceneImages(promptEx, seenProject.id, eachScene, charactersInScene, eachScene.activeCharacterAppearance)
 
                 //update scene backgrounds
                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
                     if (eachSceneMap.id === eachScene.id) {
-                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundImageObj.src
+                        eachSceneMap.backgroundImageSrc = sceneImageObj.src
                     }
 
                     return eachSceneMap
@@ -370,7 +382,7 @@ Reference character image URLs (do not alter):
         }
     }
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterAppearance: activeCharacterAppearanceType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, referencedCharacterImageUrls?: true }, atTop = true) {
+    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterAppearance: activeCharacterAppearanceType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string }, atTop = true) {
         //eventually make this accept charactersInProject
 
         let referencedCharacterImageUrls: string | undefined = undefined
@@ -415,9 +427,9 @@ Reference character image URLs (do not alter):
             }
         }
 
-        //add on referencedCharacterImageUrls
-        if (variables.referencedCharacterImageUrls !== undefined && referencedCharacterImageUrls !== undefined) {
-            seenBaseInstructions = seenBaseInstructions.replaceAll("[[referencedCharacterImageUrls]]", referencedCharacterImageUrls)
+        if (variables.artStyle !== undefined) {
+            //add on reference Scenes
+            seenBaseInstructions = seenBaseInstructions.replaceAll("[[artStyle]]", variables.artStyle)
         }
 
         return seenBaseInstructions

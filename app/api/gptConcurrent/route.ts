@@ -41,7 +41,7 @@ async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneB
 
     //condense prompt
     const response = await openai.responses.parse({
-        model: "gpt-4.1",
+        model: "gpt-5-mini",
         input: prompt,
         text: {
             format: zodTextFormat(gptCondensePromptResponseSchema, "gptCondensePromptResponse"),
