@@ -24,6 +24,16 @@
 
 
 //Ideas
+//back to square 1
+//generate story makes scenes
+//it has active appearance and context of reference images
+//from their it generates 10 scenes at a time. with images
+//can manually add scenes - thats it
+//possibility to pass a scene as reference to continue same scene generation
+//
+//
+//
+
 //long term - 3d game
 
 //now - specific prompt generation

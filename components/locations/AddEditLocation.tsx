@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import styles from "./style.module.css"
 import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, viewType } from '@/types'
 import toast from 'react-hot-toast'
@@ -36,9 +36,13 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
     }>({})
     const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
+    const respondToChangeAbove = useRef(false)
+
     //handle changes from above
     useEffect(() => {
-        if (sentLocation === undefined) return
+        //only respond when allowed
+        if (sentLocation === undefined || !respondToChangeAbove.current) return
+        respondToChangeAbove.current = false
 
         formObjSet(deepClone(updateLocationSchema.parse(sentLocation)))
 

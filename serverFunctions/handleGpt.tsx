@@ -145,6 +145,9 @@ export async function makeTempImage(prompt: string): Promise<{ src: string }> {
     const result = await openai.images.generate({
         model: "gpt-image-1",
         prompt: prompt,
+        moderation: "low",
+        //256x256, 512x512, or 1024x1024
+        //input fidelity
     });
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
