@@ -1,11 +1,24 @@
 //To Do
+//locations - server action..., add edit..., view...
+//find way to pass reference images to this generation
+//allow location views generation
+//location selector for project - need location to projects db
+//one active location at a time - each scene pulls a view it thinks it should happen at
+//each scene sends up the view's reference image
+//if not seeing view set as default - each location needs at least 1 view
+//if not seeing location show setter
+//make forest: entrance, deep, oasis, exit
+//each character has active appearance along with defining description. upload that and reference images (view/character) along with visual instructions from scene - remove the condenser
+
 //canvas dimensions - sets after effects, and image
-//refine create character image prompt for image references
-//master art style confirmed for each scene
-//map scene location - ensures scene generation is on the same page
-//so will be scene physical description, character reference url/description and
-//scene location reference: magical forest entrance, deep, end, school, amy house...etc
-//move all data to uploaded data - staging, rename preview images to temp
+//move all data to uploaded data - staging, rename previews/images
+//one way to change active appearance - projectsToCharacters
+//same way to change location on projectsToLocations
+//ensure can access resource for locations
+//make prompts on addedit character/location editable
+//use same upload file logic across app
+//fix objwithFile bug - still validates deleted array
+//refine image preview gpt with central generation, multi context from options - uploading reference images
 
 
 
@@ -15,12 +28,13 @@
 
 //now - specific prompt generation
 //art style set at project layer - water color, strong lines
+//make scene instructions - used to generate visually - max standing off to the side, kim talking - refine
 //each character has active appearance along with defining description. upload that and reference image
 //generate locations - same as below
 //each scene happens at location - send up location reference image - make db - description, what it looks like
 
 //now - make dynamic characters/scenes ahead of time
-//scenes - each scene is at a location. e.g Max house. Then the variation of the scene. e.g summer, christmas...etc. Then the view: front door, bedroom, kitchen - build a library of scenes over time
+//scenes - each scene is at a location. e.g Max house. Then the variation of the location. e.g summer, christmas...etc. Then the view: front door, bedroom, kitchen - build a library of scenes over time
 //each scene has position marker where characters/events can take place at - use this to position characters/determine layering. This determins scale of character at that position marker as well.
 ////
 //characters - Every character has different appearance options. (character is specific to age, interestes personality. 8 yo MAx, diff character from 24 yo max.)
@@ -29,14 +43,6 @@
 ////
 //display these options in your canvas. Then output as is to after effects
 //all characters/scenes keep 1-1 sizing in mind. 1000px = 10m or something
-
-
-
-
-//no more clothing
-//each character has appearanceVariations
-//then each project has active appearance id on the character to project - this sets the starter + make new scenes
-//each scene has active appearance id
 
 
 
@@ -51,3 +57,17 @@
 //api routes - container name first - then verb. e.g projects - download, files - upload
 //generate apeparance description
 //auto upload image
+
+
+
+
+//To Do completed
+//project default values setter...
+//set art style at project layer - water color, strong lines...
+//remove prompt set at start, make default - addedit projects...
+//each scene has visual instructions - dont worry about appearance, just what the characters are doing in a given scene. e.g max standing off to the side, kim talking
+//set prompt for visual appearance...
+//test it works...
+//generate locations in db...
+//every location has a name, description and views e.g max house...
+//each view has a name (e.g front door, bedroom), reference image and locationVariationName: e.g summer house, winter house...

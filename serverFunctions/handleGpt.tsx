@@ -140,7 +140,7 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
 
     return newCharacter
 }
-export async function makeCharacterAppearanceImage(prompt: string): Promise<{ src: string }> {
+export async function makeTempImage(prompt: string): Promise<{ src: string }> {
     //generate image for scene
     const result = await openai.images.generate({
         model: "gpt-image-1",

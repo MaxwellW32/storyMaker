@@ -17,7 +17,7 @@ import { getTags } from '@/serverFunctions/handleTags'
 import ViewTag from '../tags/ViewTag'
 import { addCharacterToTag, deleteCharacterToTag, getCharacterToTags } from '@/serverFunctions/handleCharactersToTags'
 import TextArea from '../inputs/textArea/TextArea'
-import { makeCharacter, makeCharacterAppearanceImage } from '@/serverFunctions/handleGpt'
+import { makeCharacter, makeTempImage } from '@/serverFunctions/handleGpt'
 import { handleWithFiles } from '@/utility/handleWithFiles'
 import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
@@ -402,7 +402,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
             })
 
             const finalPromt = `${seenAppearanceInstructionsObj.prompt}\n${appearance.description}`
-            const makeCharacterAppearanceImageResponse = await makeCharacterAppearanceImage(finalPromt)
+            const makeCharacterAppearanceImageResponse = await makeTempImage(finalPromt)
 
             //update src
             appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {

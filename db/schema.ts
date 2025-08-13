@@ -1,4 +1,4 @@
-import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterAppearanceType, sceneType } from "@/types";
+import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterAppearanceType, sceneType, viewType } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -27,16 +27,17 @@ export const projects = pgTable("projects", {
     //defaults
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     dateCreated: timestamp("dateCreated", { mode: "date" }).notNull().defaultNow(),
-    prompt: text("prompt").notNull().default("Describe your story idea..."),
+    prompt: text("prompt").notNull().default("default"),
+    baseInstructions: text("baseInstructions").notNull().default("default"),
     scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
     alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),
     activeCharacterAppearanceStarter: json("activeCharacterAppearanceStarter").$type<activeCharacterAppearanceType>().notNull().default({}),
+    artStyle: text("artStyle").notNull().default("default"),
 
     //regular
     name: text("name").notNull(),
     userId: text("userId").notNull().references(() => users.id),
-    baseInstructions: text("baseInstructions").notNull(),
 
     //null
 },
@@ -89,6 +90,34 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
         references: [users.id]
     }),
 }));
+
+
+
+
+export const locations = pgTable("locations", {
+    //defaults
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+
+    //regular
+    userId: text("userId").notNull().references(() => users.id),
+    name: text("name").notNull(),
+    description: text("description").notNull(),
+    views: json("views").$type<viewType[]>().notNull().default([]),
+
+    //null
+},
+    (t) => {
+        return {
+            locationNameIndex: index("locationNameIndex").on(t.name),
+        };
+    })
+export const locationsRelations = relations(locations, ({ one, many }) => ({
+    fromUser: one(users, {
+        fields: [locations.userId],
+        references: [users.id]
+    }),
+}));
+
 
 
 

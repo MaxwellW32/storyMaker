@@ -62,6 +62,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         dialogue: [],
         backgroundImageSrc: "",
         activeCharacterAppearance: {},
+        visualInstructions: "The characters were talking..."
     }
     const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
 
@@ -112,6 +113,43 @@ Reference character image URLs (do not alter):
         refreshProject([])
 
     }, [seenProject])
+
+    //set default values on project
+    useEffect(() => {
+        let chosenKeys: (keyof projectType)[] = []
+
+        if (project.current.prompt === "default") {
+            project.current.prompt = "Describe your story idea..."
+            chosenKeys.push("prompt")
+        }
+
+        if (project.current.artStyle === "default") {
+            project.current.artStyle = "watercolor, storybook, clean linework"
+            chosenKeys.push("artStyle")
+        }
+
+        if (project.current.baseInstructions === "default") {
+            project.current.baseInstructions = `Write very short, engaging children’s stories.
+            
+    The story is broken into scenes, and each scene represents one distinct visual moment.
+    If the story changes location, background, scenario, or camera angle, start a new scene.
+    Dialogue must match the action, emotion, and mood of the scene it belongs to.
+    Characters’ emotions in dialogue must come only from their own character obj.
+    
+    Each scene should have a visual description that ignores physical appearance and maps what a character is doing e.g Character Name A talking to B. I will use this to generate poses/scene visuals later so choose what you think is best to represent the scene given the dialogue. 
+    
+    Characters:
+    [[characters]]
+`
+            chosenKeys.push("baseInstructions")
+        }
+
+        //save
+        if (chosenKeys.length !== 0) {
+            refreshProject(chosenKeys)
+        }
+
+    }, [])
 
     //respond to project changes by key
     useEffect(() => {
@@ -733,6 +771,21 @@ Reference character image URLs (do not alter):
                     startShowing={true}
                 />
 
+                <label>art style</label>
+                <TextInput
+                    name="prompt"
+                    value={project.current.artStyle}
+                    placeHolder="Describe your artStyle - specific..."
+                    onChange={(e) => {
+                        project.current.artStyle = e.target.value
+
+                        //refresh
+                        refreshProject(["artStyle"])
+                    }}
+                    onBlur={() => checkProjectErrors(project.current)}
+                    errors={projectFormErrors["artStyle"]}
+                />
+
                 <button
                     onClick={async () => {
                         await handleGenerateStory()
@@ -909,12 +962,26 @@ Reference character image URLs (do not alter):
                                                             label='manual'
                                                             content={
                                                                 <div className="container">
+                                                                    <label>title</label>
                                                                     <TextInput
                                                                         name="makeScenesNewManualObjTitle"
                                                                         value={makeScenesNewManualObj.current.title}
                                                                         placeHolder="Set the title for the new Scene."
                                                                         onChange={(e) => {
                                                                             makeScenesNewManualObj.current.title = e.target.value
+
+                                                                            //general refresh
+                                                                            refreshProject([])
+                                                                        }}
+                                                                    />
+
+                                                                    <label>visual instructions</label>
+                                                                    <TextInput
+                                                                        name="makeScenesNewManualObjVisualInstructions"
+                                                                        value={makeScenesNewManualObj.current.visualInstructions}
+                                                                        placeHolder="Set what's happening visually in the scene."
+                                                                        onChange={(e) => {
+                                                                            makeScenesNewManualObj.current.visualInstructions = e.target.value
 
                                                                             //general refresh
                                                                             refreshProject([])
@@ -1754,6 +1821,28 @@ function EditScene({ scene, charactersInProject, project, refreshProject, projec
                     />
                 </>
             )}
+
+            <label>visual instructions</label>
+
+            <TextInput
+                name={`scene${scene.id}VisualInstructions`}
+                value={scene.visualInstructions}
+                placeHolder="E.g Character A was speaking to B"
+                onChange={(e) => {
+                    project.current.scenes = project.current.scenes.map(eachScene => {
+                        if (eachScene.id === scene.id) {
+                            eachScene.visualInstructions = e.target.value
+                        }
+
+                        return eachScene
+                    })
+
+                    //refresh
+                    refreshProject(["scenes"])
+                }}
+                onBlur={() => checkProjectErrors(project.current)}
+                errors={projectFormErrors[`scenes/${sceneIndex}/visualInstructions`]}
+            />
 
             <ShowMore
                 label="active character appearances"

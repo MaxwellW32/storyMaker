@@ -16,18 +16,6 @@ export default function AddEditProject({ sentProject, submissionAction }: { sent
     const initialFormObj: newProjectType = {
         name: "",
         userId: "dummyData",
-        baseInstructions: `Write very short, engaging children’s stories.
-
-    The story is broken into scenes, and each scene represents one distinct visual moment.
-    If the story changes location, background, scenario, or camera angle, start a new scene.
-    Dialogue must match the action, emotion, and mood of the scene it belongs to.
-    Characters’ emotions in dialogue must come only from their defined emotion list in [[characters]].
-
-Keep each scene self-contained and easy to visualize for illustration purposes.
-
-Characters:
-[[characters]]
-`
     }
 
     //assign either a new form, or the safe values on an update form

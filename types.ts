@@ -33,6 +33,8 @@ export const sceneSchema = z.object({
     dialogue: dialogueSchema.array(),
     backgroundImageSrc: z.string(),
     activeCharacterAppearance: activeCharacterAppearanceSchema,
+    visualInstructions: z.string().min(1, "add visual instructions to the scene"),
+
 })
 export type sceneType = z.infer<typeof sceneSchema>
 
@@ -251,25 +253,26 @@ export const projectSchema = z.object({
     //defaults
     id: z.string().min(1),
     dateCreated: dateSchma,
-    prompt: z.string().min(1, "please enter your story prompt"),
     scenes: sceneSchema.array(),
+    prompt: z.string().min(1, "please enter your story prompt"),
+    baseInstructions: z.string().min(1, "please enter base instructions"),
     alterScenesObj: alterScenesObjSchema,
     alterDialogueObj: alterDialogueObjSchema,
     activeCharacterAppearanceStarter: activeCharacterAppearanceSchema,
+    artStyle: z.string().min(1, "please enter your art style"),
 
     //null
 
     //regular
     name: z.string().min(1),
     userId: z.string().min(1),
-    baseInstructions: z.string().min(1),
 })
 export type projectType = z.infer<typeof projectSchema> & {
     charactersToProjects?: characterToProjectType[],
     fromUser?: userType
 }
 
-export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, activeCharacterAppearanceStarter: true })
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, baseInstructions: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, activeCharacterAppearanceStarter: true, artStyle: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
 export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true, userId: true })
@@ -319,6 +322,37 @@ export type newCharacterType = z.infer<typeof newCharacterSchema>
 
 export const updateCharacterSchema = characterSchema.omit({ id: true })
 export type updateCharacterType = z.infer<typeof updateCharacterSchema>
+
+
+
+
+export const viewScehema = z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    locationVariationName: z.string().min(1, "enter location vriation e.g summer house, winter"),
+    file: dbFileSchema, //reference image,
+    description: z.string().min(1),
+})
+export type viewType = z.infer<typeof viewScehema>
+
+
+export const locationSchema = z.object({
+    id: z.string().min(1),
+
+    userId: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    views: viewScehema.array().min(1, "please add a view for the location"),
+})
+export type locationType = z.infer<typeof locationSchema> & {
+    fromUser?: userType
+}
+
+export const newLocationSchema = locationSchema.omit({ id: true })
+export type newLocationType = z.infer<typeof newLocationSchema>
+
+export const updateLocationSchema = locationSchema.omit({ id: true, userId: true })
+export type updateLocationType = z.infer<typeof updateLocationSchema>
 
 
 

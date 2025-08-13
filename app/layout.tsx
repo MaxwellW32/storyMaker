@@ -64,6 +64,10 @@ export default async function RootLayout({
                 link: "/characters",
               },
               {
+                title: "locations",
+                link: "/locations",
+              },
+              {
                 title: "emotions",
                 link: "/emotions",
               },

@@ -3,6 +3,7 @@ import { auth } from "@/auth/auth";
 import { tableNames } from "@/types";
 import { getSpecificCharacter } from "./handleCharacters";
 import { getSpecificProject } from "./handleProjects";
+import { getSpecificLocation } from "./handleLocations";
 
 export async function sessionCheck() {
     const session = await auth();
@@ -26,6 +27,12 @@ export async function ensureCanAccessResource<T extends tableNames>(tableName: T
         if (seenProject === undefined) throw new Error("not seeing project")
 
         if (session.user.id !== seenProject.userId) throw new Error("no authorized to edit project")
+
+    } else if (tableName === "locations") {
+        const seenLocation = await getSpecificLocation(resourceId)
+        if (seenLocation === undefined) throw new Error("not seeing location")
+
+        if (session.user.id !== seenLocation.userId) throw new Error("no authorized to edit project")
 
     } else {
         throw new Error("invalid option")

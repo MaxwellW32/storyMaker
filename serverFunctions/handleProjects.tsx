@@ -43,6 +43,27 @@ export async function getProjects(filter: tableFilterTypes<projectType>, getWith
     return results;
 }
 
+// export async function updateScenesInProject() {
+//     //get all projects
+//     //go over each
+//     //edit their scenes with the new value
+//     //save
+//     const allProjects = await getProjects({})
+//     await Promise.all(allProjects.map(async eachProject => {
+//         eachProject.scenes = eachProject.scenes.map(eachScene => {
+//             const newSceneObj: sceneType = {
+//                 ...eachScene as sceneOldType,
+//                 visualInstructions: "characters talking"
+//             }
+
+//             return newSceneObj
+//         })
+
+//         //update with new sceneObj
+//         await updateProject(eachProject.id, { scenes: eachProject.scenes })
+//     }))
+// }
+
 export async function updateProject(projectId: projectType["id"], projectObj: Partial<updateProjectType>): Promise<projectType> {
     //validation
     projectSchema.partial().parse(projectObj)
