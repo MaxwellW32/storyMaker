@@ -1,6 +1,7 @@
 //To Do
 //canvas dimensions - sets after effects, and image
 //refine create character image prompt for image references
+//remove previewImages on cleanup
 
 
 

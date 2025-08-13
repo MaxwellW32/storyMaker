@@ -417,24 +417,24 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                 return newAppearanceInstructionsObj
             })
 
-            //finish loading
-            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-                if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
-
-                //react refresh
-                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
-                newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
-
-                newAppearanceInstructionsObj[appearance.id].loading = false
-
-                return newAppearanceInstructionsObj
-            })
-
             toast.success("finished!")
 
         } catch (error) {
             consoleAndToastError(error)
         }
+
+        //finish loading
+        appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+            if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+
+            //react refresh
+            const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+            newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+
+            newAppearanceInstructionsObj[appearance.id].loading = false
+
+            return newAppearanceInstructionsObj
+        })
     }
 
     return (
@@ -695,7 +695,17 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
 
                                     newAppearanceInstructionsObj[eachAppearance.id] = {
                                         loading: false,
-                                        prompt: `Generate a single, high-quality illustration of the character described below. Strictly follow the provided physical appearance details without adding or removing features. Preserve exact facial structure, age, proportions, skin tone, hair color, hairstyle, and any notable marks or features. Clothing, accessories, and style should match the description exactly unless otherwise stated. Avoid adding elements not mentioned.\n\nAppearance description:`,
+                                        prompt: `Generate a single, high-resolution character reference sheet of the character described below.
+
+Depict the full body in a clear, neutral standing pose, facing forward.
+Use even, neutral lighting and a plain, solid-color background to maximize clarity.
+Strictly follow all provided physical appearance details — do not add, remove, or alter any features.
+Maintain exact facial structure, age, body proportions, skin tone, hair color, hairstyle, and any notable marks or distinguishing traits.
+Clothing, accessories, and style must match the description exactly unless otherwise specified.
+Avoid stylization changes, extra props, or backgrounds not mentioned.
+The goal is to create a precise visual reference for consistent reproduction in future images.
+
+Appearance description:`,
                                         imageSrc: ""
                                     }
 
@@ -813,7 +823,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                                                             <>
                                                                 <label>Image preview</label>
 
-                                                                <Image alt={`${eachAppearance.id} image preview`} width={500} height={500} src={seenAppearanceInstructionsObj.imageSrc} style={{ objectFit: "contain", width: "100%" }} />
+                                                                <Image alt={`${eachAppearance.id} image preview`} width={500} height={500} src={`/api/previewImages/download?src=${seenAppearanceInstructionsObj.imageSrc}`} style={{ objectFit: "contain", width: "100%" }} />
                                                             </>
                                                         )}
 

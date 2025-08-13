@@ -84,32 +84,17 @@ export async function downloadFile(filePath: string) {
     });
 }
 
-// export async function writeToProjectResources(projectResourceDir: projectResourceDirOptionsType, projectId: projectType["id"], writeFile: writeFileOptions) {
-//     const dirPath = path.join(projectResourcesDir, projectResourceDir, projectId)
-//     await ensureDirectoryExists(dirPath)
+export async function cleanupOldFiles(tempDir: string, age: number = 30 * 60 * 1000) {
+    const files = await fs.readdir(tempDir);
 
-//     const newId = `${projectResourceDir}_${uudiv4()}`
+    const now = Date.now();
 
-//     if (writeFile.type === "text") {
-//         const filePath = path.join(dirPath, `${newId}.txt`)
+    await Promise.all(files.map(async (file) => {
+        const filePath = `${tempDir}/${file}`;
+        const stats = await fs.stat(filePath);
 
-//         await fs.writeFile(filePath, writeFile.text, { encoding: "utf-8" })
-
-//     } else if (writeFile.type === "audio") {
-//         const stream = writeFile.audioFile as ReadableStream;
-//         const reader = stream.getReader();
-//         const chunks: Uint8Array[] = [];
-
-//         while (true) {
-//             const { done, value } = await reader.read();
-//             if (done) break;
-//             chunks.push(value);
-//         }
-
-//         const buffer = Buffer.concat(chunks);
-
-//         const filePath = path.join(dirPath, `${newId}.mp3`)
-
-//         await fs.writeFile(filePath, buffer)
-//     }
-// }
+        if (now - stats.mtimeMs > age) {
+            await fs.rm(filePath, { force: true });
+        }
+    }));
+}

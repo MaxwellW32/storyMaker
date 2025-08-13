@@ -3,6 +3,10 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterAppearanceType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
+import path from "path";
+import fs from "fs/promises";
+import { previewImagesDirName, uploadedDataDir } from "@/lib/dirPaths";
+import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
 
 export async function makeStory(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeCharacterAppearanceType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
@@ -141,14 +145,27 @@ export async function makeCharacterAppearanceImage(prompt: string): Promise<{ sr
     const result = await openai.images.generate({
         model: "gpt-image-1",
         prompt: prompt,
-        response_format: "url"
     });
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
-    //ensure url
-    if (result.data[0].url === undefined) throw new Error("not seing image url")
+    // If base64 is returned
+    if (result.data[0].b64_json === undefined) throw new Error("not seing image b64")
+    const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
+
+    //get folder
+    const mainDirectory = path.join(uploadedDataDir, previewImagesDirName);
+    await ensureDirectoryExists(mainDirectory);
+
+    const imageName = `${uuidV4()}.png`;
+    const documentPath = path.join(mainDirectory, imageName);
+
+    // Save the image to a file
+    await fs.writeFile(documentPath, image_bytes);
+
+    //clean up temp directory
+    await cleanupOldFiles(mainDirectory)
 
     return {
-        src: result.data[0].url
+        src: imageName
     }
 }

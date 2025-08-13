@@ -39,6 +39,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
 
     const [projectRefresher, projectRefresherSet] = useState<{ [key in keyof projectType]?: boolean }>({})
     const refreshFromServer = useRef(false)
+    const sceneCont = useRef<HTMLDivElement | null>(null)
 
     const [charactersSearchObj, charactersSearchObjSet] = useState<searchObjType<characterType>>({
         searchItems: [],
@@ -493,6 +494,11 @@ Reference character image URLs (do not alter):
                 })
                 const makeDialogueAudioResponse = makeDialogueAudioResponseSchema.parse(await response.json())
 
+                //react refresh
+                project.current = { ...project.current }
+                project.current.alterDialogueObj = { ...project.current.alterDialogueObj }
+                project.current.alterDialogueObj[eachDialogue.id] = { ...project.current.alterDialogueObj[eachDialogue.id] }
+
                 //add on audio fileName
                 project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeDialogueAudioResponse.dialogueAudioFileName]
 
@@ -764,11 +770,18 @@ Reference character image URLs (do not alter):
                                     makeImagesInstructionsObj.current.showing = !makeImagesInstructionsObj.current.showing
                                     //general refresh
                                     refreshProject([])
+
+                                    //focus to start
+                                    setTimeout(() => {
+                                        if (makeImagesInstructionsObj.current.showing && sceneCont.current !== null) {
+                                            sceneCont.current.scrollLeft = 0
+                                        }
+                                    }, 100);
                                 }}
                             >{makeImagesInstructionsObj.current.showing ? "show less" : "make images"}</button>
                         </div>
 
-                        <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
+                        <div ref={sceneCont} className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
                             {makeImagesInstructionsObj.current.showing && (
                                 <div className="container">
                                     <label>scene image generation</label>

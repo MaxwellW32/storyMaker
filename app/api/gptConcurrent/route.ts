@@ -56,7 +56,6 @@ async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneB
     const result = await openai.images.generate({
         model: "gpt-image-1",
         prompt: condensedPrompt,
-        response_format: "b64_json"
     });
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
