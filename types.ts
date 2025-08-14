@@ -157,19 +157,6 @@ export type withId = {
 export const projectResourceDirOptions = ["audio", "images"] as const
 export type projectResourceDirOptionsType = typeof projectResourceDirOptions[number]
 
-export type writeFileOptions =
-    {
-        type: "text",
-        text: string,
-    } | {
-        type: "audio",
-        audioFile: ReadableStream<Uint8Array<ArrayBufferLike>>,
-
-    } | {
-        type: "image",
-        imageFile: string,
-    }
-
 export const dbFileCategorySchema = z.enum(["image", "other"])
 export type dbFileCategoryType = z.infer<typeof dbFileCategorySchema>
 
@@ -207,6 +194,17 @@ export const downloadProjectResponseSchema = z.object({
 export type downloadProjectResponseType = z.infer<typeof downloadProjectResponseSchema>
 
 
+
+
+export type promptInstructionsObj = {
+    [key: string]: {
+        prompt: string,
+        loading: boolean,
+        imageSrc: string,
+        mode: "edit" | "make",
+        formData?: FormData,
+    }
+}
 
 
 

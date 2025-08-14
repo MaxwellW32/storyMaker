@@ -88,14 +88,17 @@ export async function deleteImageForView(locationId: locationType["id"], dbWithF
     //delete from folder
     await Promise.all(dbWithFilesObjs.map(async eachDbWithFileObj => {
         const baseFolderPath = path.join(uploadedDataDir, locationsDirName, locationId, imagesDirName)
-
+        console.log(`$baseFolderPath`, baseFolderPath)
         try {
             // Read all files in the folder
             const files = await fs.readdir(baseFolderPath);
 
             // Filter to find files containing the imageSrc in their name
             const fileUUidOnly = eachDbWithFileObj.file.src.split(".")[0]
+            console.log(`$fileUUidOnly`, fileUUidOnly)
+
             const matchingFiles = files.filter((file) => file.includes(fileUUidOnly));
+            console.log(`$matchingFiles`, matchingFiles)
 
             // Delete each matching file
             await Promise.all(

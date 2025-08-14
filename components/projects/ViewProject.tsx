@@ -239,7 +239,7 @@ Scene Description:
             toast.success("Generating story...")
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(project.current.baseInstructions, { activeCharacterAppearance: project.current.activeCharacterAppearanceStarter })
+            const finalBaseInstructions = addVariablesToString(project.current.baseInstructions, { activeCharacterAppearance: project.current.activeCharacterAppearanceStarter })
             const madeScenes = await makeStory(project.current.prompt, finalBaseInstructions, project.current.activeCharacterAppearanceStarter)
 
             //add ontp scenes
@@ -274,7 +274,7 @@ Scene Description:
             const referencedScenes = getReferencedScenes(referencedSceneIds)
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToBaseInstructions(newSceneBaseInstructions, { activeCharacterAppearance: project.current.activeCharacterAppearanceStarter, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const finalBaseInstructions = addVariablesToString(newSceneBaseInstructions, { activeCharacterAppearance: project.current.activeCharacterAppearanceStarter, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
             const madeScenes = await makeScenes(newScenePrompt, finalBaseInstructions, project.current.activeCharacterAppearanceStarter)
 
             //add the scenes
@@ -348,7 +348,7 @@ Scene Description:
                 // console.log(`$makeSceneBackgroundImagesResponse`, makeSceneBackgroundImagesResponse);
                 // const makeSceneBackgroundImageObj = makeSceneBackgroundImageResponseSchema.parse(makeSceneBackgroundImagesResponse)
 
-                const promptEx = addVariablesToBaseInstructions(makeImagesInstructionsObj.current.prompt, {
+                const promptEx = addVariablesToString(makeImagesInstructionsObj.current.prompt, {
                     activeCharacterAppearance: eachScene.activeCharacterAppearance,//used to slim character appearance down to 1
                     scene: eachScene,
                     artStyle: project.current.artStyle
@@ -382,7 +382,7 @@ Scene Description:
         }
     }
 
-    function addVariablesToBaseInstructions(seenBaseInstructions: string, variables: { activeCharacterAppearance: activeCharacterAppearanceType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string }, atTop = true) {
+    function addVariablesToString(seenBaseInstructions: string, variables: { activeCharacterAppearance: activeCharacterAppearanceType, scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string }, atTop = true) {
         //eventually make this accept charactersInProject
 
         let referencedCharacterImageUrls: string | undefined = undefined
@@ -423,7 +423,7 @@ Scene Description:
             //prevent loop
             if (atTop) {
                 //add on baseInstructions
-                seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToBaseInstructions(variables.baseInstructions, variables, false))
+                seenBaseInstructions = seenBaseInstructions.replaceAll("[[baseInstructions]]", addVariablesToString(variables.baseInstructions, variables, false))
             }
         }
 
@@ -884,7 +884,7 @@ Scene Description:
                                     <React.Fragment key={eachScene.id}>
                                         {editMode.current.scenes ? (
                                             <>
-                                                <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToBaseInstructions} addingSceneIndex={addingSceneIndex} />
+                                                <EditScene scene={eachScene} project={project} charactersInProject={charactersInProject} refreshProject={refreshProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} getReferencedScenes={getReferencedScenes} addVariablesToBaseInstructions={addVariablesToString} addingSceneIndex={addingSceneIndex} />
 
                                                 {addingSceneIndex.current !== undefined && addingSceneIndex.current === (eachSceneIndex + 1) && (
                                                     <div className="container">

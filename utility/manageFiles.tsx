@@ -1,4 +1,3 @@
-// import { writeFileOptions, projectResourceDirOptionsType, projectType } from "@/types";
 import fs from "fs/promises";
 import path from "path";
 

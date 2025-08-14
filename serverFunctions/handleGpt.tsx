@@ -8,8 +8,8 @@ import fs from "fs/promises";
 import fsOg from "fs";
 import { charactersDirName, imagesDirName, locationsDirName, previewImagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
 import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
-import { ResponseInputItem } from "openai/resources/responses/responses.mjs";
 import { toFile } from "openai";
+import { writeFilesToUploadDir } from "./handleDirectories";
 
 export async function makeStory(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeCharacterAppearanceType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
@@ -73,10 +73,10 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
     return newScenes
 }
 
-async function encodeImage(filePath: string) {
-    const base64Image = await fs.readFile(filePath, "base64");
-    return base64Image;
-}
+// async function encodeImage(filePath: string) {
+//     const base64Image = await fs.readFile(filePath, "base64");
+//     return base64Image;
+// }
 
 // export async function makeSceneImages(prompt: string, projectId: projectType["id"], scene: sceneType, charactersInScene: characterType[], activeCharacterAppearance: activeCharacterAppearanceType, detail: "auto" | "low" | "high" = "auto") {
 //     //go seen by scene
@@ -334,15 +334,40 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
 
     return newCharacter
 }
-export async function makeTempImage(prompt: string): Promise<{ src: string }> {
+export async function makeTempImage(prompt: string, formData?: FormData): Promise<{ src: string }> {
+    //upload all to temp directory
+    let tempFiles: File[] = []
+    if (formData !== undefined) {
+        const mainDirectory = path.join(uploadedDataDir, previewImagesDirName);
+        const uploadedTempFiles = await writeFilesToUploadDir(mainDirectory, formData, "images")
+
+        //ensure exists
+        await ensureDirectoryExists(mainDirectory);
+
+        //get all temp files  
+        tempFiles = await Promise.all(uploadedTempFiles.names.map(async eachFileName => {
+
+            //convert the file to b64
+            const documentPath = path.join(mainDirectory, eachFileName);
+            return await toFile(fsOg.createReadStream(documentPath), null, {
+                type: "image/png",
+            })
+        }))
+    }
+
     //generate image for scene
-    const result = await openai.images.generate({
+    const result = formData !== undefined ? await openai.images.edit({
+        model: "gpt-image-1",
+        prompt,
+        image: tempFiles,
+    }) : await openai.images.generate({
         model: "gpt-image-1",
         prompt: prompt,
         moderation: "low",
         //256x256, 512x512, or 1024x1024
         //input fidelity
     });
+
     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
 
     // If base64 is returned

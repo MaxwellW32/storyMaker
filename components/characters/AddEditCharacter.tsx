@@ -1,12 +1,12 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, characterAppearanceType } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, characterAppearanceType, promptInstructionsObj } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
 import TextInput from '../inputs/textInput/TextInput'
-import { convertBtyes, deepClone } from '@/utility/utility'
+import { addVariablesToString, convertBtyes, deepClone } from '@/utility/utility'
 import { getEmotions } from '@/serverFunctions/handleEmotions'
 import ViewItems from '../items/ViewItem'
 import ViewEmotion from '../emotions/ViewEmotion'
@@ -45,7 +45,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
     }
     //assign either a new form, or the safe values on an update form
     const [formObj, formObjSet] = useState<Partial<characterType>>(deepClone(sentCharacter === undefined ? initialFormObj : updateCharacterSchema.parse(sentCharacter)))
-    const [formErrors, formErrorsSet] = useState<Partial<{ [key in keyof characterType]: string }>>({})
+    const [formErrors, formErrorsSet] = useState<{ [key: string]: string | undefined }>({})
 
     const [emotionsSearchObj, emotionsSearchObjSet] = useState<searchObjType<emotionType>>({
         searchItems: [],
@@ -82,13 +82,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         loading: false
     })
 
-    const [appearanceInstructionsObj, appearanceInstructionsObjSet] = useState<{
-        [key: string]: {
-            prompt: string,
-            loading: boolean,
-            imageSrc: string,
-        }
-    }>({})
+    const [appearanceInstructionsObj, appearanceInstructionsObjSet] = useState<promptInstructionsObj>({})
     const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
     //get chosen emotions
@@ -116,35 +110,6 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         formObjSet(deepClone(updateCharacterSchema.parse(sentCharacter)))
 
     }, [sentCharacter])
-
-    function checkIfValid(seenFormObj: Partial<characterType>, seenName: keyof characterType) {
-        // @ts-expect-error type
-        const testSchema = characterSchema.pick({ [seenName]: true }).safeParse(seenFormObj);
-
-        if (testSchema.success) {//worked
-            formErrorsSet(prevObj => {
-                const newObj = { ...prevObj }
-                delete newObj[seenName]
-
-                return newObj
-            })
-
-        } else {
-            formErrorsSet(prevObj => {
-                const newObj = { ...prevObj }
-
-                let errorMessage = ""
-
-                JSON.parse(testSchema.error.message).forEach((eachErrorObj: Error) => {
-                    errorMessage += ` ${eachErrorObj.message}`
-                })
-
-                newObj[seenName] = errorMessage
-
-                return newObj
-            })
-        }
-    }
 
     async function handleSubmit() {
         try {
@@ -350,6 +315,43 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         }
     }
 
+    function checkErrors(seenFormObj: Partial<characterType>, seenName?: keyof characterType) {
+        //refresh all - scan all
+        if (seenName === undefined) {
+            formErrorsSet({})
+        }
+
+        //@ts-expect-error type
+        const testSchema = seenName !== undefined ? characterSchema.pick({ [seenName]: true }).safeParse(seenFormObj) : characterSchema.partial().safeParse(seenFormObj);
+
+        if (testSchema.success) {
+            if (seenName !== undefined) {
+                formErrorsSet(prevObj => {
+                    const newObj = { ...prevObj }
+                    delete newObj[seenName]
+
+                    return newObj
+                })
+            }
+
+            return false
+
+        } else {
+            testSchema.error.issues.map(eachIssue => {
+                formErrorsSet(prevObj => {
+                    const newObj = { ...prevObj }
+                    const seenPath = eachIssue.path.join("/")
+
+                    newObj[seenPath] = eachIssue.message
+
+                    return newObj
+                })
+            })
+
+            return true
+        }
+    }
+
     async function handleGenerateCharacter() {
         try {
             if (makeNewCharacterInstructionsObj.baseInstructions === "") throw new Error("not seeing baseInstructions")
@@ -401,8 +403,10 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                 return newAppearanceInstructionsObj
             })
 
-            const finalPromt = `${seenAppearanceInstructionsObj.prompt}\n${appearance.description}`
-            const makeCharacterAppearanceImageResponse = await makeTempImage(finalPromt)
+            const finalPromt = addVariablesToString(seenAppearanceInstructionsObj.prompt, {
+                characterAppearance: appearance
+            })
+            const makeCharacterAppearanceImageResponse = await makeTempImage(finalPromt, seenAppearanceInstructionsObj.formData)
 
             //update src
             appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
@@ -621,7 +625,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "name") }}
+                        onBlur={() => { checkErrors(formObj, "name") }}
                         errors={formErrors["name"]}
                     />
                 </>
@@ -649,7 +653,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "age") }}
+                        onBlur={() => { checkErrors(formObj, "age") }}
                         errors={formErrors["age"]}
                     />
                 </>
@@ -674,7 +678,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "voiceId") }}
+                        onBlur={() => { checkErrors(formObj, "voiceId") }}
                         errors={formErrors["voiceId"]}
                     />
                 </>
@@ -685,7 +689,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                     <label>appearance options*</label>
 
                     <div className='gridColumns snap'>
-                        {formObj.appearances.map(eachAppearance => {
+                        {formObj.appearances.map((eachAppearance, eachAppearanceIndex) => {
                             if (eachAppearance.file.status === "to-delete") return null
 
                             const seenAppearanceInstructionsObj = appearanceInstructionsObj[eachAppearance.id]
@@ -705,19 +709,34 @@ Clothing, accessories, and style must match the description exactly unless other
 Avoid stylization changes, extra props, or backgrounds not mentioned.
 The goal is to create a precise visual reference for consistent reproduction in future images.
 
-Appearance description:`,
-                                        imageSrc: ""
+characterAppearance:
+[[characterAppearance]]
+`,
+                                        imageSrc: "",
+                                        mode: "make"
                                     }
 
                                     return newAppearanceInstructionsObj
                                 })
                             }
 
+                            let containsFileErrors = false
+                            Object.entries(formErrors).forEach(eachEntry => {
+                                if (eachEntry[0].includes(`appearances/${eachAppearanceIndex}/file`)) containsFileErrors = true
+                            })
+
                             return (
-                                <div key={eachAppearance.id} className='container' style={{ position: "relative" }}>
+                                <div key={eachAppearance.id} className='container' style={{ position: "relative", maxHeight: "80vh", overflow: "auto" }}>
                                     <ConfirmationBox text='' confirmationText='Are you sure you want to delete this appearance?' successMessage='appearance deleted!' iconName={"delete"} float={true}
                                         style={{ justifySelf: "flex-end" }}
                                         runAction={() => {
+                                            //form has to be valid if wants to delete
+                                            if (Object.entries(formErrors).length > 0) {
+                                                toast.error("fix form errors before deleting")
+
+                                                return
+                                            }
+
                                             //change status
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }
@@ -762,6 +781,8 @@ Appearance description:`,
                                                 return newFormObj
                                             })
                                         }}
+                                        onBlur={() => checkErrors(formObj)}
+                                        errors={formErrors[`appearances/${eachAppearanceIndex}/name`]}
                                     />
 
                                     <label>description</label>
@@ -787,6 +808,8 @@ Appearance description:`,
                                                 return newFormObj
                                             })
                                         }}
+                                        onBlur={() => checkErrors(formObj)}
+                                        errors={formErrors[`appearances/${eachAppearanceIndex}/description`]}
                                     />
 
                                     <ShowMore
@@ -798,24 +821,111 @@ Appearance description:`,
                                                         <ShowMore
                                                             label='prompt'
                                                             content={(
-                                                                <TextArea
-                                                                    name={`${eachAppearance.id}generateImagePrompt`}
-                                                                    value={seenAppearanceInstructionsObj.prompt}
-                                                                    placeHolder="Enter the prompt for this image generation..."
-                                                                    onChange={(e) => {
-                                                                        appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-                                                                            if (prevAppearanceInstructionsObj[eachAppearance.id] === undefined) return prevAppearanceInstructionsObj
+                                                                <div className='container'>
+                                                                    <div className='flexContainer'>
+                                                                        <button className='button2'
+                                                                            onClick={() => {
+                                                                                appearanceInstructionsObjSet(prevAppearanceIntructionsObj => {
+                                                                                    if (prevAppearanceIntructionsObj[eachAppearance.id] === undefined) return prevAppearanceIntructionsObj
 
-                                                                            //react refresh
-                                                                            const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
-                                                                            newAppearanceInstructionsObj[eachAppearance.id] = { ...newAppearanceInstructionsObj[eachAppearance.id] }
+                                                                                    //react refresh
+                                                                                    const newViewInstructionsObj = { ...prevAppearanceIntructionsObj }
+                                                                                    newViewInstructionsObj[eachAppearance.id] = { ...newViewInstructionsObj[eachAppearance.id] }
 
-                                                                            newAppearanceInstructionsObj[eachAppearance.id].prompt = e.target.value
+                                                                                    //toggle
+                                                                                    newViewInstructionsObj[eachAppearance.id].mode = newViewInstructionsObj[eachAppearance.id].mode === "make" ? "edit" : "make"
 
-                                                                            return newAppearanceInstructionsObj
-                                                                        })
-                                                                    }}
-                                                                />
+                                                                                    return newViewInstructionsObj
+                                                                                })
+                                                                            }}
+                                                                        >Mode: {seenAppearanceInstructionsObj.mode}</button>
+
+                                                                        {seenAppearanceInstructionsObj.mode === "edit" && (
+                                                                            <>
+                                                                                <button className='button2' style={{ justifySelf: "flex-start", backgroundColor: seenAppearanceInstructionsObj.formData === undefined ? "" : "var(--c3)" }}>
+                                                                                    <label htmlFor={`viewEditImageUpload${eachAppearance.id}`} style={{ cursor: "pointer" }}>
+                                                                                        upload
+                                                                                    </label>
+                                                                                </button>
+
+                                                                                <input id={`viewEditImageUpload${eachAppearance.id}`} type="file" multiple={true} placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
+                                                                                    onChange={async (e) => {
+                                                                                        try {
+                                                                                            if (!e.target.files) return
+
+                                                                                            let totalUploadSize = 0
+                                                                                            const uploadedFiles = e.target.files
+
+                                                                                            for (let index = 0; index < uploadedFiles.length; index++) {
+                                                                                                const file = uploadedFiles[index];
+
+                                                                                                //validation
+                                                                                                if (!allowedImageFileTypes.includes(file.type)) {
+                                                                                                    toast.error(`File ${file.name} is not a valid file type to upload.`);
+                                                                                                    continue;
+                                                                                                }
+
+                                                                                                // Check the file size
+                                                                                                if (file.size > maxFileUploadSize) {
+                                                                                                    toast.error(`File ${file.name} is too large. Maximum size is ${convertBtyes(maxFileUploadSize, "mb")} MB`);
+                                                                                                    continue;
+                                                                                                }
+
+                                                                                                //add file size to totalUploadSize
+                                                                                                totalUploadSize += file.size
+
+                                                                                                const fileEnding = file.name.split(".")[1]
+                                                                                                const fileSrc = `${uuidV4()}.${fileEnding}`
+
+                                                                                                //add to formData
+                                                                                                appearanceInstructionsObjSet(prevAppearanceIntructionsObj => {
+                                                                                                    if (prevAppearanceIntructionsObj[eachAppearance.id] === undefined) return prevAppearanceIntructionsObj
+
+                                                                                                    //react refresh
+                                                                                                    const newAppearanceInstructionsObj = { ...prevAppearanceIntructionsObj }
+                                                                                                    newAppearanceInstructionsObj[eachAppearance.id] = { ...newAppearanceInstructionsObj[eachAppearance.id] }
+
+                                                                                                    const seenFormData = new FormData();
+                                                                                                    seenFormData.append(fileSrc, file)
+                                                                                                    newAppearanceInstructionsObj[eachAppearance.id].formData = seenFormData
+
+                                                                                                    return newAppearanceInstructionsObj
+                                                                                                })
+                                                                                            }
+
+                                                                                            if (totalUploadSize > maxBodyToServerSize) {
+                                                                                                toast.error(`Please upload less than ${convertBtyes(maxBodyToServerSize, "mb")} MB at a time`);
+                                                                                                return
+                                                                                            }
+
+                                                                                        } catch (error) {
+                                                                                            consoleAndToastError(error)
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+
+                                                                    <TextArea
+                                                                        name={`${eachAppearance.id}generateImagePrompt`}
+                                                                        value={seenAppearanceInstructionsObj.prompt}
+                                                                        placeHolder="Enter the prompt for this image generation..."
+                                                                        onChange={(e) => {
+                                                                            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
+                                                                                if (prevAppearanceInstructionsObj[eachAppearance.id] === undefined) return prevAppearanceInstructionsObj
+
+                                                                                //react refresh
+                                                                                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+                                                                                newAppearanceInstructionsObj[eachAppearance.id] = { ...newAppearanceInstructionsObj[eachAppearance.id] }
+
+                                                                                newAppearanceInstructionsObj[eachAppearance.id].prompt = e.target.value
+
+                                                                                return newAppearanceInstructionsObj
+                                                                            })
+                                                                        }}
+                                                                    />
+                                                                </div>
                                                             )}
                                                         />
 
@@ -872,7 +982,7 @@ Appearance description:`,
                                                 const newDate = new Date()
 
                                                 const fileEnding = file.name.split(".")[1]
-                                                const fileSrc = `${eachAppearance.id}.${fileEnding}`
+                                                const fileSrc = `${eachAppearance.id}___${uuidV4()}.${fileEnding}` //ensure refresh
 
                                                 const newDbUploadFile: dbFileType = {
                                                     src: fileSrc,
@@ -897,6 +1007,9 @@ Appearance description:`,
                                                         return eachAppearanceMap
                                                     })
 
+                                                    //validate
+                                                    checkErrors(newFormObj)
+
                                                     return newFormObj
                                                 })
 
@@ -916,8 +1029,12 @@ Appearance description:`,
                                         }}
                                     />
 
+                                    {containsFileErrors && (
+                                        <p className='errorText'>Please upload a file</p>
+                                    )}
+
                                     {eachAppearance.file.uploadedAlready && sentCharacter !== undefined ? (
-                                        <Image alt={`${eachAppearance.file.fileName} image`} width={100} height={100} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain" }} />
+                                        <Image alt={`${eachAppearance.file.fileName} image`} width={1000} height={1000} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
                                     ) : (
                                         <p>{eachAppearance.file.fileName}</p>
                                     )}
@@ -977,7 +1094,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "personality") }}
+                        onBlur={() => { checkErrors(formObj, "personality") }}
                         errors={formErrors["personality"]}
                     />
                 </>
@@ -1001,7 +1118,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "toneOfVoice") }}
+                        onBlur={() => { checkErrors(formObj, "toneOfVoice") }}
                         errors={formErrors["toneOfVoice"]}
                     />
                 </>
@@ -1025,7 +1142,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "dialogueStyle") }}
+                        onBlur={() => { checkErrors(formObj, "dialogueStyle") }}
                         errors={formErrors["dialogueStyle"]}
                     />
                 </>
@@ -1049,7 +1166,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "alignment") }}
+                        onBlur={() => { checkErrors(formObj, "alignment") }}
                         errors={formErrors["alignment"]}
                     />
                 </>
@@ -1073,7 +1190,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "goal") }}
+                        onBlur={() => { checkErrors(formObj, "goal") }}
                         errors={formErrors["goal"]}
                     />
                 </>
@@ -1097,7 +1214,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "fear") }}
+                        onBlur={() => { checkErrors(formObj, "fear") }}
                         errors={formErrors["fear"]}
                     />
                 </>
@@ -1121,7 +1238,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "fatalFlaw") }}
+                        onBlur={() => { checkErrors(formObj, "fatalFlaw") }}
                         errors={formErrors["fatalFlaw"]}
                     />
                 </>
@@ -1145,7 +1262,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "backstory") }}
+                        onBlur={() => { checkErrors(formObj, "backstory") }}
                         errors={formErrors["backstory"]}
                     />
                 </>
@@ -1169,7 +1286,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "occupation") }}
+                        onBlur={() => { checkErrors(formObj, "occupation") }}
                         errors={formErrors["occupation"]}
                     />
                 </>
@@ -1193,7 +1310,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "location") }}
+                        onBlur={() => { checkErrors(formObj, "location") }}
                         errors={formErrors["location"]}
                     />
                 </>
@@ -1217,7 +1334,7 @@ Appearance description:`,
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "archetype") }}
+                        onBlur={() => { checkErrors(formObj, "archetype") }}
                         errors={formErrors["archetype"]}
                     />
                 </>

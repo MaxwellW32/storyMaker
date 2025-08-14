@@ -1,12 +1,12 @@
 "use client"
 import React, { useEffect, useRef, useState } from 'react'
 import styles from "./style.module.css"
-import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, viewType } from '@/types'
+import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, viewType, promptInstructionsObj } from '@/types'
 import toast from 'react-hot-toast'
 import { addLocation, deleteImageForView, updateLocation } from '@/serverFunctions/handleLocations'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
 import TextInput from '../inputs/textInput/TextInput'
-import { convertBtyes, deepClone } from '@/utility/utility'
+import { addVariablesToString, convertBtyes, deepClone } from '@/utility/utility'
 import ShowMore from '../showMore/ShowMore'
 import TextArea from '../inputs/textArea/TextArea'
 import { handleWithFiles } from '@/utility/handleWithFiles'
@@ -25,18 +25,12 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
     }
     //assign either a new form, or the safe values on an update form
     const [formObj, formObjSet] = useState<Partial<locationType>>(deepClone(sentLocation === undefined ? initialFormObj : updateLocationSchema.parse(sentLocation)))
-    const [formErrors, formErrorsSet] = useState<Partial<{ [key in keyof locationType]: string }>>({})
 
-    const [viewInstructionsObj, viewInstructionsObjSet] = useState<{
-        [key: string]: {
-            prompt: string,
-            loading: boolean,
-            imageSrc: string,
-        }
-    }>({})
+    const [viewInstructionsObj, viewInstructionsObjSet] = useState<promptInstructionsObj>({})
     const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
     const respondToChangeAbove = useRef(false)
+    const [formErrors, formErrorsSet] = useState<{ [key: string]: string | undefined }>({})
 
     //handle changes from above
     useEffect(() => {
@@ -48,32 +42,27 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
 
     }, [sentLocation])
 
-    function checkIfValid(seenFormObj: Partial<locationType>, seenName: keyof locationType) {
-        // @ts-expect-error type
-        const testSchema = locationSchema.pick({ [seenName]: true }).safeParse(seenFormObj);
+    function checkErrors(seenFormObj: Partial<locationType>) {
+        formErrorsSet({})
 
-        if (testSchema.success) {//worked
-            formErrorsSet(prevObj => {
-                const newObj = { ...prevObj }
-                delete newObj[seenName]
+        const testSchema = locationSchema.partial().safeParse(seenFormObj);
 
-                return newObj
-            })
+        if (testSchema.success) {
+            return false
 
         } else {
-            formErrorsSet(prevObj => {
-                const newObj = { ...prevObj }
+            testSchema.error.issues.map(eachIssue => {
+                formErrorsSet(prevObj => {
+                    const newObj = { ...prevObj }
+                    const seenPath = eachIssue.path.join("/")
 
-                let errorMessage = ""
+                    newObj[seenPath] = eachIssue.message
 
-                JSON.parse(testSchema.error.message).forEach((eachErrorObj: Error) => {
-                    errorMessage += ` ${eachErrorObj.message}`
+                    return newObj
                 })
-
-                newObj[seenName] = errorMessage
-
-                return newObj
             })
+
+            return true
         }
     }
 
@@ -163,6 +152,9 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                 //reset
                 imageFormDataSet(null)
 
+                //allow refresh
+                respondToChangeAbove.current = true
+
                 toast.success("location updated")
             }
 
@@ -177,13 +169,13 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
 
     async function handleGenerateViewImage(view: viewType) {
         try {
-            //ensure location description
+            //ensure location name and description
             if (formObj.name === undefined || formObj.name === "" || formObj.description === undefined || formObj.description === "") throw new Error("need location name and description")
 
             const seenViewInstructionsObj = viewInstructionsObj[view.id]
             if (seenViewInstructionsObj === undefined) throw new Error("not seeing seenViewInstructionsObj")
 
-            toast.success("generating view image!")
+            toast.success(`${seenViewInstructionsObj.mode === "edit" ? "editing" : "generating"} view image!`)
 
             //set loading
             viewInstructionsObjSet(prevViewInstructionsObj => {
@@ -198,8 +190,11 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                 return newViewInstructionsObj
             })
 
-            const finalPrompt = `${seenViewInstructionsObj.prompt}\nview name:\n${view.name}\nlocation name:\n${formObj.name}\n\nlocation description:\n${formObj.description}`
-            const makeLocationViewImageResponse = await makeTempImage(finalPrompt)
+            const finalPrompt = addVariablesToString(seenViewInstructionsObj.prompt, {
+                view: view,
+                location: formObj
+            })
+            const makeLocationViewImageResponse = await makeTempImage(finalPrompt, seenViewInstructionsObj.formData)
 
             //update src
             viewInstructionsObjSet(prevViewInstructionsObj => {
@@ -255,7 +250,7 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "name") }}
+                        onBlur={() => { checkErrors(formObj) }}
                         errors={formErrors["name"]}
                     />
                 </>
@@ -280,7 +275,7 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                                 return newFormObj
                             })
                         }}
-                        onBlur={() => { checkIfValid(formObj, "description") }}
+                        onBlur={() => { checkErrors(formObj) }}
                         errors={formErrors["description"]}
                     />
                 </>
@@ -291,7 +286,7 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                     <label>views*</label>
 
                     <div className='gridColumns snap'>
-                        {formObj.views.map(eachView => {
+                        {formObj.views.map((eachView, eachViewIndex) => {
                             if (eachView.file.status === "to-delete") return null
 
                             const seenViewInstructionsObj = viewInstructionsObj[eachView.id]
@@ -303,23 +298,44 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                                         loading: false,
                                         prompt: `Generate a single, high-resolution illustration showing one specific viewpoint of the given location.
 
-Depict only this viewpoint given the name (e.g., “front door,” “living room,” “start of forest,” “deep in forest,” “end of forest”), with no other angles.
+Depict only this viewpoint given the view object (e.g., view name: “front door,” “living room,” “start of forest,” “deep in forest,” “end of forest”), with no other angles.
 Maintain the same visual style, color palette, and environmental details across all viewpoints of this location to ensure consistency in later scenes.
 Include only elements that belong to the described location and angle — no extra objects or characters unless explicitly stated.
 Keep lighting, perspective, and rendering style uniform with previous images of this location so they look like they belong to the same illustrated world.
-The goal is to create a reference image for this specific view of the location that can be reused for storybook scene consistency.`,
-                                        imageSrc: ""
+The goal is to create a reference image for this specific view of the location that can be reused for storybook scene consistency.
+
+Generate a single, high-resolution illustration showing one specific viewpoint of the given location.
+
+view:
+[[view]]
+
+location: 
+[[location]]`,
+                                        imageSrc: "",
+                                        mode: "make",
                                     }
 
                                     return newViewInstructionsObj
                                 })
                             }
 
+                            let containsFileErrors = false
+                            Object.entries(formErrors).forEach(eachEntry => {
+                                if (eachEntry[0].includes(`views/${eachViewIndex}/file`)) containsFileErrors = true
+                            })
+
                             return (
-                                <div key={eachView.id} className='container' style={{ position: "relative" }}>
+                                <div key={eachView.id} className='container' style={{ position: "relative", maxHeight: "80vh", overflow: "auto" }}>
                                     <ConfirmationBox text='' confirmationText='Are you sure you want to delete this view?' successMessage='view deleted!' iconName={"delete"} float={true}
                                         style={{ justifySelf: "flex-end" }}
                                         runAction={() => {
+                                            //form has to be valid if wants to delete
+                                            if (Object.entries(formErrors).length > 0) {
+                                                toast.error("fix form errors before deleting")
+
+                                                return
+                                            }
+
                                             //change status
                                             formObjSet(prevFormObj => {
                                                 const newFormObj = { ...prevFormObj }
@@ -364,6 +380,8 @@ The goal is to create a reference image for this specific view of the location t
                                                 return newFormObj
                                             })
                                         }}
+                                        onBlur={() => checkErrors(formObj)}
+                                        errors={formErrors[`views/${eachViewIndex}/name`]}
                                     />
 
                                     <label>location variation name</label>
@@ -389,6 +407,8 @@ The goal is to create a reference image for this specific view of the location t
                                                 return newFormObj
                                             })
                                         }}
+                                        onBlur={() => checkErrors(formObj)}
+                                        errors={formErrors[`views/${eachViewIndex}/locationVariationName`]}
                                     />
 
                                     <label>description</label>
@@ -414,6 +434,8 @@ The goal is to create a reference image for this specific view of the location t
                                                 return newFormObj
                                             })
                                         }}
+                                        onBlur={() => checkErrors(formObj)}
+                                        errors={formErrors[`views/${eachViewIndex}/description`]}
                                     />
 
                                     <ShowMore
@@ -425,24 +447,111 @@ The goal is to create a reference image for this specific view of the location t
                                                         <ShowMore
                                                             label='prompt'
                                                             content={(
-                                                                <TextArea
-                                                                    name={`${eachView.id}generateImagePrompt`}
-                                                                    value={seenViewInstructionsObj.prompt}
-                                                                    placeHolder="Enter the prompt for this image generation..."
-                                                                    onChange={(e) => {
-                                                                        viewInstructionsObjSet(prevViewInstructionsObj => {
-                                                                            if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
+                                                                <div className='container'>
+                                                                    <div className='flexContainer'>
+                                                                        <button className='button2'
+                                                                            onClick={() => {
+                                                                                viewInstructionsObjSet(prevViewInstructionsObj => {
+                                                                                    if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
 
-                                                                            //react refresh
-                                                                            const newViewInstructionsObj = { ...prevViewInstructionsObj }
-                                                                            newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
+                                                                                    //react refresh
+                                                                                    const newViewInstructionsObj = { ...prevViewInstructionsObj }
+                                                                                    newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
 
-                                                                            newViewInstructionsObj[eachView.id].prompt = e.target.value
+                                                                                    //toggle
+                                                                                    newViewInstructionsObj[eachView.id].mode = newViewInstructionsObj[eachView.id].mode === "make" ? "edit" : "make"
 
-                                                                            return newViewInstructionsObj
-                                                                        })
-                                                                    }}
-                                                                />
+                                                                                    return newViewInstructionsObj
+                                                                                })
+                                                                            }}
+                                                                        >Mode: {seenViewInstructionsObj.mode}</button>
+
+                                                                        {seenViewInstructionsObj.mode === "edit" && (
+                                                                            <>
+                                                                                <button className='button2' style={{ justifySelf: "flex-start", backgroundColor: seenViewInstructionsObj.formData === undefined ? "" : "var(--c3)" }}>
+                                                                                    <label htmlFor={`viewEditImageUpload${eachView.id}`} style={{ cursor: "pointer" }}>
+                                                                                        upload
+                                                                                    </label>
+                                                                                </button>
+
+                                                                                <input id={`viewEditImageUpload${eachView.id}`} type="file" multiple={true} placeholder='Upload images' accept={imageFileInputAccept} style={{ display: "none" }}
+                                                                                    onChange={async (e) => {
+                                                                                        try {
+                                                                                            if (!e.target.files) return
+
+                                                                                            let totalUploadSize = 0
+                                                                                            const uploadedFiles = e.target.files
+
+                                                                                            for (let index = 0; index < uploadedFiles.length; index++) {
+                                                                                                const file = uploadedFiles[index];
+
+                                                                                                //validation
+                                                                                                if (!allowedImageFileTypes.includes(file.type)) {
+                                                                                                    toast.error(`File ${file.name} is not a valid file type to upload.`);
+                                                                                                    continue;
+                                                                                                }
+
+                                                                                                // Check the file size
+                                                                                                if (file.size > maxFileUploadSize) {
+                                                                                                    toast.error(`File ${file.name} is too large. Maximum size is ${convertBtyes(maxFileUploadSize, "mb")} MB`);
+                                                                                                    continue;
+                                                                                                }
+
+                                                                                                //add file size to totalUploadSize
+                                                                                                totalUploadSize += file.size
+
+                                                                                                const fileEnding = file.name.split(".")[1]
+                                                                                                const fileSrc = `${uuidV4()}.${fileEnding}`
+
+                                                                                                //add to formData
+                                                                                                viewInstructionsObjSet(prevViewInstructionsObj => {
+                                                                                                    if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
+
+                                                                                                    //react refresh
+                                                                                                    const newViewInstructionsObj = { ...prevViewInstructionsObj }
+                                                                                                    newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
+
+                                                                                                    const seenFormData = new FormData();
+                                                                                                    seenFormData.append(fileSrc, file)
+                                                                                                    newViewInstructionsObj[eachView.id].formData = seenFormData
+
+                                                                                                    return newViewInstructionsObj
+                                                                                                })
+                                                                                            }
+
+                                                                                            if (totalUploadSize > maxBodyToServerSize) {
+                                                                                                toast.error(`Please upload less than ${convertBtyes(maxBodyToServerSize, "mb")} MB at a time`);
+                                                                                                return
+                                                                                            }
+
+                                                                                        } catch (error) {
+                                                                                            consoleAndToastError(error)
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+
+                                                                    <TextArea
+                                                                        name={`${eachView.id}generateImagePrompt`}
+                                                                        value={seenViewInstructionsObj.prompt}
+                                                                        placeHolder="Enter the prompt for this image generation..."
+                                                                        onChange={(e) => {
+                                                                            viewInstructionsObjSet(prevViewInstructionsObj => {
+                                                                                if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
+
+                                                                                //react refresh
+                                                                                const newViewInstructionsObj = { ...prevViewInstructionsObj }
+                                                                                newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
+
+                                                                                newViewInstructionsObj[eachView.id].prompt = e.target.value
+
+                                                                                return newViewInstructionsObj
+                                                                            })
+                                                                        }}
+                                                                    />
+                                                                </div>
                                                             )}
                                                         />
 
@@ -457,7 +566,7 @@ The goal is to create a reference image for this specific view of the location t
                                                         <button className='button1'
                                                             onClick={() => handleGenerateViewImage(eachView)}
                                                         >
-                                                            {seenViewInstructionsObj.loading ? "generating..." : "generate"}
+                                                            {seenViewInstructionsObj.mode === "edit" ? seenViewInstructionsObj.loading ? "editing..." : "edit" : seenViewInstructionsObj.loading ? "generating..." : "generate"}
                                                         </button>
                                                     </div>
                                                 )}
@@ -499,7 +608,7 @@ The goal is to create a reference image for this specific view of the location t
                                                 const newDate = new Date()
 
                                                 const fileEnding = file.name.split(".")[1]
-                                                const fileSrc = `${eachView.id}.${fileEnding}`
+                                                const fileSrc = `${eachView.id}___${uuidV4()}.${fileEnding}` //enusres refresh on swaps
 
                                                 const newDbUploadFile: dbFileType = {
                                                     src: fileSrc,
@@ -525,6 +634,9 @@ The goal is to create a reference image for this specific view of the location t
                                                     })
 
                                                     return newFormObj
+
+                                                    //validate
+                                                    checkErrors(newFormObj)
                                                 })
 
                                                 //add to formData
@@ -543,8 +655,12 @@ The goal is to create a reference image for this specific view of the location t
                                         }}
                                     />
 
+                                    {containsFileErrors && (
+                                        <p className='errorText'>Please upload a file</p>
+                                    )}
+
                                     {eachView.file.uploadedAlready && sentLocation !== undefined ? (
-                                        <Image alt={`${eachView.file.fileName} image`} width={100} height={100} src={`/api/locations/images/download?locationId=${sentLocation.id}&src=${eachView.file.src}`} style={{ objectFit: "contain" }} />
+                                        <Image alt={`${eachView.file.fileName} image`} width={1000} height={1000} src={`/api/locations/images/download?locationId=${sentLocation.id}&src=${eachView.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
                                     ) : (
                                         <p>{eachView.file.fileName}</p>
                                     )}

@@ -1,7 +1,7 @@
 import z from "zod"
-import { characterType, textFileApiResponseSchema } from "@/types";
 import { eq, gte, sql, SQLWrapper } from "drizzle-orm";
 import { PgNumeric, PgInteger, PgTableWithColumns, PgEnumColumn } from 'drizzle-orm/pg-core'
+import { characterAppearanceType, locationType, viewType } from "@/types";
 
 export function deepClone<T>(object: T): T {
     return JSON.parse(JSON.stringify(object))
@@ -144,4 +144,25 @@ export function replaceSlashComments(originalText: string, slashComment: string,
     }
 
     return linesWithoutSlashComments.join("\n")
+}
+
+export function addVariablesToString(seenPrompt: string, variables: { view?: viewType, location?: Partial<locationType>, characterAppearance?: Partial<characterAppearanceType> }) {
+    //eventually make this accept charactersInProject
+
+    if (variables.view !== undefined) {
+        //add on scene
+        seenPrompt = seenPrompt.replaceAll("[[view]]", JSON.stringify(variables.view, null, 2))
+    }
+
+    if (variables.location !== undefined) {
+        //add on scene
+        seenPrompt = seenPrompt.replaceAll("[[location]]", JSON.stringify(variables.location, null, 2))
+    }
+
+    if (variables.characterAppearance !== undefined) {
+        //add on scene
+        seenPrompt = seenPrompt.replaceAll("[[characterAppearance]]", JSON.stringify(variables.characterAppearance, null, 2))
+    }
+
+    return seenPrompt
 }

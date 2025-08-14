@@ -1,9 +1,14 @@
 //To Do
-//find way to pass reference images to this generation...
-//maybe check out responses api
-//allow location views generation
-//location selector for project - need location to projects db
-//one active location at a time - each scene pulls a view it thinks it should happen at
+//by default responses api
+//save response id - if user wants context
+//hen if edit an image - user upload edited image along with prompt - temp dir
+//user generate image prompt
+//user edit image from file uploaded
+
+//allow user to make image/edit from prompt
+//find way to pass reference images to this generation
+//allow location views generation - test - then upload scenes found online
+//location selector for project - need location to projects db - dynamically chooses the best scenes for story progression
 //each scene sends up the view's reference image
 //if not seeing view set as default - each location needs at least 1 view
 //if not seeing location show setter
@@ -14,11 +19,12 @@
 //move all data to uploaded data - staging, rename previews/images
 //one way to change active appearance - projectsToCharacters
 //same way to change location on projectsToLocations
-//ensure can access resource for locations
-//make prompts on addedit character/location editable
+//options to choose input fidelity and image size, quality
+//make prompts on addedit character/location editable - make add variables to prompt in utility
 //use same upload file logic across app
-//fix objwithFile bug - still validates deleted array
+//fix objwithFile bug - still validates deleted array - dont allow delete if invalid
 //refine image preview gpt with central generation, multi context from options - uploading reference images
+//fix add edit character with form obj error check
 
 
 
@@ -82,6 +88,12 @@
 //every location has a name, description and views e.g max house...
 //each view has a name (e.g front door, bedroom), reference image and locationVariationName: e.g summer house, winter house...
 //locations - server action..., add edit..., view...
+
+
+
+
+
+
 
 
 
