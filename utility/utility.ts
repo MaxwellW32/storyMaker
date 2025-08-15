@@ -1,7 +1,7 @@
 import z from "zod"
 import { eq, gte, sql, SQLWrapper } from "drizzle-orm";
 import { PgNumeric, PgInteger, PgTableWithColumns, PgEnumColumn } from 'drizzle-orm/pg-core'
-import { characterAppearanceType, locationType, viewType } from "@/types";
+import { appearanceType, locationType, viewType } from "@/types";
 
 export function deepClone<T>(object: T): T {
     return JSON.parse(JSON.stringify(object))
@@ -146,7 +146,7 @@ export function replaceSlashComments(originalText: string, slashComment: string,
     return linesWithoutSlashComments.join("\n")
 }
 
-export function addVariablesToString(seenPrompt: string, variables: { view?: viewType, location?: Partial<locationType>, characterAppearance?: Partial<characterAppearanceType> }) {
+export function addVariablesToString(seenPrompt: string, variables: { view?: viewType, location?: Partial<locationType>, characterAppearance?: Partial<appearanceType> }) {
     //eventually make this accept charactersInProject
 
     if (variables.view !== undefined) {

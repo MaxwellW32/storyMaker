@@ -1,13 +1,12 @@
 //To Do
-//by default responses api
-//save response id - if user wants context
-//hen if edit an image - user upload edited image along with prompt - temp dir
-//user generate image prompt
-//user edit image from file uploaded
+//locations main dir -remake to read files from project
 
-//allow user to make image/edit from prompt
-//find way to pass reference images to this generation
-//allow location views generation - test - then upload scenes found online
+//project has characterToProjects - each has active appearance
+//each scene still keeps track of the appearance of all users in it - appareanceObj
+//ensure feature props passed down match
+//change the way we choose active appearance starter - put on charactersToProjects
+//same as projects to characters - same fetch extra on default
+//have active location - views in each location - story maker aware and can choose - udate prompt
 //location selector for project - need location to projects db - dynamically chooses the best scenes for story progression
 //each scene sends up the view's reference image
 //if not seeing view set as default - each location needs at least 1 view
@@ -17,7 +16,6 @@
 
 //canvas dimensions - sets after effects, and image
 //move all data to uploaded data - staging, rename previews/images
-//one way to change active appearance - projectsToCharacters
 //same way to change location on projectsToLocations
 //options to choose input fidelity and image size, quality
 //make prompts on addedit character/location editable - make add variables to prompt in utility
@@ -25,6 +23,11 @@
 //fix objwithFile bug - still validates deleted array - dont allow delete if invalid
 //refine image preview gpt with central generation, multi context from options - uploading reference images
 //fix add edit character with form obj error check
+//make all upload images use the same function - ensure it deletes similar named files.
+//each scene has characters in scene - active to depict - use this to determine active appearance check - not sure
+//change scene character appearance to apperance
+//natively have chracters for scene
+//move generate scene backgrounds to api
 
 
 
@@ -88,17 +91,8 @@
 //every location has a name, description and views e.g max house...
 //each view has a name (e.g front door, bedroom), reference image and locationVariationName: e.g summer house, winter house...
 //locations - server action..., add edit..., view...
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+//then if edit an image - user upload edited image along with prompt - temp dir...
+//user generate image prompt...
+//user edit image from file uploaded...
+//allow user to make image/edit from prompt...
+//find way to pass reference images to this generation...

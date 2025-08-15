@@ -16,8 +16,8 @@ export type tableNames = keyof schemaType
 
 
 
-export const activeCharacterAppearanceSchema = z.lazy(() => z.record(characterSchema.shape.id, characterAppearanceSchema.shape.id)) //each maps character id to a specific appearance id in that scene
-export type activeCharacterAppearanceType = z.infer<typeof activeCharacterAppearanceSchema>
+export const activeAppearanceObjSchema = z.lazy(() => z.record(characterSchema.shape.id, appearanceSchema.shape.id)) //each maps character id to a specific appearance id in that scene
+export type activeAppearanceObjType = z.infer<typeof activeAppearanceObjSchema>
 
 export const dialogueSchema = z.object({
     id: z.string().min(1),
@@ -32,7 +32,7 @@ export const sceneSchema = z.object({
     title: z.string().min(1),
     dialogue: dialogueSchema.array(),
     backgroundImageSrc: z.string(),
-    activeCharacterAppearance: activeCharacterAppearanceSchema,
+    activeAppearanceObj: activeAppearanceObjSchema,
     visualInstructions: z.string().min(1, "add visual instructions to the scene"),
 
 })
@@ -41,7 +41,7 @@ export type sceneType = z.infer<typeof sceneSchema>
 export const sceneForGptSchema = sceneSchema.omit({
     id: true,
     backgroundImageSrc: true,
-    activeCharacterAppearance: true,
+    activeAppearanceObj: true,
 })
 export type sceneForGptType = z.infer<typeof sceneForGptSchema>
 
@@ -256,7 +256,6 @@ export const projectSchema = z.object({
     baseInstructions: z.string().min(1, "please enter base instructions"),
     alterScenesObj: alterScenesObjSchema,
     alterDialogueObj: alterDialogueObjSchema,
-    activeCharacterAppearanceStarter: activeCharacterAppearanceSchema,
     artStyle: z.string().min(1, "please enter your art style"),
 
     //null
@@ -266,11 +265,11 @@ export const projectSchema = z.object({
     userId: z.string().min(1),
 })
 export type projectType = z.infer<typeof projectSchema> & {
+    fromUser?: userType,
     charactersToProjects?: characterToProjectType[],
-    fromUser?: userType
 }
 
-export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, baseInstructions: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, activeCharacterAppearanceStarter: true, artStyle: true })
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, baseInstructions: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, artStyle: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
 export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true, userId: true })
@@ -279,14 +278,14 @@ export type updateProjectType = z.infer<typeof updateProjectSchema>
 
 
 
-export const characterAppearanceSchema = z.object({
+export const appearanceSchema = z.object({
     id: z.string().min(1),
     name: z.string().min(1),
     description: z.string().min(1),
     file: dbFileSchema, //reference image
     uploadedFrom: z.enum(["main", "project"]), //use eventually
 })
-export type characterAppearanceType = z.infer<typeof characterAppearanceSchema>
+export type appearanceType = z.infer<typeof appearanceSchema>
 
 export const characterSchema = z.object({
     id: z.string().min(1),
@@ -295,7 +294,7 @@ export const characterSchema = z.object({
     age: z.number(),
     userId: z.string().min(1),
     voiceId: z.string().min(1, "please provide a voice id from eleven labs"),
-    appearances: characterAppearanceSchema.array().min(1, "please add character appearance"),
+    appearances: appearanceSchema.array().min(1, "please add character appearance"),
     personality: z.string().min(1),
     toneOfVoice: z.string(),
     dialogueStyle: z.string(),
@@ -309,10 +308,11 @@ export const characterSchema = z.object({
     archetype: z.string(),
 })
 export type characterType = z.infer<typeof characterSchema> & {
-    charactersToProjects?: characterToProjectType[],
+    fromUser?: userType
     charactersToEmotions?: characterToEmotionType[],
     charactersToTags?: characterToTagType[],
-    fromUser?: userType
+    charactersToProjects?: characterToProjectType[],
+    locationsToProjects?: locationToProjectType[],
 }
 
 export const newCharacterSchema = characterSchema.omit({ id: true })
@@ -402,27 +402,8 @@ export type characterToEmotionType = z.infer<typeof characterToEmotionSchema> & 
 export const newCharacterToEmotionSchema = characterToEmotionSchema.omit({ simpleId: true })
 export type newCharacterToEmotionType = z.infer<typeof newCharacterToEmotionSchema>
 
-export const updateCharacterToEmotionSchema = characterToEmotionSchema.omit({ simpleId: true })
+export const updateCharacterToEmotionSchema = characterToEmotionSchema.omit({ simpleId: true, characterId: true, emotionType: true })
 export type updateCharacterToEmotionType = z.infer<typeof updateCharacterToEmotionSchema>
-
-
-
-export const characterToProjectSchema = z.object({
-    simpleId: z.string().min(1),
-
-    projectId: projectSchema.shape.id,
-    characterId: characterSchema.shape.id,
-})
-export type characterToProjectType = z.infer<typeof characterToProjectSchema> & {
-    character?: characterType,
-    project?: projectType,
-}
-
-export const newCharacterToProjectSchema = characterToProjectSchema.omit({ simpleId: true })
-export type newCharacterToProjectType = z.infer<typeof newCharacterToProjectSchema>
-
-export const updateCharacterToProjectSchema = characterToProjectSchema.omit({ simpleId: true })
-export type updateCharacterToProjectType = z.infer<typeof updateCharacterToProjectSchema>
 
 
 
@@ -441,5 +422,46 @@ export type characterToTagType = z.infer<typeof characterToTagSchema> & {
 export const newCharacterToTagSchema = characterToTagSchema.omit({ simpleId: true })
 export type newCharacterToTagType = z.infer<typeof newCharacterToTagSchema>
 
-export const updateCharacterToTagSchema = characterToTagSchema.omit({ simpleId: true })
+export const updateCharacterToTagSchema = characterToTagSchema.omit({ simpleId: true, characterId: true, tagId: true })
 export type updateCharacterToTagType = z.infer<typeof updateCharacterToTagSchema>
+
+
+
+
+export const characterToProjectSchema = z.object({
+    simpleId: z.string().min(1),
+
+    characterId: characterSchema.shape.id,
+    projectId: projectSchema.shape.id,
+    activeAppearanceId: z.string().min(1),//maps to an active clothing id
+})
+export type characterToProjectType = z.infer<typeof characterToProjectSchema> & {
+    character?: characterType,
+    project?: projectType,
+}
+
+export const newCharacterToProjectSchema = characterToProjectSchema.omit({ simpleId: true })
+export type newCharacterToProjectType = z.infer<typeof newCharacterToProjectSchema>
+
+export const updateCharacterToProjectSchema = characterToProjectSchema.omit({ simpleId: true, characterId: true, projectId: true })
+export type updateCharacterToProjectType = z.infer<typeof updateCharacterToProjectSchema>
+
+
+
+
+export const locationToProjectSchema = z.object({
+    simpleId: z.string().min(1),
+
+    locationId: locationSchema.shape.id,
+    projectId: projectSchema.shape.id,
+})
+export type locationToProjectType = z.infer<typeof locationToProjectSchema> & {
+    location?: locationType,
+    project?: projectType,
+}
+
+export const newLocationToProjectSchema = locationToProjectSchema.omit({ simpleId: true })
+export type newLocationToProjectType = z.infer<typeof newLocationToProjectSchema>
+
+export const updateLocationToProjectSchema = locationToProjectSchema.omit({ simpleId: true, locationId: true, projectId: true })
+export type updateLocationToProjectType = z.infer<typeof updateLocationToProjectSchema>

@@ -1,4 +1,4 @@
-import { activeCharacterAppearanceType, alterDialogueObjType, alterScenesObjType, characterAppearanceType, sceneType, viewType } from "@/types";
+import { activeAppearanceObjType, alterDialogueObjType, alterScenesObjType, appearanceType, sceneType, viewType } from "@/types";
 import { relations } from "drizzle-orm";
 import { boolean, index, integer, json, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
 import type { AdapterAccountType } from "next-auth/adapters"
@@ -32,7 +32,6 @@ export const projects = pgTable("projects", {
     scenes: json("scenes").$type<sceneType[]>().notNull().default([]),
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
     alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),
-    activeCharacterAppearanceStarter: json("activeCharacterAppearanceStarter").$type<activeCharacterAppearanceType>().notNull().default({}),
     artStyle: text("artStyle").notNull().default("default"),
 
     //regular
@@ -47,11 +46,11 @@ export const projects = pgTable("projects", {
         };
     })
 export const projectsRelations = relations(projects, ({ one, many }) => ({
-    charactersToProjects: many(charactersToProjects),
     fromUser: one(users, {
         fields: [projects.userId],
         references: [users.id]
     }),
+    charactersToProjects: many(charactersToProjects),
 }));
 
 
@@ -67,7 +66,7 @@ export const characters = pgTable("characters", {
     userId: text("userId").notNull().references(() => users.id),
     voiceId: text("voiceId").notNull(),
     //appearance
-    appearances: json("appearances").$type<characterAppearanceType[]>().notNull(),
+    appearances: json("appearances").$type<appearanceType[]>().notNull(),
     //behaviour
     personality: text("personality").notNull(), // e.g. "brooding and analytical", "cheerful and impulsive"
     toneOfVoice: text("toneOfVoice").notNull(), // e.g. "sarcastic", "soft-spoken", "authoritative"
@@ -82,13 +81,14 @@ export const characters = pgTable("characters", {
     archetype: text("archetype").notNull(), // e.g. "The Hero", "The Trickster", "The Mentor"
 })
 export const charactersRelations = relations(characters, ({ one, many }) => ({
-    charactersToProjects: many(charactersToProjects),
-    charactersToEmotions: many(charactersToEmotions),
-    charactersToTags: many(charactersToTags),
     fromUser: one(users, {
         fields: [characters.userId],
         references: [users.id]
     }),
+    charactersToEmotions: many(charactersToEmotions),
+    charactersToTags: many(charactersToTags),
+    charactersToProjects: many(charactersToProjects),
+    locationsToProjects: many(locationsToProjects),
 }));
 
 
@@ -169,11 +169,38 @@ export const charactersToEmotionsRelations = relations(charactersToEmotions, ({ 
 
 
 
+export const charactersToTags = pgTable("charactersToTags", {
+    simpleId: text("simpleId").notNull().$defaultFn(() => crypto.randomUUID()),
+
+    characterId: text("characterId").notNull().references(() => characters.id),
+    tagId: text("tagId").notNull().references(() => tags.id),
+},
+    (t) => {
+        return {
+            pk: primaryKey({ columns: [t.characterId, t.tagId] }),
+            charactersToTagsCharacterIdIndex: index("charactersToTagsCharacterIdIndex").on(t.characterId),
+        };
+    })
+export const charactersToTagsRelations = relations(charactersToTags, ({ one }) => ({
+    character: one(characters, {
+        fields: [charactersToTags.characterId],
+        references: [characters.id],
+    }),
+    tag: one(tags, {
+        fields: [charactersToTags.tagId],
+        references: [tags.id],
+    }),
+}));
+
+
+
+
 export const charactersToProjects = pgTable("charactersToProjects", {
     simpleId: text("simpleId").notNull().$defaultFn(() => crypto.randomUUID()),
 
     characterId: text("characterId").notNull().references(() => characters.id),
     projectId: text("projectId").notNull().references(() => projects.id),
+    activeAppearanceId: text("activeAppearanceId").notNull(),
 },
     (t) => {
         return {
@@ -195,26 +222,26 @@ export const charactersToProjectsRelations = relations(charactersToProjects, ({ 
 
 
 
-export const charactersToTags = pgTable("charactersToTags", {
+export const locationsToProjects = pgTable("locationsToProjects", {
     simpleId: text("simpleId").notNull().$defaultFn(() => crypto.randomUUID()),
 
-    characterId: text("characterId").notNull().references(() => characters.id),
-    tagId: text("tagId").notNull().references(() => tags.id),
+    locationId: text("locationId").notNull().references(() => locations.id),
+    projectId: text("projectId").notNull().references(() => projects.id),
 },
     (t) => {
         return {
-            pk: primaryKey({ columns: [t.characterId, t.tagId] }),
-            charactersToTagsCharacterIdIndex: index("charactersToTagsCharacterIdIndex").on(t.characterId),
+            pk: primaryKey({ columns: [t.locationId, t.projectId] }),
+            locationsToProjectsProjectIdIndex: index("locationsToProjectsProjectIdIndex").on(t.projectId),
         };
     })
-export const charactersToTagsRelations = relations(charactersToTags, ({ one }) => ({
-    character: one(characters, {
-        fields: [charactersToTags.characterId],
-        references: [characters.id],
+export const locationsToProjectsRelations = relations(locationsToProjects, ({ one }) => ({
+    location: one(locations, {
+        fields: [locationsToProjects.locationId],
+        references: [locations.id],
     }),
-    tag: one(tags, {
-        fields: [charactersToTags.tagId],
-        references: [tags.id],
+    project: one(projects, {
+        fields: [locationsToProjects.projectId],
+        references: [projects.id],
     }),
 }));
 

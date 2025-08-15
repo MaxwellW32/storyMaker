@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, characterAppearanceType, promptInstructionsObj } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, appearanceType, promptInstructionsObj } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
@@ -383,7 +383,7 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         }
     }
 
-    async function handleGenerateAppearanceImage(appearance: characterAppearanceType) {
+    async function handleGenerateAppearanceImage(appearance: appearanceType) {
         try {
             const seenAppearanceInstructionsObj = appearanceInstructionsObj[appearance.id]
             if (seenAppearanceInstructionsObj === undefined) throw new Error("not seeing seenAppearanceInstructionsObj")
@@ -1049,7 +1049,7 @@ characterAppearance:
                                         const newFormObj = { ...prevFormObj }
                                         if (newFormObj.appearances === undefined) return prevFormObj
 
-                                        const newAppearance: characterAppearanceType = {
+                                        const newAppearance: appearanceType = {
                                             id: uuidV4(),
                                             name: "",
                                             description: "",

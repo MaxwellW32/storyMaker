@@ -1,6 +1,6 @@
 "use server"
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeCharacterAppearanceType, projectType, characterType } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, projectType, characterType, characterToProjectType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
 import path from "path";
@@ -11,7 +11,7 @@ import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
 import { toFile } from "openai";
 import { writeFilesToUploadDir } from "./handleDirectories";
 
-export async function makeStory(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeCharacterAppearanceType): Promise<sceneType[]> {
+export async function makeStory(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeAppearanceObjType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
         model: "gpt-5-mini",
         instructions: baseInstructions,
@@ -34,14 +34,14 @@ export async function makeStory(prompt: string, baseInstructions: string, active
             ...eachScene,
             id: uuidV4(),
             backgroundImageSrc: "",
-            activeCharacterAppearance: activeCharacterAppearanceStarter
+            activeAppearanceObj: activeCharacterAppearanceStarter
         }
         return newScene
     })
 
     return newScenes
 }
-export async function makeScenes(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeCharacterAppearanceType): Promise<sceneType[]> {
+export async function makeScenes(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeAppearanceObjType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
         model: "gpt-5-mini",
         instructions: baseInstructions,
@@ -65,7 +65,7 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
             ...eachScene,
             id: uuidV4(),
             backgroundImageSrc: "",
-            activeCharacterAppearance: activeCharacterAppearanceStarter
+            activeAppearanceObj: activeCharacterAppearanceStarter
         }
         return newScene
     })
@@ -179,26 +179,31 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
 //     const image_bytes = Buffer.from(imageBase64, "base64");
 //     await fs.writeFile(documentPath, image_bytes);
 // }
-export async function makeSceneImages(prompt: string, projectId: projectType["id"], scene: sceneType, charactersInScene: characterType[], activeCharacterAppearance: activeCharacterAppearanceType) {
-    //characterImageInputs
-    const characterImageFiles = await Promise.all(charactersInScene.map(async eachCharacterInScene => {
-        const appearanceId = activeCharacterAppearance[eachCharacterInScene.id]
-        if (appearanceId === undefined) throw new Error("not seeing appearanceId")
+export async function makeSceneImages(prompt: string, projectId: projectType["id"], scene: sceneType, charactersInProject: characterToProjectType[]) {
+    //characterImageInputs for characters used in this scene
+    const characterImageFiles = await Promise.all(
+        charactersInProject.filter(eachCharacterInProject => {
+            const foundInDialogue = scene.dialogue.find(eachDialogue => eachDialogue.characterId === eachCharacterInProject.characterId) !== undefined
 
-        const foundAppearance = eachCharacterInScene.appearances.find(eachAppearance => eachAppearance.id === appearanceId)
-        if (foundAppearance === undefined) throw new Error("not seeing foundAppearance")
+            return foundInDialogue
 
-        //get folder
-        const mainDirectory = path.join(uploadedDataDir, charactersDirName, eachCharacterInScene.id, imagesDirName);
-        await ensureDirectoryExists(mainDirectory);
+        }).map(async eachCharacterInProject => {
+            if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
 
-        //convert the file to b64
-        const documentPath = path.join(mainDirectory, foundAppearance.file.src);
+            const foundAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === eachCharacterInProject.activeAppearanceId)
+            if (foundAppearance === undefined) throw new Error("not seeing foundAppearance")
 
-        return await toFile(fsOg.createReadStream(documentPath), null, {
-            type: "image/png",
-        })
-    }))
+            //get folder
+            const mainDirectory = path.join(uploadedDataDir, charactersDirName, eachCharacterInProject.characterId, imagesDirName);
+            await ensureDirectoryExists(mainDirectory);
+
+            //convert the file to b64
+            const documentPath = path.join(mainDirectory, foundAppearance.file.src);
+
+            return await toFile(fsOg.createReadStream(documentPath), null, {
+                type: "image/png",
+            })
+        }))
 
     // //locationImageInputs
     // const characterImageInputs = await Promise.all(charactersInScene.map(async eachCharacterInScene => {

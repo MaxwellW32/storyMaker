@@ -48,15 +48,12 @@ export async function getProjects(filter: tableFilterTypes<projectType>, getWith
 //     //go over each
 //     //edit their scenes with the new value
 //     //save
+
 //     const allProjects = await getProjects({})
 //     await Promise.all(allProjects.map(async eachProject => {
 //         eachProject.scenes = eachProject.scenes.map(eachScene => {
-//             const newSceneObj: sceneType = {
-//                 ...eachScene as sceneOldType,
-//                 visualInstructions: "characters talking"
-//             }
 
-//             return newSceneObj
+//             return eachScene
 //         })
 
 //         //update with new sceneObj
