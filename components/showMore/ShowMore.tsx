@@ -27,7 +27,7 @@ export default function ShowMore({ label, content, startShowing, allAttributes =
             </div>
 
             <div style={{ display: !showing ? "none" : "grid", alignContent: "flex-start", overflow: "clip" }}>
-                <div {...allAttributes.contentDiv} className={`${showing ? styles.animateIn : ""} ${allAttributes.contentDiv.className ?? ""}`} style={{ display: "grid", alignContent: "flex-start", ...allAttributes.contentDiv.style }} >
+                <div {...allAttributes.contentDiv} className={`${showing ? styles.animateIn : ""} ${allAttributes.contentDiv.className ?? ""}`} style={{ display: "grid", alignContent: "flex-start", overflow: "auto", ...allAttributes.contentDiv.style }} >
                     {content}
                 </div>
             </div>

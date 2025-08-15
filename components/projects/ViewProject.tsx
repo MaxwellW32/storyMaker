@@ -2,7 +2,7 @@
 import ShowMore from "@/components/showMore/ShowMore"
 import { alterScene, makeDialogue, makeSceneImages, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { activeAppearanceObjType, alterDialogueObjType, alterScenesObjType, characterType, appearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeDialogueAudioBodyType, makeDialogueAudioResponseSchema, characterToProjectType } from "@/types"
+import { activeAppearanceObjType, alterDialogueObjType, alterScenesObjType, characterType, appearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeDialogueAudioBodyType, makeDialogueAudioResponseSchema, characterToProjectType, locationToProjectType, locationType, viewType } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -21,6 +21,9 @@ import ConfirmationBox from "../confirmationBox/ConfirmationBox"
 import { v4 as uuidV4 } from "uuid"
 import { convertBtyes, deepClone } from "@/utility/utility"
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from "@/lib/uploadFilesLib"
+import { getLocations } from "@/serverFunctions/handleLocations"
+import ViewLocation from "../locations/ViewLocation"
+import { addLocationToProject, deleteLocationToProject, getSpecificLocationToProject, updateLocationToProject } from "@/serverFunctions/handleLocationsToProjects"
 
 type editModeType = {
     scenes: boolean;
@@ -43,7 +46,13 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     const [charactersSearchObj, charactersSearchObjSet] = useState<searchObjType<characterType>>({
         searchItems: [],
     })
+    const [locationsSearchObj, locationsSearchObjSet] = useState<searchObjType<locationType>>({
+        searchItems: [],
+    })
     const seenCharactersInProject: characterToProjectType[] = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects : []
+    const seenLocationsInProject: locationToProjectType[] = project.current.locationsToProjects !== undefined ? project.current.locationsToProjects : []
+    const activeLocationInProject: locationToProjectType | undefined = seenLocationsInProject.find(eachLocationInProject => eachLocationInProject.locationId === project.current.activeLocationId)
+
     const makeScenesGenerateObj = useRef<{
         prompt: string,
         baseInstructions: string,
@@ -55,15 +64,10 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
         referencedSceneIds: "",
         loading: false
     })
-    const initialMakeScenesNewManualObj: sceneType = {
-        id: "",
+    const initialMakeScenesManualObj: Pick<sceneType, "title"> = {
         title: "",
-        dialogue: [],
-        backgroundImageSrc: "",
-        activeAppearanceObj: {},
-        visualInstructions: "The characters were talking..."
     }
-    const makeScenesNewManualObj = useRef<sceneType>({ ...initialMakeScenesNewManualObj })
+    const makeScenesManualObj = useRef({ ...initialMakeScenesManualObj })
 
     const editMode = useRef<editModeType>({
         scenes: false
@@ -126,14 +130,19 @@ Scene Description:
             project.current.baseInstructions = `Write very short, engaging children’s stories.
             
     The story is broken into scenes, and each scene represents one distinct visual moment.
-    If the story changes location, background, scenario, or camera angle, start a new scene.
+    If the story changes location/location view, scenario, or camera angle, start a new scene.
     Dialogue must match the action, emotion, and mood of the scene it belongs to.
-    Characters’ emotions in dialogue must come only from their own character obj.
+    Characters’ emotions in dialogue must come only from their own character obj, can be null if not needed to specify emotion.
     
     Each scene should have a visual description that ignores physical appearance and maps what a character is doing e.g Character Name A talking to B. I will use this to generate poses/scene visuals later so choose what you think is best to represent the scene given the dialogue. 
+    Each location represents an area e.g Forest, that is split up into multiple views e.g forest entrance, deep forest, forest exit...etc. Each scene takes place at a specific location, note each scene's locationId from a location of your choice from the below options that best represents the story direction you come up with. Each scene's viewId must be from a specific view in that location.
     
     Characters:
     [[characters]]
+
+    Locations:
+    [[locations]]
+
 `
             chosenKeys.push("baseInstructions")
         }
@@ -231,6 +240,7 @@ Scene Description:
         try {
             //ensure chracters and activeCharacterAppearanceStarter
             if (seenCharactersInProject.length < 1) throw new Error("please add characters to this project generate a story")
+            if (seenLocationsInProject.length < 1) throw new Error("please add locations for your project")
 
             //loading
             storyLoading.current = true
@@ -242,8 +252,10 @@ Scene Description:
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToPrompt(project.current.baseInstructions, {
+                locationsInProject: seenLocationsInProject,
                 charactersInProject: seenCharactersInProject
             })
+            console.log(`$finalBaseInstructions`, finalBaseInstructions);
             const madeScenes = await makeStory(project.current.prompt, finalBaseInstructions, activeAppearanceStarterObj)
 
             //add ontp scenes
@@ -279,7 +291,10 @@ Scene Description:
             const activeAppearanceStarterObj = makeActiveAppearanceStarterObj()
 
             //get variables into prompt
-            const finalBaseInstructions = addVariablesToPrompt(newSceneBaseInstructions, { charactersInProject: seenCharactersInProject, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions })
+            const finalBaseInstructions = addVariablesToPrompt(newSceneBaseInstructions, {
+                locationsInProject: seenLocationsInProject,
+                charactersInProject: seenCharactersInProject, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions
+            })
             const madeScenes = await makeScenes(newScenePrompt, finalBaseInstructions, activeAppearanceStarterObj)
 
             //add the scenes
@@ -352,6 +367,7 @@ Scene Description:
                 // const makeSceneBackgroundImageObj = makeSceneBackgroundImageResponseSchema.parse(makeSceneBackgroundImagesResponse)
 
                 const finalPrompt = addVariablesToPrompt(makeImagesInstructionsObj.current.prompt, {
+                    locationsInProject: seenLocationsInProject,
                     charactersInProject: seenCharactersInProject,
                     scene: eachScene,
                     artStyle: project.current.artStyle
@@ -359,7 +375,7 @@ Scene Description:
                 console.log(`$finalPrompt`, finalPrompt);
 
                 //get characters in scene
-                const sceneImageObj = await makeSceneImages(finalPrompt, seenProject.id, eachScene, seenCharactersInProject)
+                const sceneImageObj = await makeSceneImages(finalPrompt, seenProject.id, eachScene, seenCharactersInProject, seenLocationsInProject)
 
                 //update scene backgrounds
                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
@@ -591,7 +607,7 @@ Scene Description:
                                             searchObj={charactersSearchObj}
                                             searchObjSet={charactersSearchObjSet}
                                             searchFunc={async (seenFilters) => {
-                                                return await getCharacters({ ...seenFilters, userId: seenProject.userId }, {}, charactersSearchObj.limit, charactersSearchObj.offset)
+                                                return await getCharacters({ ...seenFilters }, {}, charactersSearchObj.limit, charactersSearchObj.offset)
                                             }}
                                             showPage={true}
                                             searchFilters={{
@@ -658,7 +674,7 @@ Scene Description:
 
                                                         {foundAppearance !== undefined ? (
                                                             <>
-                                                                <b>Appearance start</b>
+                                                                <b>Appearance starter</b>
 
                                                                 <Select
                                                                     name={`${eachCharacterInProject.simpleId}ActiveAppearanceId`}
@@ -711,6 +727,174 @@ Scene Description:
                     )}
                     startShowing={seenCharactersInProject.length === 0}
                 />
+
+                <ShowMore
+                    label='locations'
+                    content={(
+                        <div className='container'>
+                            <ShowMore
+                                label='search'
+                                content={(
+                                    <div className="container">
+                                        <Search
+                                            searchObj={locationsSearchObj}
+                                            searchObjSet={locationsSearchObjSet}
+                                            searchFunc={async (seenFilters) => {
+                                                return await getLocations({ ...seenFilters }, {}, locationsSearchObj.limit, locationsSearchObj.offset)
+                                            }}
+                                            showPage={true}
+                                            searchFilters={{
+                                                name: {
+                                                    value: "",
+                                                },
+                                                description: {
+                                                    value: "",
+                                                },
+                                            }}
+                                        />
+
+                                        {locationsSearchObj.searchItems.length > 0 && (
+                                            <ViewItems
+                                                itemObjs={locationsSearchObj.searchItems.map(eachSearchItem => {
+                                                    return {
+                                                        item: eachSearchItem,
+                                                        Element: <ViewLocation seenLocation={eachSearchItem} />
+                                                    }
+                                                })}
+                                                selectedIds={seenLocationsInProject.map(eachLocationInProject => eachLocationInProject.locationId)}
+                                                selectionAction={async (eachLocation) => {
+                                                    try {
+                                                        //server functions
+                                                        const inProject = await getSpecificLocationToProject({ locationId: eachLocation.id, projectId: seenProject.id }) !== undefined
+
+                                                        if (!inProject) {
+                                                            await addLocationToProject({ locationId: eachLocation.id, projectId: seenProject.id, activeViewId: eachLocation.views[0].id })
+                                                            toast.success("selected location")
+
+                                                        } else {
+                                                            await deleteLocationToProject({ locationId: eachLocation.id, projectId: seenProject.id })
+                                                            toast.success("de-selected location")
+                                                        }
+
+                                                        //refresh project from server
+                                                        refreshFromServer.current = true
+                                                        refreshProjectPath(seenProject.id)
+
+                                                    } catch (error) {
+                                                        consoleAndToastError(error)
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                                startShowing={true}
+                            />
+
+                            {seenLocationsInProject.length > 0 && (
+                                <>
+                                    <h2>Locations in project</h2>
+
+                                    <ViewItems
+                                        itemObjs={seenLocationsInProject.map(eachLocationInProject => {
+                                            if (eachLocationInProject.location === undefined) throw new Error("request location on eachLocationInProject")
+                                            const locationSelected = project.current.activeLocationId === eachLocationInProject.locationId
+
+                                            return {
+                                                item: { ...eachLocationInProject, id: eachLocationInProject.simpleId },
+                                                Element: (
+                                                    <div className="container">
+                                                        <button className="button1"
+                                                            onClick={() => {
+                                                                project.current.activeLocationId = eachLocationInProject.locationId
+
+                                                                //refresh
+                                                                refreshProject(["activeLocationId"])
+                                                            }}
+                                                        >{locationSelected ? "active" : "select location"}</button>
+
+                                                        <ViewLocation seenLocation={eachLocationInProject.location} />
+                                                    </div>
+                                                )
+                                            }
+                                        })}
+                                    />
+                                </>
+                            )}
+                        </div>
+                    )}
+                    startShowing={seenLocationsInProject.length === 0}
+                />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                 <h2>Story Prompt</h2>
 
@@ -853,7 +1037,7 @@ Scene Description:
                                     <React.Fragment key={eachScene.id}>
                                         {editMode.current.scenes ? (
                                             <>
-                                                <EditScene scene={eachScene} project={project} refreshProject={refreshProject} charactersInProject={seenCharactersInProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} getReferencedScenes={getReferencedScenes} addingSceneIndex={addingSceneIndex} />
+                                                <EditScene scene={eachScene} project={project} refreshProject={refreshProject} charactersInProject={seenCharactersInProject} locationsInProject={seenLocationsInProject} projectFormErrors={projectFormErrors} checkProjectErrors={checkProjectErrors} getReferencedScenes={getReferencedScenes} addingSceneIndex={addingSceneIndex} />
 
                                                 {addingSceneIndex.current !== undefined && addingSceneIndex.current === (eachSceneIndex + 1) && (
                                                     <div className="container">
@@ -946,23 +1130,10 @@ Scene Description:
                                                                     <label>title</label>
                                                                     <TextInput
                                                                         name="makeScenesNewManualObjTitle"
-                                                                        value={makeScenesNewManualObj.current.title}
+                                                                        value={makeScenesManualObj.current.title}
                                                                         placeHolder="Set the title for the new Scene."
                                                                         onChange={(e) => {
-                                                                            makeScenesNewManualObj.current.title = e.target.value
-
-                                                                            //general refresh
-                                                                            refreshProject([])
-                                                                        }}
-                                                                    />
-
-                                                                    <label>visual instructions</label>
-                                                                    <TextInput
-                                                                        name="makeScenesNewManualObjVisualInstructions"
-                                                                        value={makeScenesNewManualObj.current.visualInstructions}
-                                                                        placeHolder="Set what's happening visually in the scene."
-                                                                        onChange={(e) => {
-                                                                            makeScenesNewManualObj.current.visualInstructions = e.target.value
+                                                                            makeScenesManualObj.current.title = e.target.value
 
                                                                             //general refresh
                                                                             refreshProject([])
@@ -971,28 +1142,41 @@ Scene Description:
 
                                                                     <button className="button1"
                                                                         onClick={() => {
-                                                                            const activeAppearanceStarterObj = makeActiveAppearanceStarterObj()
-                                                                            const newScene: sceneType = {
-                                                                                ...makeScenesNewManualObj.current,
-                                                                                id: uuidV4(),
-                                                                                activeAppearanceObj: activeAppearanceStarterObj
+                                                                            try {
+                                                                                const activeLocationInProject = seenLocationsInProject.find(eachLocationInProject => eachLocationInProject.locationId === project.current.activeLocationId)
+                                                                                if (activeLocationInProject === undefined) throw new Error("not seeing activeLocationInProject")
+
+                                                                                const activeAppearanceStarterObj = makeActiveAppearanceStarterObj()
+                                                                                const newScene: sceneType = {
+                                                                                    ...makeScenesManualObj.current,
+                                                                                    id: uuidV4(),
+                                                                                    activeAppearanceObj: activeAppearanceStarterObj,
+                                                                                    dialogue: [],
+                                                                                    backgroundImageSrc: "",
+                                                                                    visualInstructions: "The characters were talking...",
+                                                                                    locationId: project.current.activeLocationId,
+                                                                                    viewId: activeLocationInProject.activeViewId,
+                                                                                }
+
+                                                                                //validation
+                                                                                sceneSchema.parse(newScene)
+
+                                                                                //add onto scenes
+                                                                                project.current.scenes = [
+                                                                                    ...project.current.scenes.slice(0, addingSceneIndex.current), //before
+                                                                                    newScene,
+                                                                                    ...project.current.scenes.slice(addingSceneIndex.current), //after
+                                                                                ]
+
+                                                                                //reset
+                                                                                makeScenesManualObj.current = { ...initialMakeScenesManualObj }
+
+                                                                                //refresh
+                                                                                refreshProject(["scenes"])
+
+                                                                            } catch (error) {
+                                                                                consoleAndToastError(error)
                                                                             }
-
-                                                                            //validation
-                                                                            sceneSchema.parse(newScene)
-
-                                                                            //add onto scenes
-                                                                            project.current.scenes = [
-                                                                                ...project.current.scenes.slice(0, addingSceneIndex.current), //before
-                                                                                newScene,
-                                                                                ...project.current.scenes.slice(addingSceneIndex.current), //after
-                                                                            ]
-
-                                                                            //reset
-                                                                            makeScenesNewManualObj.current = { ...initialMakeScenesNewManualObj }
-
-                                                                            //refresh
-                                                                            refreshProject(["scenes"])
                                                                         }}
                                                                     >add</button>
                                                                 </div>
@@ -1002,7 +1186,7 @@ Scene Description:
                                                 )}
                                             </>
                                         ) : (
-                                            <ViewScene scene={eachScene} project={project} charactersInProject={seenCharactersInProject} />
+                                            <ViewScene scene={eachScene} project={project} charactersInProject={seenCharactersInProject} locationsInProject={seenLocationsInProject} />
                                         )}
                                     </React.Fragment>
                                 )
@@ -1150,12 +1334,25 @@ Scene Description:
 
 
 
-function ViewScene({ scene, project, charactersInProject }: { scene: sceneType, project: React.RefObject<projectType>, charactersInProject: characterToProjectType[] }) {
+function ViewScene({ scene, project, charactersInProject, locationsInProject }: { scene: sceneType, project: React.RefObject<projectType>, charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[] }) {
+    const foundLocationInProject = locationsInProject.find(eachLocationInProject => eachLocationInProject.locationId === scene.locationId)
+    const foundLocationView: viewType | undefined = foundLocationInProject !== undefined && foundLocationInProject.location !== undefined ? foundLocationInProject.location.views.find(eachView => eachView.id === scene.viewId) : undefined
+
     return (
         <div className="container" style={{ backgroundColor: "var(--bg2)", padding: "var(--spacingR)", overflow: "auto", position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
                 <h3>{scene.title}</h3>
             </div>
+
+            {foundLocationInProject !== undefined && foundLocationInProject.location !== undefined && (
+                <div>
+                    <p>{foundLocationInProject.location.name}</p>
+
+                    {foundLocationView !== undefined && (
+                        <p>{foundLocationView.name}</p>
+                    )}
+                </div>
+            )}
 
             {scene.backgroundImageSrc !== "" && (
                 <Image alt={`scene${scene.id}backgroundImage`} src={`/api/projects/images/download?projectId=${project.current.id}&src=${scene.backgroundImageSrc}`} width={1000} height={1000} style={{ objectFit: "contain", width: "100%", }} />
@@ -1172,7 +1369,7 @@ function ViewScene({ scene, project, charactersInProject }: { scene: sceneType, 
         </div>
     )
 }
-function EditScene({ scene, project, refreshProject, charactersInProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addingSceneIndex }: { scene: sceneType, project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, charactersInProject: characterToProjectType[], projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addingSceneIndex: React.RefObject<number | undefined> }) {
+function EditScene({ scene, project, refreshProject, charactersInProject, locationsInProject, projectFormErrors, checkProjectErrors, getReferencedScenes, addingSceneIndex }: { scene: sceneType, project: React.RefObject<projectType>, refreshProject(projectKeys: (keyof projectType)[]): void, charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], projectFormErrors: { [key: string]: string | undefined; }, checkProjectErrors(seenFormObj: Partial<projectType>): boolean, getReferencedScenes(referencedSceneIds: string): sceneType[], addingSceneIndex: React.RefObject<number | undefined> }) {
     const seenAlterScenesObj: alterScenesObjType["key"] | undefined = project.current.alterScenesObj[scene.id]
     const sceneIndex = project.current.scenes.findIndex(eachFindIndex => eachFindIndex.id === scene.id)
     const wantedNewSceneIndex = useRef(sceneIndex)
@@ -1197,6 +1394,10 @@ function EditScene({ scene, project, refreshProject, charactersInProject, projec
         emotions: null,
     }
     const makeDialogueNewManualObj = useRef<dialogueType>({ ...initialMakeDialogueNewManualObj })
+
+    const seenLocations: locationType[] = locationsInProject.map(eachLocationInProject => eachLocationInProject.location !== undefined ? eachLocationInProject.location : null).filter(eachLocationInProjectNullVal => eachLocationInProjectNullVal !== null)
+    const activeSceneLocation: locationType | undefined = seenLocations.find(eachLocation => eachLocation.id === scene.locationId)
+    const activeSceneView: viewType | undefined = activeSceneLocation !== undefined ? activeSceneLocation.views.find(eachView => eachView.id === scene.viewId) : undefined
 
     //respond to changing sceneIndex
     useEffect(() => {
@@ -1234,6 +1435,7 @@ function EditScene({ scene, project, refreshProject, charactersInProject, projec
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToPrompt(sceneBaseInstructions, {
+                locationsInProject: locationsInProject,
                 charactersInProject: charactersInProject,
                 scene: sceneToReplace, referencedScenes: referencedScenes, baseInstructions: project.current.baseInstructions
             })
@@ -1449,6 +1651,7 @@ function EditScene({ scene, project, refreshProject, charactersInProject, projec
 
             //get variables into prompt
             const finalBaseInstructions = addVariablesToPrompt(newDialogueBaseInstructions, {
+                locationsInProject: locationsInProject,
                 charactersInProject: charactersInProject,
                 referencedScenes: referencedScenes,
                 baseInstructions: project.current.baseInstructions
@@ -1944,6 +2147,123 @@ function EditScene({ scene, project, refreshProject, charactersInProject, projec
                 )}
             />
 
+            <ShowMore
+                label="scene location"
+                content={(
+                    <div className="container" style={{ overflow: "clip" }}>
+                        {activeSceneLocation !== undefined ? (
+                            <>
+                                <Select
+                                    name={`${scene.id}ActiveLocationId`}
+                                    value={`${activeSceneLocation.name}____${activeSceneLocation.id}`}
+                                    valueOptions={seenLocations.map(eachLocation => `${eachLocation.name}____${eachLocation.id}`)}
+                                    onChange={value => {
+                                        project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                            if (eachSceneMap.id === scene.id) {
+                                                //react refresh
+                                                eachSceneMap = { ...eachSceneMap }
+
+                                                const usableLocationId = value.split("____")[1]
+                                                eachSceneMap.locationId = usableLocationId
+                                            }
+
+                                            return eachSceneMap
+                                        })
+
+                                        //refresh
+                                        refreshProject(["scenes"])
+                                    }}
+                                />
+
+                                <label>location view</label>
+
+                                {activeSceneView !== undefined ? (
+                                    <>
+                                        <Select
+                                            name={`${scene.id}ActiveViewId`}
+                                            value={`${activeSceneView.name}____${activeSceneView.locationVariationName}____${activeSceneView.id}`}
+                                            valueOptions={activeSceneLocation.views.map(eachView => `${eachView.name}____${eachView.locationVariationName}____${eachView.id}`)}
+                                            onChange={value => {
+                                                project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                    if (eachSceneMap.id === scene.id) {
+                                                        //react refresh
+                                                        eachSceneMap = { ...eachSceneMap }
+
+                                                        const usableViewId = value.split("____")[2]
+                                                        eachSceneMap.viewId = usableViewId
+                                                    }
+
+                                                    return eachSceneMap
+                                                })
+
+                                                //refresh
+                                                refreshProject(["scenes"])
+                                            }}
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <p>not seeing active location view</p>
+
+                                        <button className="button1"
+                                            onClick={() => {
+                                                try {
+                                                    project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                        if (eachSceneMap.id === scene.id) {
+                                                            //react refresh
+                                                            eachSceneMap = { ...eachSceneMap }
+
+                                                            eachSceneMap.viewId = activeSceneLocation.views[0].id
+                                                        }
+
+                                                        return eachSceneMap
+                                                    })
+
+                                                    //refresh
+                                                    refreshProject(["scenes"])
+
+                                                } catch (error) {
+                                                    consoleAndToastError(error)
+                                                }
+                                            }}
+                                        >pair view</button>
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <p>not seeing active location</p>
+
+                                <button className="button1"
+                                    onClick={() => {
+                                        try {
+                                            project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                if (eachSceneMap.id === scene.id) {
+                                                    if (seenLocations.length === 0) throw new Error("not seeing seenLocations")
+
+                                                    //react refresh
+                                                    eachSceneMap = { ...eachSceneMap }
+
+                                                    eachSceneMap.locationId = seenLocations[0].id
+                                                }
+
+                                                return eachSceneMap
+                                            })
+
+                                            //refresh
+                                            refreshProject(["scenes"])
+
+                                        } catch (error) {
+                                            consoleAndToastError(error)
+                                        }
+                                    }}
+                                >pair location</button>
+                            </>
+                        )}
+                    </div>
+                )}
+            />
+
             <div className="container">
                 {scene.dialogue.length > 0 ? (
                     <>
@@ -2250,7 +2570,7 @@ function ShowAudio({ seenAlterDialogueObj, seenProjectId }: { seenAlterDialogueO
     )
 }
 
-function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string }, atTop = true) {
+function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string }, atTop = true) {
     //add on characters
     const finalCharacters: characterType[] = deepClone(variables.charactersInProject).map(eachCharacterInProject => {
         if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
@@ -2263,7 +2583,14 @@ function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProje
 
         return eachCharacterInProject.character
     })
+    const finalLocations: locationType[] = deepClone(variables.locationsInProject).map(eachLocationInProject => {
+        if (eachLocationInProject.location === undefined) throw new Error("not seeing eachLocationInProject.location")
+
+        return eachLocationInProject.location
+    })
+    //write
     seenPrompt = seenPrompt.replaceAll("[[characters]]", JSON.stringify(finalCharacters, null, 2))
+    seenPrompt = seenPrompt.replaceAll("[[locations]]", JSON.stringify(finalLocations, null, 2))
 
     if (variables.scene !== undefined) {
         //add on scene

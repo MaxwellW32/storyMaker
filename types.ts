@@ -27,6 +27,16 @@ export const dialogueSchema = z.object({
 })
 export type dialogueType = z.infer<typeof dialogueSchema>
 
+export const sceneOldSchema = z.object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    dialogue: dialogueSchema.array(),
+    backgroundImageSrc: z.string(),
+    activeAppearanceObj: activeAppearanceObjSchema,
+    visualInstructions: z.string().min(1, "add visual instructions to the scene"),
+})
+export type sceneOldType = z.infer<typeof sceneOldSchema>
+
 export const sceneSchema = z.object({
     id: z.string().min(1),
     title: z.string().min(1),
@@ -34,7 +44,8 @@ export const sceneSchema = z.object({
     backgroundImageSrc: z.string(),
     activeAppearanceObj: activeAppearanceObjSchema,
     visualInstructions: z.string().min(1, "add visual instructions to the scene"),
-
+    locationId: z.lazy(() => locationSchema.shape.id),
+    viewId: z.lazy(() => viewScehema.shape.id),
 })
 export type sceneType = z.infer<typeof sceneSchema>
 
@@ -257,6 +268,7 @@ export const projectSchema = z.object({
     alterScenesObj: alterScenesObjSchema,
     alterDialogueObj: alterDialogueObjSchema,
     artStyle: z.string().min(1, "please enter your art style"),
+    activeLocationId: z.string(),
 
     //null
 
@@ -267,9 +279,10 @@ export const projectSchema = z.object({
 export type projectType = z.infer<typeof projectSchema> & {
     fromUser?: userType,
     charactersToProjects?: characterToProjectType[],
+    locationsToProjects?: locationToProjectType[],
 }
 
-export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, baseInstructions: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, artStyle: true })
+export const newProjectSchema = projectSchema.omit({ id: true, dateCreated: true, prompt: true, baseInstructions: true, scenes: true, alterScenesObj: true, alterDialogueObj: true, artStyle: true, activeLocationId: true })
 export type newProjectType = z.infer<typeof newProjectSchema>
 
 export const updateProjectSchema = projectSchema.omit({ id: true, dateCreated: true, userId: true })
@@ -433,7 +446,7 @@ export const characterToProjectSchema = z.object({
 
     characterId: characterSchema.shape.id,
     projectId: projectSchema.shape.id,
-    activeAppearanceId: z.string().min(1),//maps to an active clothing id
+    activeAppearanceId: appearanceSchema.shape.id,//maps to an active appearance id
 })
 export type characterToProjectType = z.infer<typeof characterToProjectSchema> & {
     character?: characterType,
@@ -454,6 +467,7 @@ export const locationToProjectSchema = z.object({
 
     locationId: locationSchema.shape.id,
     projectId: projectSchema.shape.id,
+    activeViewId: viewScehema.shape.id,
 })
 export type locationToProjectType = z.infer<typeof locationToProjectSchema> & {
     location?: locationType,

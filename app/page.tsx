@@ -17,6 +17,12 @@ export default function Page() {
 
     return (
         <main className={styles.main}>
+            {/* <UpdateOldValues
+                funcToRun={async () => {
+                    await updateScenesInProject()
+                }}
+            /> */}
+
             {session !== null ? (
                 <>
                     <h1>Projects</h1>

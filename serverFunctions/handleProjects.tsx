@@ -43,7 +43,7 @@ export async function getProjects(filter: tableFilterTypes<projectType>, getWith
     return results;
 }
 
-// export async function updateScenesInProject() {
+// export async function updateOldScenesInProject() {
 //     //get all projects
 //     //go over each
 //     //edit their scenes with the new value
@@ -53,7 +53,17 @@ export async function getProjects(filter: tableFilterTypes<projectType>, getWith
 //     await Promise.all(allProjects.map(async eachProject => {
 //         eachProject.scenes = eachProject.scenes.map(eachScene => {
 
-//             return eachScene
+//             const oldScene = eachScene as unknown as sceneOldType
+
+//             const newScene: sceneType = {
+//                 ...oldScene,
+//                 locationId: "dummyData",
+//                 viewId: "dummyData",
+//             }
+
+//             sceneSchema.parse(newScene)
+
+//             return newScene
 //         })
 
 //         //update with new sceneObj
@@ -92,7 +102,12 @@ export async function getSpecificProject(projectId: projectType["id"], getWith: 
                         }
                     }
                 }
-            } : getWith.charactersToProjects
+            } : getWith.charactersToProjects,
+            locationsToProjects: getWith.locationsToProjects === undefined ? {
+                with: {
+                    location: true
+                }
+            } : getWith.locationsToProjects,
         },
     });
 

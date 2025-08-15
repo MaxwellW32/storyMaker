@@ -33,6 +33,7 @@ export const projects = pgTable("projects", {
     alterScenesObj: json("alterScenesObj").$type<alterScenesObjType>().notNull().default({}),
     alterDialogueObj: json("alterDialogueObj").$type<alterDialogueObjType>().notNull().default({}),
     artStyle: text("artStyle").notNull().default("default"),
+    activeLocationId: text("activeLocationId").notNull().default(""),
 
     //regular
     name: text("name").notNull(),
@@ -51,6 +52,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
         references: [users.id]
     }),
     charactersToProjects: many(charactersToProjects),
+    locationsToProjects: many(locationsToProjects),
 }));
 
 
@@ -102,7 +104,7 @@ export const locations = pgTable("locations", {
     userId: text("userId").notNull().references(() => users.id),
     name: text("name").notNull(),
     description: text("description").notNull(),
-    views: json("views").$type<viewType[]>().notNull().default([]),
+    views: json("views").$type<viewType[]>().notNull(),
 
     //null
 },
@@ -227,6 +229,7 @@ export const locationsToProjects = pgTable("locationsToProjects", {
 
     locationId: text("locationId").notNull().references(() => locations.id),
     projectId: text("projectId").notNull().references(() => projects.id),
+    activeViewId: text("activeViewId").notNull(),
 },
     (t) => {
         return {

@@ -39,6 +39,8 @@ export async function getLocations(filter: tableFilterTypes<locationType>, getWi
         }
     });
 
+    console.log(`$results`, results);
+
     return results;
 }
 

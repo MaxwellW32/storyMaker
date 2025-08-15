@@ -1,6 +1,6 @@
 "use server"
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, projectType, characterType, characterToProjectType } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, projectType, characterType, characterToProjectType, locationToProjectType, viewType, locationType } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
 import path from "path";
@@ -179,7 +179,30 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
 //     const image_bytes = Buffer.from(imageBase64, "base64");
 //     await fs.writeFile(documentPath, image_bytes);
 // }
-export async function makeSceneImages(prompt: string, projectId: projectType["id"], scene: sceneType, charactersInProject: characterToProjectType[]) {
+export async function makeSceneImages(prompt: string, projectId: projectType["id"], scene: sceneType, charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[]) {
+    //viewImageInput
+    const foundLocation: locationType | undefined = locationsInProject.map(eachLocationInProject => {
+        if (eachLocationInProject.location === undefined) throw new Error("eachLocationInProject.location is undefined")
+
+        return eachLocationInProject.location
+    }).find(eachLocation => eachLocation.id === scene.locationId)
+    if (foundLocation === undefined) throw new Error("not seeing foundLocation")
+
+    const foundView: viewType | undefined = foundLocation.views.find(eachView => eachView.id === scene.viewId)
+    if (foundView === undefined) throw new Error("not seeing foundView")
+
+    const locationMainDirectory = path.join(uploadedDataDir, locationsDirName, foundLocation.id, imagesDirName);
+    await ensureDirectoryExists(locationMainDirectory);
+
+    //get view image path
+    const locationViewDocumentPath = path.join(locationMainDirectory, foundView.file.src); //view file src
+    const locationImageFile = await toFile(fsOg.createReadStream(locationViewDocumentPath), null, {
+        type: "image/png",
+    })
+
+
+
+
     //characterImageInputs for characters used in this scene
     const characterImageFiles = await Promise.all(
         charactersInProject.filter(eachCharacterInProject => {
@@ -205,44 +228,12 @@ export async function makeSceneImages(prompt: string, projectId: projectType["id
             })
         }))
 
-    // //locationImageInputs
-    // const characterImageInputs = await Promise.all(charactersInScene.map(async eachCharacterInScene => {
-    //     const appearanceId = activeCharacterAppearance[eachCharacterInScene.id]
-    //     if (appearanceId === undefined) throw new Error("not seeing appearanceId")
-
-    //     const foundAppearance = eachCharacterInScene.appearances.find(eachAppearance => eachAppearance.id === appearanceId)
-    //     if (foundAppearance === undefined) throw new Error("not seeing foundAppearance")
-
-    //     //get folder
-    //     const mainDirectory = path.join(uploadedDataDir, charactersDirName, eachCharacterInScene.id, imagesDirName);
-    //     await ensureDirectoryExists(mainDirectory);
-
-    //     //convert the file to b64
-    //     const documentPath = path.join(mainDirectory, foundAppearance.file.src);
-    //     const base64ImageUrl = await encodeImage(documentPath);
-
-    //     return {
-    //         type: "input_image",
-    //         image_url: `data:image/jpeg;base64,${base64ImageUrl}`,
-    //         detail: detail
-    //     }
-    // }))
-    //e.g
-    const locationMainDirectory = path.join(uploadedDataDir, locationsDirName, "cfd442bf-7e0a-478e-8954-b10b9f8d853c", imagesDirName);
-    await ensureDirectoryExists(locationMainDirectory);
-
-    //convert the file to b64
-    const locationViewDocumentPath = path.join(locationMainDirectory, "b7bb2e37-8ba6-4bcb-82dc-c4d7276a6069.png"); //view file src
-    const locationImageFile = await toFile(fsOg.createReadStream(locationViewDocumentPath), null, {
-        type: "image/png",
-    })
-
     console.log(`$characterImageFiles[0]`, characterImageFiles[0].name);
     console.log(`$locationImageFile`, locationImageFile.name);
 
     const response = await openai.images.edit({
         model: "gpt-image-1",
-        image: [...characterImageFiles, locationImageFile],
+        image: [locationImageFile, ...characterImageFiles],
         prompt,
     });
 
