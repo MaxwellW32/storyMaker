@@ -102,8 +102,10 @@ export type gptApiFunctionCallOptionsType = z.infer<typeof gptApiFunctionCallOpt
 
 export const makeSceneBackgroundImageBodySchema = z.object({
     prompt: z.string().min(1),
-    projectId: z.string().min(1),
-    scene: sceneSchema
+    projectId: z.lazy(() => projectSchema.shape.id),
+    scene: sceneSchema,
+    charactersInProject: z.lazy(() => characterToProjectSchema.array()),
+    locationsInProject: z.lazy(() => locationToProjectSchema.array()),
 })
 export type makeSceneBackgroundImageBodyType = z.infer<typeof makeSceneBackgroundImageBodySchema>
 

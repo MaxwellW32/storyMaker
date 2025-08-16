@@ -1,12 +1,12 @@
 "use server"
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, projectType, characterType, characterToProjectType, locationToProjectType, viewType, locationType } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
 import path from "path";
 import fs from "fs/promises";
-import fsOg from "fs";
-import { charactersDirName, imagesDirName, locationsDirName, previewImagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
+import fsSync from "fs";
+import { previewImagesDirName, uploadedDataDir } from "@/lib/dirPaths";
 import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
 import { toFile } from "openai";
 import { writeFilesToUploadDir } from "./handleDirectories";
@@ -179,86 +179,6 @@ export async function makeScenes(prompt: string, baseInstructions: string, activ
 //     const image_bytes = Buffer.from(imageBase64, "base64");
 //     await fs.writeFile(documentPath, image_bytes);
 // }
-export async function makeSceneImages(prompt: string, projectId: projectType["id"], scene: sceneType, charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[]) {
-    //viewImageInput
-    const foundLocation: locationType | undefined = locationsInProject.map(eachLocationInProject => {
-        if (eachLocationInProject.location === undefined) throw new Error("eachLocationInProject.location is undefined")
-
-        return eachLocationInProject.location
-    }).find(eachLocation => eachLocation.id === scene.locationId)
-    if (foundLocation === undefined) throw new Error("not seeing foundLocation")
-
-    const foundView: viewType | undefined = foundLocation.views.find(eachView => eachView.id === scene.viewId)
-    if (foundView === undefined) throw new Error("not seeing foundView")
-
-    const locationMainDirectory = path.join(uploadedDataDir, locationsDirName, foundLocation.id, imagesDirName);
-    await ensureDirectoryExists(locationMainDirectory);
-
-    //get view image path
-    const locationViewDocumentPath = path.join(locationMainDirectory, foundView.file.src); //view file src
-    const locationImageFile = await toFile(fsOg.createReadStream(locationViewDocumentPath), null, {
-        type: "image/png",
-    })
-
-
-
-
-    //characterImageInputs for characters used in this scene
-    const characterImageFiles = await Promise.all(
-        charactersInProject.filter(eachCharacterInProject => {
-            const foundInDialogue = scene.dialogue.find(eachDialogue => eachDialogue.characterId === eachCharacterInProject.characterId) !== undefined
-
-            return foundInDialogue
-
-        }).map(async eachCharacterInProject => {
-            if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
-
-            const foundAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === eachCharacterInProject.activeAppearanceId)
-            if (foundAppearance === undefined) throw new Error("not seeing foundAppearance")
-
-            //get folder
-            const mainDirectory = path.join(uploadedDataDir, charactersDirName, eachCharacterInProject.characterId, imagesDirName);
-            await ensureDirectoryExists(mainDirectory);
-
-            //convert the file to b64
-            const documentPath = path.join(mainDirectory, foundAppearance.file.src);
-
-            return await toFile(fsOg.createReadStream(documentPath), null, {
-                type: "image/png",
-            })
-        }))
-
-    console.log(`$characterImageFiles[0]`, characterImageFiles[0].name);
-    console.log(`$locationImageFile`, locationImageFile.name);
-
-    const response = await openai.images.edit({
-        model: "gpt-image-1",
-        image: [locationImageFile, ...characterImageFiles],
-        prompt,
-    });
-
-    if (response.data === undefined) throw new Error("")
-
-    //get folder
-    const mainDirectory = path.join(uploadedDataDir, projectsDirName, projectId, imagesDirName);
-    await ensureDirectoryExists(mainDirectory);
-
-    //set the image name
-    const imageName = `${scene.id}.png`;
-    const documentPath = path.join(mainDirectory, imageName);
-
-    //get the base 64 data
-    const imageBase64 = response.data[0].b64_json;
-    if (imageBase64 === undefined) throw new Error("not seeing imageBase64")
-
-    //save the file
-    const image_bytes = Buffer.from(imageBase64, "base64");
-    await fs.writeFile(documentPath, image_bytes);
-
-    return {
-        src: imageName
-    }
-}
 export async function alterScene(prompt: string, baseInstructions: string, scene: sceneType): Promise<sceneType> {
     const response = await openai.responses.parse({
         model: "gpt-5-mini",
@@ -345,7 +265,7 @@ export async function makeTempImage(prompt: string, formData?: FormData): Promis
 
             //convert the file to b64
             const documentPath = path.join(mainDirectory, eachFileName);
-            return await toFile(fsOg.createReadStream(documentPath), null, {
+            return await toFile(fsSync.createReadStream(documentPath), null, {
                 type: "image/png",
             })
         }))

@@ -1,6 +1,6 @@
 "use client"
 import ShowMore from "@/components/showMore/ShowMore"
-import { alterScene, makeDialogue, makeSceneImages, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
+import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
 import { activeAppearanceObjType, alterDialogueObjType, alterScenesObjType, characterType, appearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeDialogueAudioBodyType, makeDialogueAudioResponseSchema, characterToProjectType, locationToProjectType, locationType, viewType } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
@@ -52,6 +52,7 @@ export default function ViewProject({ seenProject }: { seenProject: projectType 
     const seenCharactersInProject: characterToProjectType[] = project.current.charactersToProjects !== undefined ? project.current.charactersToProjects : []
     const seenLocationsInProject: locationToProjectType[] = project.current.locationsToProjects !== undefined ? project.current.locationsToProjects : []
     const activeLocationInProject: locationToProjectType | undefined = seenLocationsInProject.find(eachLocationInProject => eachLocationInProject.locationId === project.current.activeLocationId)
+    const activeView: viewType | undefined = activeLocationInProject !== undefined && activeLocationInProject.location !== undefined ? activeLocationInProject.location.views.find(eachView => eachView.id === activeLocationInProject.activeViewId) : undefined
 
     const makeScenesGenerateObj = useRef<{
         prompt: string,
@@ -89,6 +90,9 @@ Art Style:
 
 Character Descriptions:
 [[characters]]
+
+Location Description:
+[[location]]
 
 Scene Description:
 [[scene]]
@@ -134,7 +138,7 @@ Scene Description:
     Dialogue must match the action, emotion, and mood of the scene it belongs to.
     Characters’ emotions in dialogue must come only from their own character obj, can be null if not needed to specify emotion.
     
-    Each scene should have a visual description that ignores physical appearance and maps what a character is doing e.g Character Name A talking to B. I will use this to generate poses/scene visuals later so choose what you think is best to represent the scene given the dialogue. 
+    Each scene has visualInstructions that maps what a character is doing in the scene e.g Character Name A talking to B. I will use this to generate poses/scene visuals later so choose what you think is best to represent the scene given the dialogue. 
     Each location represents an area e.g Forest, that is split up into multiple views e.g forest entrance, deep forest, forest exit...etc. Each scene takes place at a specific location, note each scene's locationId from a location of your choice from the below options that best represents the story direction you come up with. Each scene's viewId must be from a specific view in that location.
     
     Characters:
@@ -334,53 +338,48 @@ Scene Description:
 
         async function actualRun(eachScene: sceneType) {
             try {
-                // if (makeImagesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
-
-                //go over each character
-                //get their active appearances
-                //get that image src and make it a full url
-
-                // const finalPrompt = addVariablesToBaseInstructions(makeImagesInstructionsObj.current.prompt, {
-                //     activeCharacterAppearance: eachScene.activeCharacterAppearance,
-                //     scene: eachScene,
-                // })
-
-                // //what function to call
-                // const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneBackgroundImage"
-                // //new body
-                // const newMakeSceneBackgroundImagesBody: makeSceneBackgroundImageBodyType = {
-                //     prompt: finalPrompt,
-                //     projectId: seenProject.id,
-                //     scene: eachScene
-                // }
-
-                // //send off to gpt api
-                // const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
-                //     method: "POST",
-                //     headers: {
-                //         "Content-Type": "application/json"
-                //     },
-                //     body: JSON.stringify(newMakeSceneBackgroundImagesBody)
-                // })
-                // const makeSceneBackgroundImagesResponse = await response.json()
-                // console.log(`$makeSceneBackgroundImagesResponse`, makeSceneBackgroundImagesResponse);
-                // const makeSceneBackgroundImageObj = makeSceneBackgroundImageResponseSchema.parse(makeSceneBackgroundImagesResponse)
+                if (makeImagesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
 
                 const finalPrompt = addVariablesToPrompt(makeImagesInstructionsObj.current.prompt, {
-                    locationsInProject: seenLocationsInProject,
+                    locationsInProject: seenLocationsInProject,//dont need
                     charactersInProject: seenCharactersInProject,
                     scene: eachScene,
-                    artStyle: project.current.artStyle
+                    artStyle: project.current.artStyle,
+                    location: {
+                        locationId: eachScene.locationId,
+                        viewId: eachScene.viewId
+                    }
                 })
                 console.log(`$finalPrompt`, finalPrompt);
 
-                //get characters in scene
-                const sceneImageObj = await makeSceneImages(finalPrompt, seenProject.id, eachScene, seenCharactersInProject, seenLocationsInProject)
+                //what function to call
+                const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneBackgroundImage"
+                //new body
+                const newMakeSceneBackgroundImagesBody: makeSceneBackgroundImageBodyType = {
+                    prompt: finalPrompt,
+                    projectId: seenProject.id,
+                    scene: eachScene,
+                    charactersInProject: seenCharactersInProject,
+                    locationsInProject: seenLocationsInProject
+                }
+                console.log(`$newMakeSceneBackgroundImagesBody`, newMakeSceneBackgroundImagesBody)
+
+                //send off to gpt api
+                const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(newMakeSceneBackgroundImagesBody)
+                })
+                const sceneResponse = await response.json()
+                console.log(`$sceneResponse`, sceneResponse);
+                const makeSceneBackgroundImageResponse = makeSceneBackgroundImageResponseSchema.parse(sceneResponse)
 
                 //update scene backgrounds
                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
                     if (eachSceneMap.id === eachScene.id) {
-                        eachSceneMap.backgroundImageSrc = sceneImageObj.src
+                        eachSceneMap.backgroundImageSrc = makeSceneBackgroundImageResponse.src
                     }
 
                     return eachSceneMap
@@ -753,7 +752,7 @@ Scene Description:
                                             }}
                                         />
 
-                                        {locationsSearchObj.searchItems.length > 0 && (
+                                        {locationsSearchObj.searchItems.length > 0 && (//add remove locations in project
                                             <ViewItems
                                                 itemObjs={locationsSearchObj.searchItems.map(eachSearchItem => {
                                                     return {
@@ -798,7 +797,7 @@ Scene Description:
                                     <ViewItems
                                         itemObjs={seenLocationsInProject.map(eachLocationInProject => {
                                             if (eachLocationInProject.location === undefined) throw new Error("request location on eachLocationInProject")
-                                            const locationSelected = project.current.activeLocationId === eachLocationInProject.locationId
+                                            const locationSelected = activeLocationInProject !== undefined && activeLocationInProject.locationId === eachLocationInProject.locationId
 
                                             return {
                                                 item: { ...eachLocationInProject, id: eachLocationInProject.simpleId },
@@ -814,6 +813,33 @@ Scene Description:
                                                         >{locationSelected ? "active" : "select location"}</button>
 
                                                         <ViewLocation seenLocation={eachLocationInProject.location} />
+
+                                                        {locationSelected && activeView !== undefined && (
+                                                            <div className="container">
+                                                                <p>active view</p>
+
+                                                                <Select
+                                                                    name={`${eachLocationInProject.simpleId}ActiveViewId`}
+                                                                    value={`${activeView.name}____${activeView.locationVariationName}____${activeView.id}`}
+                                                                    valueOptions={eachLocationInProject.location.views.map(eachView => `${eachView.name}____${eachView.locationVariationName}____${eachView.id}`)}
+                                                                    onChange={async value => {
+                                                                        try {
+                                                                            const usableViewId = value.split("____")[2]
+
+                                                                            await updateLocationToProject({ locationId: eachLocationInProject.locationId, projectId: eachLocationInProject.projectId, locationToProjectObj: { activeViewId: usableViewId } })
+                                                                            toast.success("active view updated")
+
+                                                                            //refresh project from server
+                                                                            refreshFromServer.current = true
+                                                                            refreshProjectPath(seenProject.id)
+
+                                                                        } catch (error) {
+                                                                            consoleAndToastError(error)
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )
                                             }
@@ -826,77 +852,22 @@ Scene Description:
                     startShowing={seenLocationsInProject.length === 0}
                 />
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                <h2>Story Prompt</h2>
+                <h2>art style</h2>
+                <TextInput
+                    name="artStyle"
+                    value={project.current.artStyle}
+                    placeHolder="Describe your artStyle in high detail..."
+                    onChange={(e) => {
+                        project.current.artStyle = e.target.value
+
+                        //refresh
+                        refreshProject(["artStyle"])
+                    }}
+                    onBlur={() => checkProjectErrors(project.current)}
+                    errors={projectFormErrors["artStyle"]}
+                />
+
+                <h2>story idea</h2>
 
                 <ShowMore
                     label='general behaviour'
@@ -916,39 +887,18 @@ Scene Description:
                     }
                 />
 
-                <ShowMore
-                    label='Story idea'
-                    content={
-                        <TextArea
-                            name="prompt"
-                            value={project.current.prompt}
-                            placeHolder="Describe your story idea..."
-                            onChange={(e) => {
-                                project.current.prompt = e.target.value
-
-                                //refresh
-                                refreshProject(["prompt"])
-                            }}
-                            onBlur={() => checkProjectErrors(project.current)}
-                            errors={projectFormErrors["prompt"]}
-                        />
-                    }
-                    startShowing={true}
-                />
-
-                <label>art style</label>
-                <TextInput
+                <TextArea
                     name="prompt"
-                    value={project.current.artStyle}
-                    placeHolder="Describe your artStyle - specific..."
+                    value={project.current.prompt}
+                    placeHolder="Describe your story idea..."
                     onChange={(e) => {
-                        project.current.artStyle = e.target.value
+                        project.current.prompt = e.target.value
 
                         //refresh
-                        refreshProject(["artStyle"])
+                        refreshProject(["prompt"])
                     }}
                     onBlur={() => checkProjectErrors(project.current)}
-                    errors={projectFormErrors["artStyle"]}
+                    errors={projectFormErrors["prompt"]}
                 />
 
                 <button
@@ -1143,7 +1093,6 @@ Scene Description:
                                                                     <button className="button1"
                                                                         onClick={() => {
                                                                             try {
-                                                                                const activeLocationInProject = seenLocationsInProject.find(eachLocationInProject => eachLocationInProject.locationId === project.current.activeLocationId)
                                                                                 if (activeLocationInProject === undefined) throw new Error("not seeing activeLocationInProject")
 
                                                                                 const activeAppearanceStarterObj = makeActiveAppearanceStarterObj()
@@ -1154,7 +1103,7 @@ Scene Description:
                                                                                     dialogue: [],
                                                                                     backgroundImageSrc: "",
                                                                                     visualInstructions: "The characters were talking...",
-                                                                                    locationId: project.current.activeLocationId,
+                                                                                    locationId: activeLocationInProject.locationId,
                                                                                     viewId: activeLocationInProject.activeViewId,
                                                                                 }
 
@@ -2265,6 +2214,8 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
             />
 
             <div className="container">
+                <label>dialogue</label>
+
                 {scene.dialogue.length > 0 ? (
                     <>
                         {scene.dialogue.map((eachDialogue, eachDialogueIndex) => {
@@ -2570,7 +2521,7 @@ function ShowAudio({ seenAlterDialogueObj, seenProjectId }: { seenAlterDialogueO
     )
 }
 
-function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string }, atTop = true) {
+function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string, location?: { locationId: locationType["id"], viewId: viewType["id"] } }, atTop = true) {
     //add on characters
     const finalCharacters: characterType[] = deepClone(variables.charactersInProject).map(eachCharacterInProject => {
         if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
@@ -2583,14 +2534,14 @@ function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProje
 
         return eachCharacterInProject.character
     })
-    const finalLocations: locationType[] = deepClone(variables.locationsInProject).map(eachLocationInProject => {
+    const locations: locationType[] = variables.locationsInProject.map(eachLocationInProject => {
         if (eachLocationInProject.location === undefined) throw new Error("not seeing eachLocationInProject.location")
 
         return eachLocationInProject.location
     })
     //write
     seenPrompt = seenPrompt.replaceAll("[[characters]]", JSON.stringify(finalCharacters, null, 2))
-    seenPrompt = seenPrompt.replaceAll("[[locations]]", JSON.stringify(finalLocations, null, 2))
+    seenPrompt = seenPrompt.replaceAll("[[locations]]", JSON.stringify(locations, null, 2))
 
     if (variables.scene !== undefined) {
         //add on scene
@@ -2615,6 +2566,27 @@ function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProje
     if (variables.artStyle !== undefined) {
         //add on reference Scenes
         seenPrompt = seenPrompt.replaceAll("[[artStyle]]", variables.artStyle)
+    }
+
+    if (variables.location !== undefined) {
+        //update location to only have active view 
+        const foundLocation: locationType | undefined = locations.find(eachLocation => {
+            if (variables.location === undefined) throw new Error("variables.location undefined")
+
+            return eachLocation.id === variables.location.locationId
+        })
+        if (foundLocation === undefined) throw new Error("foundLocation undefined")
+
+        //ensure no cross reference
+        const finalLocation = deepClone(foundLocation)
+        finalLocation.views = finalLocation.views.filter(eachView => {
+            if (variables.location === undefined) throw new Error("variables.location undefined")
+
+            return eachView.id === variables.location.viewId
+        })
+
+        //add on location with educed views
+        seenPrompt = seenPrompt.replaceAll("[[location]]", JSON.stringify(finalLocation, null, 2))
     }
 
     return seenPrompt

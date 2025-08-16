@@ -633,10 +633,10 @@ location:
                                                         return eachViewMap
                                                     })
 
-                                                    return newFormObj
-
                                                     //validate
                                                     checkErrors(newFormObj)
+
+                                                    return newFormObj
                                                 })
 
                                                 //add to formData
