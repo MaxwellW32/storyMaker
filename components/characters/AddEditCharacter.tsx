@@ -46,7 +46,7 @@ export default function AddEditCharacter({ sentCharacter, submissionAction }: { 
     //assign either a new form, or the safe values on an update form
     const [formObj, formObjSet] = useState<Partial<characterType>>(deepClone(sentCharacter === undefined ? initialFormObj : updateCharacterSchema.parse(sentCharacter)))
     const [formErrors, formErrorsSet] = useState<{ [key: string]: string | undefined }>({})
-
+    // console.log(`$formObj`, formObj);
     const [emotionsSearchObj, emotionsSearchObjSet] = useState<searchObjType<emotionType>>({
         searchItems: [],
     })

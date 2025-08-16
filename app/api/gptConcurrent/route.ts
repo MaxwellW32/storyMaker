@@ -21,8 +21,8 @@ export async function POST(request: Request) {
 
     try {
         if (functionCallOption === "makeSceneBackgroundImage") {
-            // const makeSceneBackgroundImagesBody = makeSceneBackgroundImageBodySchema.parse(seenBody)
-            return NextResponse.json(await makeSceneBackgroundImage(seenBody))
+            const makeSceneBackgroundImagesBody = makeSceneBackgroundImageBodySchema.parse(seenBody)
+            return NextResponse.json(await makeSceneBackgroundImage(makeSceneBackgroundImagesBody))
 
         } else if (functionCallOption === "makeDialogueAudio") {
             const makeDialogueAudioBody = makeDialogueAudioBodySchema.parse(seenBody)
@@ -36,47 +36,6 @@ export async function POST(request: Request) {
     }
 }
 
-// async function makeSceneBackgroundImage({ prompt, projectId, scene }: makeSceneBackgroundImageBodyType): Promise<makeSceneBackgroundImageResponseType> {
-//     console.log(`$prompt`, prompt);
-
-//     //condense prompt
-//     const response = await openai.responses.parse({
-//         model: "gpt-5-mini",
-//         input: prompt,
-//         text: {
-//             format: zodTextFormat(gptCondensePromptResponseSchema, "gptCondensePromptResponse"),
-//         },
-//     });
-//     const gptCondensePromptResponse = gptCondensePromptResponseSchema.parse(response.output_parsed)
-
-//     const condensedPrompt = gptCondensePromptResponse.prompt
-//     console.log(`$condensedPrompt`, condensedPrompt);
-
-//     //generate image for scene
-//     const result = await openai.images.generate({
-//         model: "gpt-image-1",
-//         prompt: condensedPrompt,
-//         moderation: "low",
-//     });
-//     if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
-
-//     // Create images dir
-//     const mainDirectory = path.join(uploadedDataDir, projectsDirName, projectId, imagesDirName);
-//     await ensureDirectoryExists(mainDirectory);
-
-//     const imageName = `${scene.id}___${uuidV4()}.png`;
-//     const documentPath = path.join(mainDirectory, imageName);
-
-//     // If base64 is returned
-//     if (result.data[0].b64_json === undefined) throw new Error("not seing image b64")
-//     const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
-//     await fs.writeFile(documentPath, image_bytes);
-
-//     // Return the image src in the response
-//     return {
-//         src: imageName
-//     }
-// }
 export async function makeSceneBackgroundImage({ prompt, projectId, scene, charactersInProject, locationsInProject }: makeSceneBackgroundImageBodyType): Promise<makeSceneBackgroundImageResponseType> {
     console.log(`$locationsInProject`, JSON.stringify(locationsInProject, null, 2))
 
@@ -99,6 +58,7 @@ export async function makeSceneBackgroundImage({ prompt, projectId, scene, chara
     const locationImageFile = await toFile(fsSync.createReadStream(locationViewDocumentPath), null, {
         type: "image/png",
     })
+    console.log(`$locationImageFile`, locationImageFile);
 
 
 
@@ -106,6 +66,8 @@ export async function makeSceneBackgroundImage({ prompt, projectId, scene, chara
     //characterImageInputs for characters used in this scene
     const characterImageFiles = await Promise.all(
         charactersInProject.filter(eachCharacterInProject => {
+            if (scene.dialogue.length < 1) return true
+
             const foundInDialogue = scene.dialogue.find(eachDialogue => eachDialogue.characterId === eachCharacterInProject.characterId) !== undefined
 
             return foundInDialogue
@@ -113,7 +75,7 @@ export async function makeSceneBackgroundImage({ prompt, projectId, scene, chara
         }).map(async (eachCharacterInProject: characterToProjectType) => {
             if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
 
-            const foundAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === eachCharacterInProject.activeAppearanceId)
+            const foundAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === scene.activeAppearanceObj[eachCharacterInProject.characterId])
             if (foundAppearance === undefined) throw new Error("not seeing foundAppearance")
 
             //get folder
@@ -127,9 +89,7 @@ export async function makeSceneBackgroundImage({ prompt, projectId, scene, chara
                 type: "image/png",
             })
         }))
-
-    console.log(`$characterImageFiles[0]`, characterImageFiles[0].name);
-    console.log(`$locationImageFile`, locationImageFile.name);
+    console.log(`$characterImageFiles`, characterImageFiles);
 
     const response = await openai.images.edit({
         model: "gpt-image-1",

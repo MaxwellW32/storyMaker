@@ -1,61 +1,22 @@
 //To Do
-
-//each scene sends up the view's reference image...
-//if not seeing view set as default - each location needs at least 1 view...
-//if not seeing location show setter...
-//make forest: entrance, deep, oasis, exit...
-//each character has active appearance along with defining description. upload that and reference images (view/character) along with visual instructions from scene - remove the condenser...
-
+//generate locations/characters
+//save
 //canvas dimensions - sets after effects, and image
 //move all data to uploaded data - staging, rename previews/images
-//same way to change location on projectsToLocations
 //options to choose input fidelity and image size, quality
-//make prompts on addedit character/location editable - make add variables to prompt in utility
 //use same upload file logic across app
-//fix objwithFile bug - still validates deleted array - dont allow delete if invalid
-//refine image preview gpt with central generation, multi context from options - uploading reference images
-//fix add edit character with form obj error check
 //make all upload images use the same function - ensure it deletes similar named files.
-//each scene has characters in scene - active to depict - use this to determine active appearance check - not sure
-//change scene character appearance to apperance
-//natively have chracters for scene
-//move generate scene backgrounds to api
 //ensure proper schema tables and types are synced - many many
-//location variation names - ensure views choose active values
+//space with uuid all upload values that are referenced by another id - project id, character id...etc projectId____uuid - then split it to delete correct file.
+//take time and validate - all charactersInProject use aactive appreacance id as starting values only, that scene values are unique to each scene (appearance, location). Same with locationsInProject
+//enetually return extra data in response
+//make save on client
 
 
 
 
 //Ideas
-//back to square 1
-//generate story makes scenes
-//it has active appearance and context of reference images
-//from their it generates 10 scenes at a time. with images
-//can manually add scenes - thats it
-//possibility to pass a scene as reference to continue same scene generation
-//
-//
-//
-
 //long term - 3d game
-
-//now - specific prompt generation
-//art style set at project layer - water color, strong lines
-//make scene instructions - used to generate visually - max standing off to the side, kim talking - refine
-//each character has active appearance along with defining description. upload that and reference image
-//generate locations - same as below
-//each scene happens at location - send up location reference image - make db - description, what it looks like
-
-//now - make dynamic characters/scenes ahead of time
-//scenes - each scene is at a location. e.g Max house. Then the variation of the location. e.g summer, christmas...etc. Then the view: front door, bedroom, kitchen - build a library of scenes over time
-//each scene has position marker where characters/events can take place at - use this to position characters/determine layering. This determins scale of character at that position marker as well.
-////
-//characters - Every character has different appearance options. (character is specific to age, interestes personality. 8 yo MAx, diff character from 24 yo max.)
-//each appearance has different poses - walking, reaching up, standing facing camera...etc find the best ones to support character
-//choose the character pose at a specifc event marker in a scene.
-////
-//display these options in your canvas. Then output as is to after effects
-//all characters/scenes keep 1-1 sizing in mind. 1000px = 10m or something
 
 
 
@@ -110,3 +71,18 @@
 //locations main dir - remake to read files from project...
 //build out view selector for each locationInProject - viewProject area...
 //build out view selector for each view in location...
+//each scene sends up the view's reference image...
+//if not seeing view set as default - each location needs at least 1 view...
+//if not seeing location show setter...
+//make forest: entrance, deep, oasis, exit...
+//each character has active appearance along with defining description. upload that and reference images (view/character) along with visual instructions from scene - remove the condenser...
+//same way to change location on projectsToLocations...
+//make prompts on addedit character/location editable - make add variables to prompt in utility...
+//fix objwithFile bug - still validates deleted array - dont allow delete if invalid...
+//refine image preview gpt with central generation, multi context from options - uploading reference images...
+//fix add edit character with form obj error check...
+//each scene has characters in scene - active to depict - use this to determine active appearance check - not sure...
+//natively have chracters for scene...
+//move generate scene backgrounds to api...
+//change scene character appearance to apperance...
+//location variation names - ensure views choose active values...

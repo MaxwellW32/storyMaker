@@ -104,8 +104,8 @@ export const makeSceneBackgroundImageBodySchema = z.object({
     prompt: z.string().min(1),
     projectId: z.lazy(() => projectSchema.shape.id),
     scene: sceneSchema,
-    charactersInProject: z.lazy(() => characterToProjectSchema.array()),
-    locationsInProject: z.lazy(() => locationToProjectSchema.array()),
+    charactersInProject: z.lazy(() => characterToProjectSchema.passthrough().array()),
+    locationsInProject: z.lazy(() => locationToProjectSchema.passthrough().array()),
 })
 export type makeSceneBackgroundImageBodyType = z.infer<typeof makeSceneBackgroundImageBodySchema>
 

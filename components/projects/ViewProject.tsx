@@ -341,8 +341,9 @@ Scene Description:
                 if (makeImagesInstructionsObj.current.prompt === "") throw new Error("not seeing prompt")
 
                 const finalPrompt = addVariablesToPrompt(makeImagesInstructionsObj.current.prompt, {
-                    locationsInProject: seenLocationsInProject,//dont need
+                    locationsInProject: seenLocationsInProject,
                     charactersInProject: seenCharactersInProject,
+                    takeCharacterAppearanceFromScene: true,
                     scene: eachScene,
                     artStyle: project.current.artStyle,
                     location: {
@@ -372,9 +373,9 @@ Scene Description:
                     },
                     body: JSON.stringify(newMakeSceneBackgroundImagesBody)
                 })
-                const sceneResponse = await response.json()
-                console.log(`$sceneResponse`, sceneResponse);
-                const makeSceneBackgroundImageResponse = makeSceneBackgroundImageResponseSchema.parse(sceneResponse)
+                const responseJson = await response.json()
+                const makeSceneBackgroundImageResponse = makeSceneBackgroundImageResponseSchema.parse(responseJson)
+                console.log(`$makeSceneBackgroundImageResponse`, makeSceneBackgroundImageResponse);
 
                 //update scene backgrounds
                 project.current.scenes = project.current.scenes.map(eachSceneMap => {
@@ -466,8 +467,8 @@ Scene Description:
 
         async function actualRun() {
             try {
-                const characterInProjectForDialogue: characterToProjectType | undefined = seenCharactersInProject.find(eachCharacterInProject => eachCharacterInProject.characterId === eachDialogue.characterId)
-                if (characterInProjectForDialogue === undefined || characterInProjectForDialogue.character === undefined) throw new Error("characterInProjectForDialogue/characterInProjectForDialogue.character undefined")
+                const foundCharacterInProject: characterToProjectType | undefined = seenCharactersInProject.find(eachCharacterInProject => eachCharacterInProject.characterId === eachDialogue.characterId)
+                if (foundCharacterInProject === undefined || foundCharacterInProject.character === undefined) throw new Error("foundCharacterInProject/foundCharacterInProject.character undefined")
 
                 //start alterF=DialogueObj
                 if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
@@ -489,7 +490,7 @@ Scene Description:
                     line: eachDialogue.sentence,
                     projectId: seenProject.id,
                     dialogueId: eachDialogue.id,
-                    character: characterInProjectForDialogue.character,
+                    character: foundCharacterInProject.character,
                     variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
                 }
 
@@ -2521,12 +2522,20 @@ function ShowAudio({ seenAlterDialogueObj, seenProjectId }: { seenAlterDialogueO
     )
 }
 
-function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string, location?: { locationId: locationType["id"], viewId: viewType["id"] } }, atTop = true) {
+function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string, location?: { locationId: locationType["id"], viewId: viewType["id"] }, takeCharacterAppearanceFromScene?: boolean }, atTop = true) {
     //add on characters
     const finalCharacters: characterType[] = deepClone(variables.charactersInProject).map(eachCharacterInProject => {
         if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
 
-        const activeAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === eachCharacterInProject.activeAppearanceId)
+        const activeAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => {
+            if (variables.takeCharacterAppearanceFromScene !== undefined) {
+                if (variables.scene === undefined) throw new Error("not seeing scene")
+
+                return eachAppearance.id === variables.scene.activeAppearanceObj[eachCharacterInProject.characterId]
+            }
+
+            return eachAppearance.id === eachCharacterInProject.activeAppearanceId
+        })
         if (activeAppearance === undefined) throw new Error(`not seeing activeAppearance on character ${eachCharacterInProject.character.name}`)
 
         //assign singlevalue to appearances
@@ -2591,3 +2600,73 @@ function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProje
 
     return seenPrompt
 }
+// function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string, location?: { locationId: locationType["id"], viewId: viewType["id"] } }, atTop = true) {
+//     //add on characters
+//     const finalCharacters: characterType[] = deepClone(variables.charactersInProject).map(eachCharacterInProject => {
+//         if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
+
+//         const activeAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === eachCharacterInProject.activeAppearanceId)
+//         if (activeAppearance === undefined) throw new Error(`not seeing activeAppearance on character ${eachCharacterInProject.character.name}`)
+
+//         //assign singlevalue to appearances
+//         eachCharacterInProject.character.appearances = [activeAppearance]
+
+//         return eachCharacterInProject.character
+//     })
+//     const locations: locationType[] = variables.locationsInProject.map(eachLocationInProject => {
+//         if (eachLocationInProject.location === undefined) throw new Error("not seeing eachLocationInProject.location")
+
+//         return eachLocationInProject.location
+//     })
+//     //write
+//     seenPrompt = seenPrompt.replaceAll("[[characters]]", JSON.stringify(finalCharacters, null, 2))
+//     seenPrompt = seenPrompt.replaceAll("[[locations]]", JSON.stringify(locations, null, 2))
+
+//     if (variables.scene !== undefined) {
+//         //add on scene
+//         seenPrompt = seenPrompt.replaceAll("[[scene]]", JSON.stringify(variables.scene, null, 2))
+//     }
+
+//     if (variables.referencedScenes !== undefined) {
+//         //add on reference Scenes
+//         if (variables.referencedScenes.length > 0) {
+//             seenPrompt = seenPrompt.replaceAll("[[referencedScenes]]", JSON.stringify(variables.referencedScenes, null, 2))
+//         }
+//     }
+
+//     if (variables.baseInstructions !== undefined) {
+//         //prevent loop
+//         if (atTop) {
+//             //add on baseInstructions
+//             seenPrompt = seenPrompt.replaceAll("[[baseInstructions]]", addVariablesToPrompt(variables.baseInstructions, variables, false))
+//         }
+//     }
+
+//     if (variables.artStyle !== undefined) {
+//         //add on reference Scenes
+//         seenPrompt = seenPrompt.replaceAll("[[artStyle]]", variables.artStyle)
+//     }
+
+//     if (variables.location !== undefined) {
+//         //update location to only have active view
+//         const foundLocation: locationType | undefined = locations.find(eachLocation => {
+//             if (variables.location === undefined) throw new Error("variables.location undefined")
+
+//             return eachLocation.id === variables.location.locationId
+//         })
+//         if (foundLocation === undefined) throw new Error("foundLocation undefined")
+
+//         //ensure no cross reference
+//         const finalLocation = deepClone(foundLocation)
+//         finalLocation.views = finalLocation.views.filter(eachView => {
+//             if (variables.location === undefined) throw new Error("variables.location undefined")
+
+//             return eachView.id === variables.location.viewId
+//         })
+
+//         //add on location with educed views
+//         seenPrompt = seenPrompt.replaceAll("[[location]]", JSON.stringify(finalLocation, null, 2))
+//     }
+
+//     return seenPrompt
+// }

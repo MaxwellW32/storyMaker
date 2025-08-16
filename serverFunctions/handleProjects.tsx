@@ -75,6 +75,8 @@ export async function updateProject(projectId: projectType["id"], projectObj: Pa
     //validation
     projectSchema.partial().parse(projectObj)
 
+    console.log(`$projectObj`, JSON.stringify(projectObj, null, 2));
+
     //auth
     await ensureCanAccessResource("projects", projectId)
 
