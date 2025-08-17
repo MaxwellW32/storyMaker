@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 }
 
-export async function makeSceneBackgroundImage({ prompt, projectId, scene, charactersInProject, locationsInProject }: makeSceneBackgroundImageBodyType): Promise<makeSceneBackgroundImageResponseType> {
+async function makeSceneBackgroundImage({ prompt, projectId, scene, charactersInProject, locationsInProject }: makeSceneBackgroundImageBodyType): Promise<makeSceneBackgroundImageResponseType> {
     console.log(`$locationsInProject`, JSON.stringify(locationsInProject, null, 2))
 
     //viewImageInput
