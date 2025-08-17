@@ -128,7 +128,7 @@ export type gptImagePromptInstructionsOuterObj = {
 
 
 //gpt api function - for concurrent multi use
-export const gptApiFunctionCallOptionsSchema = z.enum(["makeSceneBackgroundImage", "makeDialogueAudio"])
+export const gptApiFunctionCallOptionsSchema = z.enum(["makeSceneBackgroundImage", "makeDialogueAudio", "makeTempImage"])
 export type gptApiFunctionCallOptionsType = z.infer<typeof gptApiFunctionCallOptionsSchema>
 
 export const makeSceneBackgroundImageBodySchema = z.object({
@@ -144,6 +144,17 @@ export const makeSceneBackgroundImageResponseSchema = z.object({
     src: z.string().min(1)
 })
 export type makeSceneBackgroundImageResponseType = z.infer<typeof makeSceneBackgroundImageResponseSchema>
+
+export const makeTempImageBodySchema = z.object({
+    prompt: z.string().min(1),
+    formData: z.instanceof(FormData).optional(),
+})
+export type makeTempImageBodyType = z.infer<typeof makeTempImageBodySchema>
+
+export const makeTempImageResponseSchema = z.object({
+    src: z.string().min(1)
+})
+export type makeTempImageResponseType = z.infer<typeof makeTempImageResponseSchema>
 
 export const makeDialogueAudioBodySchema = z.object({
     line: z.string().min(1),

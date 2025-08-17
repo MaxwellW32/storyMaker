@@ -1,5 +1,5 @@
-import { gptImagePromptInstructionsOuterObj, gptImagePromptInstructionsObjType } from '@/types'
-import React from 'react'
+import { gptImagePromptInstructionsOuterObj } from '@/types'
+import React, { useEffect } from 'react'
 import ShowMore from '../showMore/ShowMore'
 import TextArea from '../inputs/textArea/TextArea'
 import Image from 'next/image'
@@ -11,7 +11,8 @@ import toast from 'react-hot-toast'
 
 export default function EditImagePromptInstructionsOuterObj({ usedId, imagePromptInstructionsOuterObjStarter, imagePromptInstructionsOuterObj, imagePromptInstructionsOuterObjSet, generateImage }: { usedId: string, imagePromptInstructionsOuterObjStarter: gptImagePromptInstructionsOuterObj["key"], imagePromptInstructionsOuterObj: gptImagePromptInstructionsOuterObj, imagePromptInstructionsOuterObjSet: React.Dispatch<React.SetStateAction<gptImagePromptInstructionsOuterObj>>, generateImage: () => Promise<void> }) {
     const seenImageInstructionsObj = imagePromptInstructionsOuterObj[usedId]
-    if (seenImageInstructionsObj === undefined) {
+    //set first time
+    useEffect(() => {
         imagePromptInstructionsOuterObjSet(prevImagePromptInstructionsOuterObj => {
             const newImagePromptInstructionsOuterObj = { ...prevImagePromptInstructionsOuterObj }
 
@@ -20,6 +21,9 @@ export default function EditImagePromptInstructionsOuterObj({ usedId, imagePromp
             return newImagePromptInstructionsOuterObj
         })
 
+    }, [])
+
+    if (seenImageInstructionsObj === undefined) {
         return null
     }
 
@@ -153,7 +157,7 @@ export default function EditImagePromptInstructionsOuterObj({ usedId, imagePromp
 
                             await generateImage()
 
-                            toast.success(`finished!s`)
+                            toast.success(`finished!`)
                         }}
                     >
                         {seenImageInstructionsObj.mode === "edit" ? seenImageInstructionsObj.loading ? "editing..." : "edit" : seenImageInstructionsObj.loading ? "generating..." : "generate"}

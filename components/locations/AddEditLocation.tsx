@@ -1,20 +1,19 @@
 "use client"
 import React, { useEffect, useRef, useState } from 'react'
 import styles from "./style.module.css"
-import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, gptImagePromptInstructionsOuterObj, gptPromptInstructionsObjType, viewType } from '@/types'
+import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, gptImagePromptInstructionsOuterObj, gptPromptInstructionsObjType, viewType, gptApiFunctionCallOptionsType, makeTempImageBodyType, makeTempImageResponseSchema } from '@/types'
 import toast from 'react-hot-toast'
 import { addLocation, deleteImageForView, updateLocation } from '@/serverFunctions/handleLocations'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
 import TextInput from '../inputs/textInput/TextInput'
 import { addVariablesToString, convertBtyes, deepClone } from '@/utility/utility'
-import ShowMore from '../showMore/ShowMore'
 import TextArea from '../inputs/textArea/TextArea'
 import { handleWithFiles } from '@/utility/handleWithFiles'
 import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
 import { v4 as uuidV4 } from 'uuid'
 import ConfirmationBox from '../confirmationBox/ConfirmationBox'
-import { makeTempImage, makeViewStarters } from '@/serverFunctions/handleGpt'
+import { makeViewStarters } from '@/serverFunctions/handleGpt'
 import EditPromptInstructionsObj from '../promptInstructions/EditPromptInstructionsObj'
 import EditImagePromptInstructionsOuterObj from '../promptInstructions/EditImagePromptInstructionsOuterObj'
 
@@ -270,7 +269,28 @@ location:
                 view: view,
                 location: formObj
             })
-            const makeLocationViewImageResponse = await makeTempImage(finalPrompt, seenViewImageInstructionsObj.formData)
+
+            //what function to call
+            const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeTempImage"
+            //new body
+            const newMakeTempImageBody: makeTempImageBodyType = {
+                prompt: finalPrompt,
+                formData: seenViewImageInstructionsObj.formData,
+            }
+            console.log(`$newMakeTempImageBody`, newMakeTempImageBody)
+
+            //send off to gpt api
+            const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(newMakeTempImageBody)
+            })
+            console.log(`$response`, response);
+            const responseJson = await response.json()
+            const makeTempImageResponse = makeTempImageResponseSchema.parse(responseJson)
+            console.log(`$makeTempImageResponse`, makeTempImageResponse);
 
             //update src
             viewImageInstructionsOuterObjSet(prevViewImageInstructionsObj => {
@@ -280,7 +300,7 @@ location:
                 const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
                 newViewImageInstructionsObj[view.id] = { ...newViewImageInstructionsObj[view.id] }
 
-                newViewImageInstructionsObj[view.id].imageSrc = makeLocationViewImageResponse.src
+                newViewImageInstructionsObj[view.id].imageSrc = makeTempImageResponse.src
 
                 return newViewImageInstructionsObj
             })

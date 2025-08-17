@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, appearanceType, gptImagePromptInstructionsOuterObj, gptPromptInstructionsObjType } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, appearanceType, gptImagePromptInstructionsOuterObj, gptPromptInstructionsObjType, gptApiFunctionCallOptionsType, makeTempImageBodyType, makeTempImageResponseSchema } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
@@ -17,7 +17,7 @@ import { getTags } from '@/serverFunctions/handleTags'
 import ViewTag from '../tags/ViewTag'
 import { addCharacterToTag, deleteCharacterToTag, getCharacterToTags } from '@/serverFunctions/handleCharactersToTags'
 import TextArea from '../inputs/textArea/TextArea'
-import { makeAppearanceStarters, makeCharacter, makeTempImage } from '@/serverFunctions/handleGpt'
+import { makeAppearanceStarters, makeCharacter } from '@/serverFunctions/handleGpt'
 import { handleWithFiles } from '@/utility/handleWithFiles'
 import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
@@ -479,10 +479,30 @@ character:
                 return newAppearanceImageInstructionsObj
             })
 
-            const finalPromt = addVariablesToString(seenAppearanceImageInstructionsObj.prompt, {
+            const finalPrompt = addVariablesToString(seenAppearanceImageInstructionsObj.prompt, {
                 appearance: appearance
             })
-            const makeAppearanceImageResponse = await makeTempImage(finalPromt, seenAppearanceImageInstructionsObj.formData)
+
+            //what function to call
+            const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeTempImage"
+            //new body
+            const newMakeTempImageBody: makeTempImageBodyType = {
+                prompt: finalPrompt,
+                formData: seenAppearanceImageInstructionsObj.formData,
+            }
+            console.log(`$newMakeTempImageBody`, newMakeTempImageBody)
+
+            //send off to gpt api
+            const response = await fetch(`/api/gptConcurrent?functionCallOption=${gptApiFunctionCallOption}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(newMakeTempImageBody)
+            })
+            const responseJson = await response.json()
+            const makeTempImageResponse = makeTempImageResponseSchema.parse(responseJson)
+            console.log(`$makeTempImageResponse`, makeTempImageResponse);
 
             //update src
             appearanceImageInstructionsOuterObjSet(prevAppearanceImageInstructionsObj => {
@@ -492,7 +512,7 @@ character:
                 const newAppearanceImageInstructionsObj = { ...prevAppearanceImageInstructionsObj }
                 newAppearanceImageInstructionsObj[appearance.id] = { ...newAppearanceImageInstructionsObj[appearance.id] }
 
-                newAppearanceImageInstructionsObj[appearance.id].imageSrc = makeAppearanceImageResponse.src
+                newAppearanceImageInstructionsObj[appearance.id].imageSrc = makeTempImageResponse.src
 
                 return newAppearanceImageInstructionsObj
             })

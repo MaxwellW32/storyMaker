@@ -1,7 +1,7 @@
 import path from "path";
-import { ensureDirectoryExists } from "@/utility/manageFiles";
-import { audioDirName, charactersDirName, imagesDirName, locationsDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
-import { characterToProjectType, gptApiFunctionCallOptionsSchema, locationToProjectType, locationType, makeDialogueAudioBodySchema, makeDialogueAudioBodyType, makeDialogueAudioResponseType, makeSceneBackgroundImageBodySchema, makeSceneBackgroundImageBodyType, makeSceneBackgroundImageResponseType, viewType } from "@/types";
+import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
+import { audioDirName, charactersDirName, imagesDirName, locationsDirName, previewImagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
+import { characterToProjectType, gptApiFunctionCallOptionsSchema, locationToProjectType, locationType, makeDialogueAudioBodySchema, makeDialogueAudioBodyType, makeDialogueAudioResponseType, makeSceneBackgroundImageBodySchema, makeSceneBackgroundImageBodyType, makeSceneBackgroundImageResponseType, makeTempImageBodySchema, makeTempImageBodyType, makeTempImageResponseType, viewType } from "@/types";
 import fs from "fs/promises";
 import fsSync from "fs";
 import { openai } from "@/lib/openai";
@@ -9,6 +9,8 @@ import { elevenlabs } from "@/lib/elevenlabs";
 import { NextResponse } from "next/server";
 import { errorZodErrorAsString } from "@/useful/consoleErrorWithToast";
 import { toFile } from "openai";
+import { writeFilesToUploadDir } from "@/serverFunctions/handleDirectories";
+import { v4 as uuidV4 } from "uuid";
 
 export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -27,6 +29,11 @@ export async function POST(request: Request) {
         } else if (functionCallOption === "makeDialogueAudio") {
             const makeDialogueAudioBody = makeDialogueAudioBodySchema.parse(seenBody)
             return NextResponse.json(await makeDialogueAudio(makeDialogueAudioBody))
+
+
+        } else if (functionCallOption === "makeTempImage") {
+            const makeTempImageBody = makeTempImageBodySchema.parse(seenBody)
+            return NextResponse.json(await makeTempImage(makeTempImageBody))
 
 
         } else throw new Error("functionOption not supported")
@@ -114,6 +121,66 @@ async function makeSceneBackgroundImage({ prompt, projectId, scene, charactersIn
     //save the file
     const image_bytes = Buffer.from(imageBase64, "base64");
     await fs.writeFile(documentPath, image_bytes);
+
+    return {
+        src: imageName
+    }
+}
+
+async function makeTempImage({ prompt, formData }: makeTempImageBodyType): Promise<makeTempImageResponseType> {
+    //upload all to temp directory
+    let tempFiles: File[] = []
+    if (formData !== undefined) {
+        const mainDirectory = path.join(uploadedDataDir, previewImagesDirName);
+        const uploadedTempFiles = await writeFilesToUploadDir(mainDirectory, formData, "images")
+
+        //ensure exists
+        await ensureDirectoryExists(mainDirectory);
+
+        //get all temp files  
+        tempFiles = await Promise.all(uploadedTempFiles.names.map(async eachFileName => {
+
+            //convert the file to b64
+            const documentPath = path.join(mainDirectory, eachFileName);
+            return await toFile(fsSync.createReadStream(documentPath), null, {
+                type: "image/png",
+            })
+        }))
+    }
+
+    //generate image for scene
+    const result = formData !== undefined ?
+        await openai.images.edit({
+            model: "gpt-image-1",
+            prompt,
+            image: tempFiles,
+        }) :
+        await openai.images.generate({
+            model: "gpt-image-1",
+            prompt: prompt,
+            moderation: "low",
+            //256x256, 512x512, or 1024x1024
+            //input fidelity
+        });
+
+    if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
+
+    // If base64 is returned
+    if (result.data[0].b64_json === undefined) throw new Error("not seing image b64")
+    const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
+
+    //get folder
+    const mainDirectory = path.join(uploadedDataDir, previewImagesDirName);
+    await ensureDirectoryExists(mainDirectory);
+
+    const imageName = `${uuidV4()}.png`;
+    const documentPath = path.join(mainDirectory, imageName);
+
+    // Save the image to a file
+    await fs.writeFile(documentPath, image_bytes);
+
+    //clean up temp directory
+    await cleanupOldFiles(mainDirectory)
 
     return {
         src: imageName

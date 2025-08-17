@@ -1,7 +1,7 @@
 //To Do
 //show button click loationg with toasts add/edit - make same components to interact with intructionsObj...
-//generate multiple descriptions at once - appearance - do it with regular gpt
-//for each appearance generate images - responses api
+//generate multiple descriptions at once - appearance - do it with regular gpt...
+//for each appearance generate images - responses api...
 //for each image track the convo with the response id
 //makes revision prompts easier
 //allow file upload if file present attach it to responses api

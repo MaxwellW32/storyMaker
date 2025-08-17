@@ -3,13 +3,6 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, gptAppearancesStarterType, gptAppearancesStarterSchema, gptViewsStarterSchema, gptViewsStarterType, } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
-import path from "path";
-import fs from "fs/promises";
-import fsSync from "fs";
-import { previewImagesDirName, uploadedDataDir } from "@/lib/dirPaths";
-import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
-import { toFile } from "openai";
-import { writeFilesToUploadDir } from "./handleDirectories";
 
 export async function makeStory(prompt: string, baseInstructions: string, activeCharacterAppearanceStarter: activeAppearanceObjType): Promise<sceneType[]> {
     const response = await openai.responses.parse({
@@ -277,62 +270,4 @@ export async function makeViewStarters(prompt: string, baseInstructions: string)
     const gptViewsStarterResponse = gptViewsStarterSchema.parse(response.output_parsed)
 
     return gptViewsStarterResponse
-}
-
-export async function makeTempImage(prompt: string, formData?: FormData): Promise<{ src: string }> {
-    //upload all to temp directory
-    let tempFiles: File[] = []
-    if (formData !== undefined) {
-        const mainDirectory = path.join(uploadedDataDir, previewImagesDirName);
-        const uploadedTempFiles = await writeFilesToUploadDir(mainDirectory, formData, "images")
-
-        //ensure exists
-        await ensureDirectoryExists(mainDirectory);
-
-        //get all temp files  
-        tempFiles = await Promise.all(uploadedTempFiles.names.map(async eachFileName => {
-
-            //convert the file to b64
-            const documentPath = path.join(mainDirectory, eachFileName);
-            return await toFile(fsSync.createReadStream(documentPath), null, {
-                type: "image/png",
-            })
-        }))
-    }
-
-    //generate image for scene
-    const result = formData !== undefined ? await openai.images.edit({
-        model: "gpt-image-1",
-        prompt,
-        image: tempFiles,
-    }) : await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: prompt,
-        moderation: "low",
-        //256x256, 512x512, or 1024x1024
-        //input fidelity
-    });
-
-    if (result.data === undefined || result.data.length < 1) throw new Error("not seeing result data");
-
-    // If base64 is returned
-    if (result.data[0].b64_json === undefined) throw new Error("not seing image b64")
-    const image_bytes = Buffer.from(result.data[0].b64_json, "base64");
-
-    //get folder
-    const mainDirectory = path.join(uploadedDataDir, previewImagesDirName);
-    await ensureDirectoryExists(mainDirectory);
-
-    const imageName = `${uuidV4()}.png`;
-    const documentPath = path.join(mainDirectory, imageName);
-
-    // Save the image to a file
-    await fs.writeFile(documentPath, image_bytes);
-
-    //clean up temp directory
-    await cleanupOldFiles(mainDirectory)
-
-    return {
-        src: imageName
-    }
 }
