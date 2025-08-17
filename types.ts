@@ -104,24 +104,24 @@ export const gptViewsStarterSchema = z.object({
 })
 export type gptViewsStarterType = z.infer<typeof gptViewsStarterSchema>
 
-export const gptPromptInstructionsSchema = z.object({
+export const gptPromptInstructionsObjSchema = z.object({
     baseInstructions: z.string().min(1),
     prompt: z.string().min(1),
     loading: z.boolean(),
 })
-export type gptPromptInstructionsType = z.infer<typeof gptPromptInstructionsSchema>
+export type gptPromptInstructionsObjType = z.infer<typeof gptPromptInstructionsObjSchema>
 
-export const gptImagePromptInstructionsSchema = z.object({
+export const gptImagePromptInstructionsObjSchema = z.object({
     prompt: z.string().min(1),
     loading: z.boolean(),
     imageSrc: z.string().min(1),
     mode: z.enum(["edit", "make"]),
     formData: z.instanceof(FormData).optional(),
 })
-export type gptImagePromptInstructionsType = z.infer<typeof gptImagePromptInstructionsSchema>
+export type gptImagePromptInstructionsObjType = z.infer<typeof gptImagePromptInstructionsObjSchema>
 
-export type gptImagePromptInstructions = {
-    [key: string]: gptImagePromptInstructionsType
+export type gptImagePromptInstructionsOuterObj = {
+    [key: string]: gptImagePromptInstructionsObjType
 }
 
 
