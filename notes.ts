@@ -1,4 +1,6 @@
 //To Do
+//show image on select options
+//show button click loationg with toasts add/edit - make same components to interact with intructionsObj
 //generate multiple descriptions at once - appearance - dont with regular gpt
 //for each appearance generate images - responses api
 //for each image track the convo with the response id
