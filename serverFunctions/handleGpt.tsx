@@ -1,6 +1,6 @@
 "use server"
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, gptAppearancesStarterType, gptAppearancesStarterSchema, appearanceType, gptViewsStarterSchema, gptViewsStarterType, } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, gptAppearancesStarterType, gptAppearancesStarterSchema, gptViewsStarterSchema, gptViewsStarterType, } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
 import path from "path";

@@ -1,10 +1,11 @@
 //To Do
-//make
 //generate multiple descriptions at once - appearance - dont with regular gpt
 //for each appearance generate images - responses api
 //for each image track the convo with the response id
 //makes revision prompts easier
 //allow file upload if file present attach it to responses api
+//no text on images
+//component for add button - interface with edit/upload - prompt editing
 
 
 
