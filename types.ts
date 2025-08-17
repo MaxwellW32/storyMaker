@@ -1,5 +1,6 @@
 import { z } from "zod";
 import * as schema from "@/db/schema"
+import { unknown } from "zod/v4";
 
 export const dateSchma = z.preprocess((val) => {
     if (typeof val === "string" || typeof val === "number") return new Date(val);
@@ -92,6 +93,36 @@ export const gptCondensePromptResponseSchema = z.object({
     prompt: z.string().min(1).max(4000)
 })
 export type gptCondensePromptResponseType = z.infer<typeof gptCondensePromptResponseSchema>
+
+export const gptAppearancesStarterSchema = z.object({
+    appearanceStarters: z.lazy(() => appearanceSchema.omit({ id: true, file: true, uploadedFrom: true }).array())
+})
+export type gptAppearancesStarterType = z.infer<typeof gptAppearancesStarterSchema>
+
+export const gptViewsStarterSchema = z.object({
+    viewStarters: z.lazy(() => viewScehema.omit({ id: true, file: true }).array())
+})
+export type gptViewsStarterType = z.infer<typeof gptViewsStarterSchema>
+
+export const gptPromptInstructionsSchema = z.object({
+    baseInstructions: z.string().min(1),
+    prompt: z.string().min(1),
+    loading: z.boolean(),
+})
+export type gptPromptInstructionsType = z.infer<typeof gptPromptInstructionsSchema>
+
+export const gptImagePromptInstructionsSchema = z.object({
+    prompt: z.string().min(1),
+    loading: z.boolean(),
+    imageSrc: z.string().min(1),
+    mode: z.enum(["edit", "make"]),
+    formData: z.instanceof(FormData).optional(),
+})
+export type gptImagePromptInstructionsType = z.infer<typeof gptImagePromptInstructionsSchema>
+
+export type gptImagePromptInstructions = {
+    [key: string]: gptImagePromptInstructionsType
+}
 
 
 
@@ -206,18 +237,6 @@ export const downloadProjectResponseSchema = z.object({
 })
 export type downloadProjectResponseType = z.infer<typeof downloadProjectResponseSchema>
 
-
-
-
-export type promptInstructionsObj = {
-    [key: string]: {
-        prompt: string,
-        loading: boolean,
-        imageSrc: string,
-        mode: "edit" | "make",
-        formData?: FormData,
-    }
-}
 
 
 

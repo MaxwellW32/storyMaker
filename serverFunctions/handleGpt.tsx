@@ -1,6 +1,6 @@
 "use server"
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, } from "@/types";
+import { gptAlterSceneResponseSchema, gptNewCharacterResponseSchema, gptMakeScenesResponseSchema, gptStoryResponseSchema, sceneType, gptMakeDialogueResponseSchema, dialogueType, newCharacterType, activeAppearanceObjType, gptAppearancesStarterType, gptAppearancesStarterSchema, appearanceType, gptViewsStarterSchema, gptViewsStarterType, } from "@/types";
 import { v4 as uuidV4 } from "uuid"
 import { openai } from "@/lib/openai";
 import path from "path";
@@ -250,6 +250,35 @@ export async function makeCharacter(prompt: string, baseInstructions: string): P
 
     return newCharacter
 }
+export async function makeAppearanceStarters(prompt: string, baseInstructions: string): Promise<gptAppearancesStarterType> {
+    const response = await openai.responses.parse({
+        model: "gpt-5-mini",
+        instructions: baseInstructions,
+        input: prompt,
+        text: {
+            format: zodTextFormat(gptAppearancesStarterSchema, "gptAppearanceStarter"),
+        },
+    });
+
+    const gptAppearanceStarterResponse = gptAppearancesStarterSchema.parse(response.output_parsed)
+
+    return gptAppearanceStarterResponse
+}
+export async function makeViewStarters(prompt: string, baseInstructions: string): Promise<gptViewsStarterType> {
+    const response = await openai.responses.parse({
+        model: "gpt-5-mini",
+        instructions: baseInstructions,
+        input: prompt,
+        text: {
+            format: zodTextFormat(gptViewsStarterSchema, "gptViewsStarter"),
+        },
+    });
+
+    const gptViewsStarterResponse = gptViewsStarterSchema.parse(response.output_parsed)
+
+    return gptViewsStarterResponse
+}
+
 export async function makeTempImage(prompt: string, formData?: FormData): Promise<{ src: string }> {
     //upload all to temp directory
     let tempFiles: File[] = []

@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useRef, useState } from 'react'
 import styles from "./style.module.css"
-import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, viewType, promptInstructionsObj } from '@/types'
+import { newLocationSchema, newLocationType, locationSchema, locationType, updateLocationSchema, dbFileType, uploadFileApiResponseSchema, gptImagePromptInstructions, gptPromptInstructionsType, viewType } from '@/types'
 import toast from 'react-hot-toast'
 import { addLocation, deleteImageForView, updateLocation } from '@/serverFunctions/handleLocations'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
@@ -14,7 +14,7 @@ import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
 import { v4 as uuidV4 } from 'uuid'
 import ConfirmationBox from '../confirmationBox/ConfirmationBox'
-import { makeTempImage } from '@/serverFunctions/handleGpt'
+import { makeTempImage, makeViewStarters } from '@/serverFunctions/handleGpt'
 
 export default function AddEditLocation({ sentLocation, submissionAction }: { sentLocation?: locationType, submissionAction?: () => void }) {
     const initialFormObj: newLocationType = {
@@ -26,11 +26,27 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
     //assign either a new form, or the safe values on an update form
     const [formObj, formObjSet] = useState<Partial<locationType>>(deepClone(sentLocation === undefined ? initialFormObj : updateLocationSchema.parse(sentLocation)))
 
-    const [viewInstructionsObj, viewInstructionsObjSet] = useState<promptInstructionsObj>({})
-    const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
     const respondToChangeAbove = useRef(false)
     const [formErrors, formErrorsSet] = useState<{ [key: string]: string | undefined }>({})
+
+    const [viewImageInstructionsObj, viewImageInstructionsObjSet] = useState<gptImagePromptInstructions>({})
+    const [viewStarterInstructionsObj, viewStarterInstructionsObjSet] = useState<gptPromptInstructionsType>({
+        baseInstructions: `Generate a new view for the location based on the user’s prompt. Note the locationVariationName are groupings of related location variations. (e.g all views are under summer home location, different views are under winter home location.)
+
+Use the reference location below to stay consistent and to see what's been made already. Each view must be highly precise.
+
+Provide:
+A short, fitting view name (its a pov of the current location. e.g front of entrance, middle of forest, bedroom...etc).
+A detailed but compact view description (physical, accessories, distinguishing features). The description will be used for image generation, so accuracy and clarity are more important than length.
+
+location:
+[[location]]
+    `,
+        prompt: ``,
+        loading: false
+    })
+    const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
     //handle changes from above
     useEffect(() => {
@@ -167,46 +183,106 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
         }
     }
 
+    async function handleGenerateViewStarter() {
+        try {
+            if (viewStarterInstructionsObj.baseInstructions === "") throw new Error("not seeing baseInstructions")
+            if (viewStarterInstructionsObj.prompt === "") throw new Error("not seeing prompt")
+
+            const seenBaseInstructions = addVariablesToString(viewStarterInstructionsObj.baseInstructions, {
+                location: formObj
+            })
+            console.log(`$seenBaseInstructions`, seenBaseInstructions);
+            console.log(`$viewStarterInstructionsObj.prompt `, viewStarterInstructionsObj.prompt);
+
+            //loading
+            viewStarterInstructionsObjSet(prevViewStarterInstructionsObj => {
+                const newViewStarterInstructionsObj = { ...prevViewStarterInstructionsObj }
+                newViewStarterInstructionsObj.loading = true
+                return newViewStarterInstructionsObj
+            })
+
+            toast.success("making appearance(s)...")
+
+            const makeViewStartersResponse = await makeViewStarters(viewStarterInstructionsObj.prompt, seenBaseInstructions)
+
+            const newViews: viewType[] = makeViewStartersResponse.viewStarters.map(eachViewStarter => {
+                const newView: viewType = {
+                    ...eachViewStarter,
+                    id: uuidV4(),
+                    file: {
+                        src: "",
+                        createdAt: new Date(),
+                        fileName: "dummyData",
+                        status: "to-upload",
+                        uploadedAlready: false,
+                        fileCategory: "image"
+                    },
+                }
+
+                return newView
+            })
+
+            //set new appearances
+            formObjSet(prevFormObj => {
+                const newFormObj = { ...prevFormObj }
+                if (newFormObj.views === undefined) return prevFormObj
+
+                newFormObj.views = [...newFormObj.views, ...newViews]
+
+                return newFormObj
+            })
+
+        } catch (error) {
+            consoleAndToastError(error)
+
+        } finally {
+            viewStarterInstructionsObjSet(prevViewStarterInstructionsObj => {
+                const newViewStarterInstructionsObj = { ...prevViewStarterInstructionsObj }
+                newViewStarterInstructionsObj.loading = false
+                return newViewStarterInstructionsObj
+            })
+        }
+    }
     async function handleGenerateViewImage(view: viewType) {
         try {
             //ensure location name and description
             if (formObj.name === undefined || formObj.name === "" || formObj.description === undefined || formObj.description === "") throw new Error("need location name and description")
 
-            const seenViewInstructionsObj = viewInstructionsObj[view.id]
-            if (seenViewInstructionsObj === undefined) throw new Error("not seeing seenViewInstructionsObj")
+            const seenViewImageInstructionsObj = viewImageInstructionsObj[view.id]
+            if (seenViewImageInstructionsObj === undefined) throw new Error("not seeing seenViewImageInstructionsObj")
 
-            toast.success(`${seenViewInstructionsObj.mode === "edit" ? "editing" : "generating"} view image!`)
+            toast.success(`${seenViewImageInstructionsObj.mode === "edit" ? "editing" : "generating"} view image!`)
 
             //set loading
-            viewInstructionsObjSet(prevViewInstructionsObj => {
-                if (prevViewInstructionsObj[view.id] === undefined) return prevViewInstructionsObj
+            viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+                if (prevViewImageInstructionsObj[view.id] === undefined) return prevViewImageInstructionsObj
 
                 //react refresh
-                const newViewInstructionsObj = { ...prevViewInstructionsObj }
-                newViewInstructionsObj[view.id] = { ...newViewInstructionsObj[view.id] }
+                const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
+                newViewImageInstructionsObj[view.id] = { ...newViewImageInstructionsObj[view.id] }
 
-                newViewInstructionsObj[view.id].loading = true
+                newViewImageInstructionsObj[view.id].loading = true
 
-                return newViewInstructionsObj
+                return newViewImageInstructionsObj
             })
 
-            const finalPrompt = addVariablesToString(seenViewInstructionsObj.prompt, {
+            const finalPrompt = addVariablesToString(seenViewImageInstructionsObj.prompt, {
                 view: view,
                 location: formObj
             })
-            const makeLocationViewImageResponse = await makeTempImage(finalPrompt, seenViewInstructionsObj.formData)
+            const makeLocationViewImageResponse = await makeTempImage(finalPrompt, seenViewImageInstructionsObj.formData)
 
             //update src
-            viewInstructionsObjSet(prevViewInstructionsObj => {
-                if (prevViewInstructionsObj[view.id] === undefined) return prevViewInstructionsObj
+            viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+                if (prevViewImageInstructionsObj[view.id] === undefined) return prevViewImageInstructionsObj
 
                 //react refresh
-                const newViewInstructionsObj = { ...prevViewInstructionsObj }
-                newViewInstructionsObj[view.id] = { ...newViewInstructionsObj[view.id] }
+                const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
+                newViewImageInstructionsObj[view.id] = { ...newViewImageInstructionsObj[view.id] }
 
-                newViewInstructionsObj[view.id].imageSrc = makeLocationViewImageResponse.src
+                newViewImageInstructionsObj[view.id].imageSrc = makeLocationViewImageResponse.src
 
-                return newViewInstructionsObj
+                return newViewImageInstructionsObj
             })
 
             toast.success("finished!")
@@ -216,16 +292,16 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
         }
 
         //finish loading
-        viewInstructionsObjSet(prevViewInstructionsObj => {
-            if (prevViewInstructionsObj[view.id] === undefined) return prevViewInstructionsObj
+        viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+            if (prevViewImageInstructionsObj[view.id] === undefined) return prevViewImageInstructionsObj
 
             //react refresh
-            const newViewInstructionsObj = { ...prevViewInstructionsObj }
-            newViewInstructionsObj[view.id] = { ...newViewInstructionsObj[view.id] }
+            const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
+            newViewImageInstructionsObj[view.id] = { ...newViewImageInstructionsObj[view.id] }
 
-            newViewInstructionsObj[view.id].loading = false
+            newViewImageInstructionsObj[view.id].loading = false
 
-            return newViewInstructionsObj
+            return newViewImageInstructionsObj
         })
     }
 
@@ -289,12 +365,12 @@ export default function AddEditLocation({ sentLocation, submissionAction }: { se
                         {formObj.views.map((eachView, eachViewIndex) => {
                             if (eachView.file.status === "to-delete") return null
 
-                            const seenViewInstructionsObj = viewInstructionsObj[eachView.id]
-                            if (seenViewInstructionsObj === undefined) {
-                                viewInstructionsObjSet(prevViewInstructionsObj => {
-                                    const newViewInstructionsObj = { ...prevViewInstructionsObj }
+                            const seenViewImageInstructionsObj = viewImageInstructionsObj[eachView.id]
+                            if (seenViewImageInstructionsObj === undefined) {
+                                viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+                                    const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
 
-                                    newViewInstructionsObj[eachView.id] = {
+                                    newViewImageInstructionsObj[eachView.id] = {
                                         loading: false,
                                         prompt: `Generate a single, high-resolution illustration showing one specific viewpoint of the given location.
 
@@ -315,7 +391,7 @@ location:
                                         mode: "make",
                                     }
 
-                                    return newViewInstructionsObj
+                                    return newViewImageInstructionsObj
                                 })
                             }
 
@@ -384,6 +460,12 @@ location:
                                         errors={formErrors[`views/${eachViewIndex}/name`]}
                                     />
 
+                                    {eachView.file.uploadedAlready && sentLocation !== undefined ? (
+                                        <Image alt={`${eachView.file.fileName} image`} width={1000} height={1000} src={`/api/locations/images/download?locationId=${sentLocation.id}&src=${eachView.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
+                                    ) : (
+                                        <p>{eachView.file.fileName}</p>
+                                    )}
+
                                     <label>location variation name</label>
                                     <TextInput
                                         name={`${eachView.id}locationVariationName`}
@@ -442,7 +524,7 @@ location:
                                         label='generate image'
                                         content={(
                                             <>
-                                                {seenViewInstructionsObj !== undefined && (
+                                                {seenViewImageInstructionsObj !== undefined && (
                                                     <div className='container'>
                                                         <ShowMore
                                                             label='prompt'
@@ -451,24 +533,24 @@ location:
                                                                     <div className='flexContainer'>
                                                                         <button className='button2'
                                                                             onClick={() => {
-                                                                                viewInstructionsObjSet(prevViewInstructionsObj => {
-                                                                                    if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
+                                                                                viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+                                                                                    if (prevViewImageInstructionsObj[eachView.id] === undefined) return prevViewImageInstructionsObj
 
                                                                                     //react refresh
-                                                                                    const newViewInstructionsObj = { ...prevViewInstructionsObj }
-                                                                                    newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
+                                                                                    const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
+                                                                                    newViewImageInstructionsObj[eachView.id] = { ...newViewImageInstructionsObj[eachView.id] }
 
                                                                                     //toggle
-                                                                                    newViewInstructionsObj[eachView.id].mode = newViewInstructionsObj[eachView.id].mode === "make" ? "edit" : "make"
+                                                                                    newViewImageInstructionsObj[eachView.id].mode = newViewImageInstructionsObj[eachView.id].mode === "make" ? "edit" : "make"
 
-                                                                                    return newViewInstructionsObj
+                                                                                    return newViewImageInstructionsObj
                                                                                 })
                                                                             }}
-                                                                        >Mode: {seenViewInstructionsObj.mode}</button>
+                                                                        >Mode: {seenViewImageInstructionsObj.mode}</button>
 
-                                                                        {seenViewInstructionsObj.mode === "edit" && (
+                                                                        {seenViewImageInstructionsObj.mode === "edit" && (
                                                                             <>
-                                                                                <button className='button2' style={{ justifySelf: "flex-start", backgroundColor: seenViewInstructionsObj.formData === undefined ? "" : "var(--c3)" }}>
+                                                                                <button className='button2' style={{ justifySelf: "flex-start", backgroundColor: seenViewImageInstructionsObj.formData === undefined ? "" : "var(--c3)" }}>
                                                                                     <label htmlFor={`viewEditImageUpload${eachView.id}`} style={{ cursor: "pointer" }}>
                                                                                         upload
                                                                                     </label>
@@ -504,18 +586,18 @@ location:
                                                                                                 const fileSrc = `${uuidV4()}.${fileEnding}`
 
                                                                                                 //add to formData
-                                                                                                viewInstructionsObjSet(prevViewInstructionsObj => {
-                                                                                                    if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
+                                                                                                viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+                                                                                                    if (prevViewImageInstructionsObj[eachView.id] === undefined) return prevViewImageInstructionsObj
 
                                                                                                     //react refresh
-                                                                                                    const newViewInstructionsObj = { ...prevViewInstructionsObj }
-                                                                                                    newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
+                                                                                                    const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
+                                                                                                    newViewImageInstructionsObj[eachView.id] = { ...newViewImageInstructionsObj[eachView.id] }
 
                                                                                                     const seenFormData = new FormData();
                                                                                                     seenFormData.append(fileSrc, file)
-                                                                                                    newViewInstructionsObj[eachView.id].formData = seenFormData
+                                                                                                    newViewImageInstructionsObj[eachView.id].formData = seenFormData
 
-                                                                                                    return newViewInstructionsObj
+                                                                                                    return newViewImageInstructionsObj
                                                                                                 })
                                                                                             }
 
@@ -535,19 +617,19 @@ location:
 
                                                                     <TextArea
                                                                         name={`${eachView.id}generateImagePrompt`}
-                                                                        value={seenViewInstructionsObj.prompt}
+                                                                        value={seenViewImageInstructionsObj.prompt}
                                                                         placeHolder="Enter the prompt for this image generation..."
                                                                         onChange={(e) => {
-                                                                            viewInstructionsObjSet(prevViewInstructionsObj => {
-                                                                                if (prevViewInstructionsObj[eachView.id] === undefined) return prevViewInstructionsObj
+                                                                            viewImageInstructionsObjSet(prevViewImageInstructionsObj => {
+                                                                                if (prevViewImageInstructionsObj[eachView.id] === undefined) return prevViewImageInstructionsObj
 
                                                                                 //react refresh
-                                                                                const newViewInstructionsObj = { ...prevViewInstructionsObj }
-                                                                                newViewInstructionsObj[eachView.id] = { ...newViewInstructionsObj[eachView.id] }
+                                                                                const newViewImageInstructionsObj = { ...prevViewImageInstructionsObj }
+                                                                                newViewImageInstructionsObj[eachView.id] = { ...newViewImageInstructionsObj[eachView.id] }
 
-                                                                                newViewInstructionsObj[eachView.id].prompt = e.target.value
+                                                                                newViewImageInstructionsObj[eachView.id].prompt = e.target.value
 
-                                                                                return newViewInstructionsObj
+                                                                                return newViewImageInstructionsObj
                                                                             })
                                                                         }}
                                                                     />
@@ -555,18 +637,18 @@ location:
                                                             )}
                                                         />
 
-                                                        {seenViewInstructionsObj.imageSrc !== "" && (
+                                                        {seenViewImageInstructionsObj.imageSrc !== "" && (
                                                             <>
                                                                 <label>Image preview</label>
 
-                                                                <Image alt={`${eachView.id} image preview`} width={500} height={500} src={`/api/previewImages/download?src=${seenViewInstructionsObj.imageSrc}`} style={{ objectFit: "contain", width: "100%" }} />
+                                                                <Image alt={`${eachView.id} image preview`} width={500} height={500} src={`/api/previewImages/download?src=${seenViewImageInstructionsObj.imageSrc}`} style={{ objectFit: "contain", width: "100%" }} />
                                                             </>
                                                         )}
 
                                                         <button className='button1'
                                                             onClick={() => handleGenerateViewImage(eachView)}
                                                         >
-                                                            {seenViewInstructionsObj.mode === "edit" ? seenViewInstructionsObj.loading ? "editing..." : "edit" : seenViewInstructionsObj.loading ? "generating..." : "generate"}
+                                                            {seenViewImageInstructionsObj.mode === "edit" ? seenViewImageInstructionsObj.loading ? "editing..." : "edit" : seenViewImageInstructionsObj.loading ? "generating..." : "generate"}
                                                         </button>
                                                     </div>
                                                 )}
@@ -658,49 +740,129 @@ location:
                                     {containsFileErrors && (
                                         <p className='errorText'>Please upload a file</p>
                                     )}
-
-                                    {eachView.file.uploadedAlready && sentLocation !== undefined ? (
-                                        <Image alt={`${eachView.file.fileName} image`} width={1000} height={1000} src={`/api/locations/images/download?locationId=${sentLocation.id}&src=${eachView.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
-                                    ) : (
-                                        <p>{eachView.file.fileName}</p>
-                                    )}
                                 </div>
                             )
                         })}
 
                         <div className='container'>
-                            <button className='button1'
-                                onClick={() => {
-                                    formObjSet(prevFormObj => {
-                                        const newFormObj = { ...prevFormObj }
-                                        if (newFormObj.views === undefined) return prevFormObj
+                            <label>Add New</label>
 
-                                        const newView: viewType = {
-                                            id: uuidV4(),
-                                            name: "",
-                                            description: "",
-                                            locationVariationName: "",
-                                            file: {
-                                                src: "",
-                                                createdAt: new Date(),
-                                                fileName: "",
-                                                status: "to-upload",
-                                                uploadedAlready: false,
-                                                fileCategory: "image"
-                                            },
-                                        }
+                            <ShowMore
+                                label='generate'
+                                content={(
+                                    <>
+                                        <ShowMore
+                                            label='base instructions'
+                                            content={(
+                                                <TextArea
+                                                    name="viewStarterInstructionsObjBaseInstructions"
+                                                    value={viewStarterInstructionsObj.baseInstructions}
+                                                    placeHolder="Describe how the gpt works..."
+                                                    onChange={(e) => {
+                                                        viewStarterInstructionsObjSet(prevViewStarterInstructionsObj => {
+                                                            const newViewStarterInstructionsObj = { ...prevViewStarterInstructionsObj }
 
-                                        newFormObj.views = [...newFormObj.views, newView]
+                                                            newViewStarterInstructionsObj.baseInstructions = e.target.value
 
-                                        return newFormObj
-                                    })
-                                }}
-                            >make new</button>
+                                                            return newViewStarterInstructionsObj
+                                                        })
+                                                    }}
+                                                />
+
+                                            )}
+                                        />
+
+                                        <label>prompt</label>
+                                        <TextArea
+                                            name="viewStarterInstructionsObjPrompt"
+                                            value={viewStarterInstructionsObj.prompt}
+                                            placeHolder="Enter your prompt for the new appearance..."
+                                            onChange={(e) => {
+                                                viewStarterInstructionsObjSet(prevViewStarterInstructionsObj => {
+                                                    const newViewStarterInstructionsObj = { ...prevViewStarterInstructionsObj }
+
+                                                    newViewStarterInstructionsObj.prompt = e.target.value
+
+                                                    return newViewStarterInstructionsObj
+                                                })
+                                            }}
+                                        />
+
+                                        <button className='button1'
+                                            onClick={handleGenerateViewStarter}
+                                        >generate</button>
+                                    </>
+                                )}
+                            />
+
+                            <ShowMore
+                                label='manual'
+                                content={(
+                                    <>
+                                        <button className='button1'
+                                            onClick={() => {
+                                                formObjSet(prevFormObj => {
+                                                    const newFormObj = { ...prevFormObj }
+                                                    if (newFormObj.views === undefined) return prevFormObj
+
+                                                    const newView: viewType = {
+                                                        id: uuidV4(),
+                                                        name: "",
+                                                        description: "",
+                                                        locationVariationName: "",
+                                                        file: {
+                                                            src: "",
+                                                            createdAt: new Date(),
+                                                            fileName: "",
+                                                            status: "to-upload",
+                                                            uploadedAlready: false,
+                                                            fileCategory: "image"
+                                                        },
+                                                    }
+
+                                                    newFormObj.views = [...newFormObj.views, newView]
+
+                                                    return newFormObj
+                                                })
+                                            }}
+                                        >make new</button>
+                                    </>
+                                )}
+                            />
                         </div>
                     </div>
                 </>
             )}
 
+            {/* <div className='container'>
+                <button className='button1'
+                    onClick={() => {
+                        formObjSet(prevFormObj => {
+                            const newFormObj = { ...prevFormObj }
+                            if (newFormObj.views === undefined) return prevFormObj
+
+                            const newView: viewType = {
+                                id: uuidV4(),
+                                name: "",
+                                description: "",
+                                locationVariationName: "",
+                                file: {
+                                    src: "",
+                                    createdAt: new Date(),
+                                    fileName: "",
+                                    status: "to-upload",
+                                    uploadedAlready: false,
+                                    fileCategory: "image"
+                                },
+                            }
+
+                            newFormObj.views = [...newFormObj.views, newView]
+
+                            return newFormObj
+                        })
+                    }}
+                >make new</button>
+            </div> */}
             <button className='button1' style={{ justifySelf: "center" }}
                 onClick={handleSubmit}
             >{sentLocation !== undefined ? "update" : "submit"}</button>

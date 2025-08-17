@@ -1,4 +1,16 @@
 //To Do
+//make
+//generate multiple descriptions at once - appearance - dont with regular gpt
+//for each appearance generate images - responses api
+//for each image track the convo with the response id
+//makes revision prompts easier
+//allow file upload if file present attach it to responses api
+
+
+
+
+
+
 //generate locations/characters
 //save
 //canvas dimensions - sets after effects, and image

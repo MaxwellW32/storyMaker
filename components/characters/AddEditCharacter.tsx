@@ -1,12 +1,12 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import styles from "./style.module.css"
-import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, appearanceType, promptInstructionsObj } from '@/types'
+import { newCharacterSchema, newCharacterType, characterSchema, characterType, updateCharacterSchema, emotionType, searchObjType, tagType, dbFileType, uploadFileApiResponseSchema, appearanceType, gptImagePromptInstructions, gptPromptInstructionsType } from '@/types'
 import toast from 'react-hot-toast'
 import { addCharacter, deleteImageForCharacter, updateCharacter } from '@/serverFunctions/handleCharacters'
 import { consoleAndToastError } from '@/useful/consoleErrorWithToast'
 import TextInput from '../inputs/textInput/TextInput'
-import { addVariablesToString, convertBtyes, deepClone } from '@/utility/utility'
+import { addVariablesToString, convertBtyes, deepClone, reduceObj } from '@/utility/utility'
 import { getEmotions } from '@/serverFunctions/handleEmotions'
 import ViewItems from '../items/ViewItem'
 import ViewEmotion from '../emotions/ViewEmotion'
@@ -17,7 +17,7 @@ import { getTags } from '@/serverFunctions/handleTags'
 import ViewTag from '../tags/ViewTag'
 import { addCharacterToTag, deleteCharacterToTag, getCharacterToTags } from '@/serverFunctions/handleCharactersToTags'
 import TextArea from '../inputs/textArea/TextArea'
-import { makeCharacter, makeTempImage } from '@/serverFunctions/handleGpt'
+import { makeAppearanceStarters, makeCharacter, makeTempImage } from '@/serverFunctions/handleGpt'
 import { handleWithFiles } from '@/utility/handleWithFiles'
 import Image from 'next/image'
 import { allowedImageFileTypes, imageFileInputAccept, maxBodyToServerSize, maxFileUploadSize } from '@/lib/uploadFilesLib'
@@ -82,7 +82,22 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         loading: false
     })
 
-    const [appearanceInstructionsObj, appearanceInstructionsObjSet] = useState<promptInstructionsObj>({})
+    const [appearanceImageInstructionsObj, appearanceImageInstructionsObjSet] = useState<gptImagePromptInstructions>({})
+    const [appearanceStarterInstructionsObj, appearanceStarterInstructionsObjSet] = useState<gptPromptInstructionsType>({
+        baseInstructions: `Generate a new appearance for the character based on the user’s prompt. Do not mention age directly.
+
+Use the reference character below to stay consistent and to see what's been made already. Each appearance must be highly precise.
+
+Provide:
+A short, fitting appearance name.
+A detailed but compact physical description (physical, clothing, body, hairstyle, accessories, distinguishing traits). The description will be used for image generation, so accuracy and clarity are more important than length.
+
+character:
+[[character]]
+`,
+        prompt: ``,
+        loading: false
+    })
     const [imageFormData, imageFormDataSet] = useState<FormData | null>(null)
 
     //get chosen emotions
@@ -383,42 +398,103 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         }
     }
 
+    async function handleGenerateAppearanceStarter() {
+        try {
+            if (appearanceStarterInstructionsObj.baseInstructions === "") throw new Error("not seeing baseInstructions")
+            if (appearanceStarterInstructionsObj.prompt === "") throw new Error("not seeing prompt")
+
+            const seenBaseInstructions = addVariablesToString(appearanceStarterInstructionsObj.baseInstructions, {
+                character: reduceObj(formObj, ["name", "age", "appearances", "personality"])
+            })
+            console.log(`$seenBaseInstructions`, seenBaseInstructions);
+            console.log(`$appearanceStarterInstructionsObj.prompt `, appearanceStarterInstructionsObj.prompt);
+
+            //loading
+            appearanceStarterInstructionsObjSet(prevAppearanceStarterInstructionsObj => {
+                const newAppearanceStarterInstructionsObj = { ...prevAppearanceStarterInstructionsObj }
+                newAppearanceStarterInstructionsObj.loading = true
+                return newAppearanceStarterInstructionsObj
+            })
+
+            toast.success("making appearance(s)...")
+
+            const makeAppearanceStartersResponse = await makeAppearanceStarters(appearanceStarterInstructionsObj.prompt, seenBaseInstructions)
+
+            const newAppearances: appearanceType[] = makeAppearanceStartersResponse.appearanceStarters.map(eachAppearanceStarter => {
+                const newAppearance: appearanceType = {
+                    ...eachAppearanceStarter,
+                    id: uuidV4(),
+                    uploadedFrom: "main",
+                    file: {
+                        src: "",
+                        createdAt: new Date(),
+                        fileName: "dummyData",
+                        status: "to-upload",
+                        uploadedAlready: false,
+                        fileCategory: "image"
+                    },
+                }
+
+                return newAppearance
+            })
+
+            //set new appearances
+            formObjSet(prevFormObj => {
+                const newFormObj = { ...prevFormObj }
+                if (newFormObj.appearances === undefined) return prevFormObj
+
+                newFormObj.appearances = [...newFormObj.appearances, ...newAppearances]
+
+                return newFormObj
+            })
+
+        } catch (error) {
+            consoleAndToastError(error)
+
+        } finally {
+            appearanceStarterInstructionsObjSet(prevAppearanceStarterInstructionsObj => {
+                const newAppearanceStarterInstructionsObj = { ...prevAppearanceStarterInstructionsObj }
+                newAppearanceStarterInstructionsObj.loading = false
+                return newAppearanceStarterInstructionsObj
+            })
+        }
+    }
     async function handleGenerateAppearanceImage(appearance: appearanceType) {
         try {
-            const seenAppearanceInstructionsObj = appearanceInstructionsObj[appearance.id]
-            if (seenAppearanceInstructionsObj === undefined) throw new Error("not seeing seenAppearanceInstructionsObj")
+            const seenAppearanceImageInstructionsObj = appearanceImageInstructionsObj[appearance.id]
+            if (seenAppearanceImageInstructionsObj === undefined) throw new Error("not seeing seenAppearanceImageInstructionsObj")
 
             toast.success("generating image!")
 
             //set loading
-            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-                if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+            appearanceImageInstructionsObjSet(prevAppearanceImageInstructionsObj => {
+                if (prevAppearanceImageInstructionsObj[appearance.id] === undefined) return prevAppearanceImageInstructionsObj
 
                 //react refresh
-                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
-                newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+                const newAppearanceImageInstructionsObj = { ...prevAppearanceImageInstructionsObj }
+                newAppearanceImageInstructionsObj[appearance.id] = { ...newAppearanceImageInstructionsObj[appearance.id] }
 
-                newAppearanceInstructionsObj[appearance.id].loading = true
+                newAppearanceImageInstructionsObj[appearance.id].loading = true
 
-                return newAppearanceInstructionsObj
+                return newAppearanceImageInstructionsObj
             })
 
-            const finalPromt = addVariablesToString(seenAppearanceInstructionsObj.prompt, {
-                characterAppearance: appearance
+            const finalPromt = addVariablesToString(seenAppearanceImageInstructionsObj.prompt, {
+                appearance: appearance
             })
-            const makeCharacterAppearanceImageResponse = await makeTempImage(finalPromt, seenAppearanceInstructionsObj.formData)
+            const makeAppearanceImageResponse = await makeTempImage(finalPromt, seenAppearanceImageInstructionsObj.formData)
 
             //update src
-            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-                if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+            appearanceImageInstructionsObjSet(prevAppearanceImageInstructionsObj => {
+                if (prevAppearanceImageInstructionsObj[appearance.id] === undefined) return prevAppearanceImageInstructionsObj
 
                 //react refresh
-                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
-                newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+                const newAppearanceImageInstructionsObj = { ...prevAppearanceImageInstructionsObj }
+                newAppearanceImageInstructionsObj[appearance.id] = { ...newAppearanceImageInstructionsObj[appearance.id] }
 
-                newAppearanceInstructionsObj[appearance.id].imageSrc = makeCharacterAppearanceImageResponse.src
+                newAppearanceImageInstructionsObj[appearance.id].imageSrc = makeAppearanceImageResponse.src
 
-                return newAppearanceInstructionsObj
+                return newAppearanceImageInstructionsObj
             })
 
             toast.success("finished!")
@@ -428,16 +504,16 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
         }
 
         //finish loading
-        appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-            if (prevAppearanceInstructionsObj[appearance.id] === undefined) return prevAppearanceInstructionsObj
+        appearanceImageInstructionsObjSet(prevAppearanceImageInstructionsObj => {
+            if (prevAppearanceImageInstructionsObj[appearance.id] === undefined) return prevAppearanceImageInstructionsObj
 
             //react refresh
-            const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
-            newAppearanceInstructionsObj[appearance.id] = { ...newAppearanceInstructionsObj[appearance.id] }
+            const newAppearanceImageInstructionsObj = { ...prevAppearanceImageInstructionsObj }
+            newAppearanceImageInstructionsObj[appearance.id] = { ...newAppearanceImageInstructionsObj[appearance.id] }
 
-            newAppearanceInstructionsObj[appearance.id].loading = false
+            newAppearanceImageInstructionsObj[appearance.id].loading = false
 
-            return newAppearanceInstructionsObj
+            return newAppearanceImageInstructionsObj
         })
     }
 
@@ -692,12 +768,12 @@ archetype: // Narrative role (e.g., "The Hero", "The Trickster", "The Mentor")
                         {formObj.appearances.map((eachAppearance, eachAppearanceIndex) => {
                             if (eachAppearance.file.status === "to-delete") return null
 
-                            const seenAppearanceInstructionsObj = appearanceInstructionsObj[eachAppearance.id]
-                            if (seenAppearanceInstructionsObj === undefined) {
-                                appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-                                    const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
+                            const seenAppearanceImageInstructionsObj = appearanceImageInstructionsObj[eachAppearance.id]
+                            if (seenAppearanceImageInstructionsObj === undefined) {
+                                appearanceImageInstructionsObjSet(prevAppearanceImageInstructionsObj => {
+                                    const newAppearanceImageInstructionsObj = { ...prevAppearanceImageInstructionsObj }
 
-                                    newAppearanceInstructionsObj[eachAppearance.id] = {
+                                    newAppearanceImageInstructionsObj[eachAppearance.id] = {
                                         loading: false,
                                         prompt: `Generate a single, high-resolution character reference sheet of the character described below.
 
@@ -709,14 +785,14 @@ Clothing, accessories, and style must match the description exactly unless other
 Avoid stylization changes, extra props, or backgrounds not mentioned.
 The goal is to create a precise visual reference for consistent reproduction in future images.
 
-characterAppearance:
-[[characterAppearance]]
+appearance:
+[[appearance]]
 `,
                                         imageSrc: "",
-                                        mode: "make"
+                                        mode: "make",
                                     }
 
-                                    return newAppearanceInstructionsObj
+                                    return newAppearanceImageInstructionsObj
                                 })
                             }
 
@@ -785,6 +861,12 @@ characterAppearance:
                                         errors={formErrors[`appearances/${eachAppearanceIndex}/name`]}
                                     />
 
+                                    {eachAppearance.file.uploadedAlready && sentCharacter !== undefined ? (
+                                        <Image alt={`${eachAppearance.file.fileName} image`} width={1000} height={1000} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
+                                    ) : (
+                                        <p>{eachAppearance.file.fileName}</p>
+                                    )}
+
                                     <label>description</label>
                                     <TextArea
                                         name={`${eachAppearance.id}appearanceDescription`}
@@ -816,7 +898,7 @@ characterAppearance:
                                         label='generate image'
                                         content={(
                                             <>
-                                                {seenAppearanceInstructionsObj !== undefined && (
+                                                {seenAppearanceImageInstructionsObj !== undefined && (
                                                     <div className='container'>
                                                         <ShowMore
                                                             label='prompt'
@@ -825,7 +907,7 @@ characterAppearance:
                                                                     <div className='flexContainer'>
                                                                         <button className='button2'
                                                                             onClick={() => {
-                                                                                appearanceInstructionsObjSet(prevAppearanceIntructionsObj => {
+                                                                                appearanceImageInstructionsObjSet(prevAppearanceIntructionsObj => {
                                                                                     if (prevAppearanceIntructionsObj[eachAppearance.id] === undefined) return prevAppearanceIntructionsObj
 
                                                                                     //react refresh
@@ -838,11 +920,11 @@ characterAppearance:
                                                                                     return newViewInstructionsObj
                                                                                 })
                                                                             }}
-                                                                        >Mode: {seenAppearanceInstructionsObj.mode}</button>
+                                                                        >Mode: {seenAppearanceImageInstructionsObj.mode}</button>
 
-                                                                        {seenAppearanceInstructionsObj.mode === "edit" && (
+                                                                        {seenAppearanceImageInstructionsObj.mode === "edit" && (
                                                                             <>
-                                                                                <button className='button2' style={{ justifySelf: "flex-start", backgroundColor: seenAppearanceInstructionsObj.formData === undefined ? "" : "var(--c3)" }}>
+                                                                                <button className='button2' style={{ justifySelf: "flex-start", backgroundColor: seenAppearanceImageInstructionsObj.formData === undefined ? "" : "var(--c3)" }}>
                                                                                     <label htmlFor={`viewEditImageUpload${eachAppearance.id}`} style={{ cursor: "pointer" }}>
                                                                                         upload
                                                                                     </label>
@@ -878,18 +960,18 @@ characterAppearance:
                                                                                                 const fileSrc = `${uuidV4()}.${fileEnding}`
 
                                                                                                 //add to formData
-                                                                                                appearanceInstructionsObjSet(prevAppearanceIntructionsObj => {
+                                                                                                appearanceImageInstructionsObjSet(prevAppearanceIntructionsObj => {
                                                                                                     if (prevAppearanceIntructionsObj[eachAppearance.id] === undefined) return prevAppearanceIntructionsObj
 
                                                                                                     //react refresh
-                                                                                                    const newAppearanceInstructionsObj = { ...prevAppearanceIntructionsObj }
-                                                                                                    newAppearanceInstructionsObj[eachAppearance.id] = { ...newAppearanceInstructionsObj[eachAppearance.id] }
+                                                                                                    const newAppearanceImageInstructionsObj = { ...prevAppearanceIntructionsObj }
+                                                                                                    newAppearanceImageInstructionsObj[eachAppearance.id] = { ...newAppearanceImageInstructionsObj[eachAppearance.id] }
 
                                                                                                     const seenFormData = new FormData();
                                                                                                     seenFormData.append(fileSrc, file)
-                                                                                                    newAppearanceInstructionsObj[eachAppearance.id].formData = seenFormData
+                                                                                                    newAppearanceImageInstructionsObj[eachAppearance.id].formData = seenFormData
 
-                                                                                                    return newAppearanceInstructionsObj
+                                                                                                    return newAppearanceImageInstructionsObj
                                                                                                 })
                                                                                             }
 
@@ -909,19 +991,19 @@ characterAppearance:
 
                                                                     <TextArea
                                                                         name={`${eachAppearance.id}generateImagePrompt`}
-                                                                        value={seenAppearanceInstructionsObj.prompt}
+                                                                        value={seenAppearanceImageInstructionsObj.prompt}
                                                                         placeHolder="Enter the prompt for this image generation..."
                                                                         onChange={(e) => {
-                                                                            appearanceInstructionsObjSet(prevAppearanceInstructionsObj => {
-                                                                                if (prevAppearanceInstructionsObj[eachAppearance.id] === undefined) return prevAppearanceInstructionsObj
+                                                                            appearanceImageInstructionsObjSet(prevAppearanceImageInstructionsObj => {
+                                                                                if (prevAppearanceImageInstructionsObj[eachAppearance.id] === undefined) return prevAppearanceImageInstructionsObj
 
                                                                                 //react refresh
-                                                                                const newAppearanceInstructionsObj = { ...prevAppearanceInstructionsObj }
-                                                                                newAppearanceInstructionsObj[eachAppearance.id] = { ...newAppearanceInstructionsObj[eachAppearance.id] }
+                                                                                const newAppearanceImageInstructionsObj = { ...prevAppearanceImageInstructionsObj }
+                                                                                newAppearanceImageInstructionsObj[eachAppearance.id] = { ...newAppearanceImageInstructionsObj[eachAppearance.id] }
 
-                                                                                newAppearanceInstructionsObj[eachAppearance.id].prompt = e.target.value
+                                                                                newAppearanceImageInstructionsObj[eachAppearance.id].prompt = e.target.value
 
-                                                                                return newAppearanceInstructionsObj
+                                                                                return newAppearanceImageInstructionsObj
                                                                             })
                                                                         }}
                                                                     />
@@ -929,18 +1011,18 @@ characterAppearance:
                                                             )}
                                                         />
 
-                                                        {seenAppearanceInstructionsObj.imageSrc !== "" && (
+                                                        {seenAppearanceImageInstructionsObj.imageSrc !== "" && (
                                                             <>
                                                                 <label>Image preview</label>
 
-                                                                <Image alt={`${eachAppearance.id} image preview`} width={500} height={500} src={`/api/previewImages/download?src=${seenAppearanceInstructionsObj.imageSrc}`} style={{ objectFit: "contain", width: "100%" }} />
+                                                                <Image alt={`${eachAppearance.id} image preview`} width={500} height={500} src={`/api/previewImages/download?src=${seenAppearanceImageInstructionsObj.imageSrc}`} style={{ objectFit: "contain", width: "100%" }} />
                                                             </>
                                                         )}
 
                                                         <button className='button1'
                                                             onClick={() => handleGenerateAppearanceImage(eachAppearance)}
                                                         >
-                                                            {seenAppearanceInstructionsObj.loading ? "generating..." : "generate"}
+                                                            {seenAppearanceImageInstructionsObj.loading ? "generating..." : "generate"}
                                                         </button>
                                                     </div>
                                                 )}
@@ -1032,44 +1114,95 @@ characterAppearance:
                                     {containsFileErrors && (
                                         <p className='errorText'>Please upload a file</p>
                                     )}
-
-                                    {eachAppearance.file.uploadedAlready && sentCharacter !== undefined ? (
-                                        <Image alt={`${eachAppearance.file.fileName} image`} width={1000} height={1000} src={`/api/characters/images/download?characterId=${sentCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
-                                    ) : (
-                                        <p>{eachAppearance.file.fileName}</p>
-                                    )}
                                 </div>
                             )
                         })}
 
                         <div className='container'>
-                            <button className='button1'
-                                onClick={() => {
-                                    formObjSet(prevFormObj => {
-                                        const newFormObj = { ...prevFormObj }
-                                        if (newFormObj.appearances === undefined) return prevFormObj
+                            <label>Add New</label>
 
-                                        const newAppearance: appearanceType = {
-                                            id: uuidV4(),
-                                            name: "",
-                                            description: "",
-                                            file: {
-                                                src: "",
-                                                createdAt: new Date(),
-                                                fileName: "",
-                                                status: "to-upload",
-                                                uploadedAlready: false,
-                                                fileCategory: "image"
-                                            },
-                                            uploadedFrom: "main"
-                                        }
+                            <ShowMore
+                                label='generate'
+                                content={(
+                                    <>
+                                        <ShowMore
+                                            label='base instructions'
+                                            content={(
+                                                <TextArea
+                                                    name="appearanceStarterInstructionsObjBaseInstructions"
+                                                    value={appearanceStarterInstructionsObj.baseInstructions}
+                                                    placeHolder="Describe how the gpt works..."
+                                                    onChange={(e) => {
+                                                        appearanceStarterInstructionsObjSet(prevAppearanceStarterInstructionsObj => {
+                                                            const newAppearanceStarterInstructionsObj = { ...prevAppearanceStarterInstructionsObj }
 
-                                        newFormObj.appearances = [...newFormObj.appearances, newAppearance]
+                                                            newAppearanceStarterInstructionsObj.baseInstructions = e.target.value
 
-                                        return newFormObj
-                                    })
-                                }}
-                            >make new</button>
+                                                            return newAppearanceStarterInstructionsObj
+                                                        })
+                                                    }}
+                                                />
+
+                                            )}
+                                        />
+
+                                        <label>prompt</label>
+                                        <TextArea
+                                            name="appearanceStarterInstructionsObjPrompt"
+                                            value={appearanceStarterInstructionsObj.prompt}
+                                            placeHolder="Enter your prompt for the new appearance..."
+                                            onChange={(e) => {
+                                                appearanceStarterInstructionsObjSet(prevAppearanceStarterInstructionsObj => {
+                                                    const newAppearanceStarterInstructionsObj = { ...prevAppearanceStarterInstructionsObj }
+
+                                                    newAppearanceStarterInstructionsObj.prompt = e.target.value
+
+                                                    return newAppearanceStarterInstructionsObj
+                                                })
+                                            }}
+                                        />
+
+                                        <button className='button1'
+                                            onClick={handleGenerateAppearanceStarter}
+                                        >generate</button>
+                                    </>
+                                )}
+                            />
+
+                            <ShowMore
+                                label='manual'
+                                content={(
+                                    <>
+                                        <button className='button1'
+                                            onClick={() => {
+                                                formObjSet(prevFormObj => {
+                                                    const newFormObj = { ...prevFormObj }
+                                                    if (newFormObj.appearances === undefined) return prevFormObj
+
+                                                    const newAppearance: appearanceType = {
+                                                        id: uuidV4(),
+                                                        name: "",
+                                                        description: "",
+                                                        file: {
+                                                            src: "",
+                                                            createdAt: new Date(),
+                                                            fileName: "",
+                                                            status: "to-upload",
+                                                            uploadedAlready: false,
+                                                            fileCategory: "image"
+                                                        },
+                                                        uploadedFrom: "main"
+                                                    }
+
+                                                    newFormObj.appearances = [...newFormObj.appearances, newAppearance]
+
+                                                    return newFormObj
+                                                })
+                                            }}
+                                        >make new</button>
+                                    </>
+                                )}
+                            />
                         </div>
                     </div>
                 </>

@@ -1,7 +1,7 @@
 import z from "zod"
 import { eq, gte, sql, SQLWrapper } from "drizzle-orm";
 import { PgNumeric, PgInteger, PgTableWithColumns, PgEnumColumn } from 'drizzle-orm/pg-core'
-import { appearanceType, locationType, viewType } from "@/types";
+import { appearanceType, characterType, locationType, viewType } from "@/types";
 
 export function deepClone<T>(object: T): T {
     return JSON.parse(JSON.stringify(object))
@@ -146,7 +146,7 @@ export function replaceSlashComments(originalText: string, slashComment: string,
     return linesWithoutSlashComments.join("\n")
 }
 
-export function addVariablesToString(seenPrompt: string, variables: { view?: viewType, location?: Partial<locationType>, characterAppearance?: Partial<appearanceType> }) {
+export function addVariablesToString(seenPrompt: string, variables: { view?: viewType, location?: Partial<locationType>, appearance?: Partial<appearanceType>, character?: Partial<characterType> }) {
     //eventually make this accept charactersInProject
 
     if (variables.view !== undefined) {
@@ -159,10 +159,27 @@ export function addVariablesToString(seenPrompt: string, variables: { view?: vie
         seenPrompt = seenPrompt.replaceAll("[[location]]", JSON.stringify(variables.location, null, 2))
     }
 
-    if (variables.characterAppearance !== undefined) {
+    if (variables.appearance !== undefined) {
         //add on scene
-        seenPrompt = seenPrompt.replaceAll("[[characterAppearance]]", JSON.stringify(variables.characterAppearance, null, 2))
+        seenPrompt = seenPrompt.replaceAll("[[appearance]]", JSON.stringify(variables.appearance, null, 2))
+    }
+
+    if (variables.character !== undefined) {
+        //add on scene
+        seenPrompt = seenPrompt.replaceAll("[[character]]", JSON.stringify(variables.character, null, 2))
     }
 
     return seenPrompt
+}
+
+export function reduceObj<T extends object, K extends keyof T>(seenObj: T, keys: K[]): Pick<T, K> {
+    const newObj = {} as Pick<T, K>
+
+    keys.forEach(key => {
+        if (key in seenObj) {
+            newObj[key] = seenObj[key]
+        }
+    })
+
+    return newObj
 }
