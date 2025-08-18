@@ -7,6 +7,17 @@
 //allow file upload if file present attach it to responses api
 //no text on images
 //component for add button - interface with edit/upload - prompt editing
+//change previewImages folder
+//change api to all use same download function
+//use same upload function fileType checker - return file
+
+//write to reusable project
+////download file - utility
+////primary key maker- schema
+////rate limit
+////upload file function
+////
+////
 
 
 
