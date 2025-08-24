@@ -888,22 +888,19 @@ character:
                                         usedId={eachAppearance.id}
                                         imagePromptInstructionsOuterObjStarter={{
                                             loading: false,
-                                            prompt: `Generate a single, high-resolution illustration showing one specific viewpoint of the given location.
+                                            prompt: `Generate a single, high-resolution character reference sheet of the character described below.
 
-Depict only this viewpoint given the view object (e.g., view name: “front door,” “living room,” “start of forest,” “deep in forest,” “end of forest”), with no other angles.
-Maintain the same visual style, color palette, and environmental details across all viewpoints of this location to ensure consistency in later scenes.
-Include only elements that belong to the described location and angle — no extra objects or characters unless explicitly stated.
-Keep lighting, perspective, and rendering style uniform with previous images of this location so they look like they belong to the same illustrated world.
-The goal is to create a reference image for this specific view of the location that can be reused for storybook scene consistency.
+Depict the full body in a clear, neutral standing pose, facing forward.
+Use even, neutral lighting and a plain, solid-color background to maximize clarity.
+Strictly follow all provided physical appearance details — do not add, remove, or alter any features.
+Maintain exact facial structure, age, body proportions, skin tone, hair color, hairstyle, and any notable marks or distinguishing traits.
+Clothing, accessories, and style must match the description exactly unless otherwise specified.
+Avoid stylization changes, extra props, or backgrounds not mentioned.
+The goal is to create a precise visual reference for consistent reproduction in future images.
 
-Generate a single, high-resolution illustration showing one specific viewpoint of the given location.
-
-view:
-[[view]]
-
-location: 
-[[location]]
-                                    `,
+appearance:
+[[appearance]]
+`,
                                             imageSrc: "",
                                             mode: "make",
                                         }}
