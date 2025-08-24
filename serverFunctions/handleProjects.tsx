@@ -1,13 +1,13 @@
 "use server"
 import { db } from "@/db";
 import { projects } from "@/db/schema";
-import { newProjectSchema, newProjectType, projectSchema, projectType, tableFilterTypes, updateProjectType } from "@/types";
+import { alterDialogueObjType, newProjectSchema, newProjectType, projectSchema, projectType, tableFilterTypes, updateProjectType } from "@/types";
 import { makeWhereClauses } from "@/utility/utility";
 import { and, desc, eq, SQLWrapper } from "drizzle-orm";
 import { ensureCanAccessResource, sessionCheck } from "./handleAuth";
 import { revalidatePath } from "next/cache";
 import path from "path";
-import { imagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
+import { audioDirName, imagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
 import fs from "fs/promises"
 
 export async function addProject(newProjectObj: newProjectType): Promise<projectType> {
@@ -172,4 +172,18 @@ export async function deleteSceneBackgroundImage(
 
         throw err;
     }
+}
+
+export async function deleteUnusedProjectAudio(projectId: projectType["id"], alterDialogueObj: alterDialogueObjType) {
+    await Promise.all(Object.entries(alterDialogueObj).map(async eachEntry => {
+        const eachValue = eachEntry[1]
+
+        await Promise.all(eachValue.audioFileNameArray.map(async (eachAudioFileName, eachAudioFileNameIndex) => {
+            if (eachAudioFileNameIndex !== eachValue.variationIndex) {
+                //delete the file
+                const filePath = path.join(uploadedDataDir, projectsDirName, projectId, audioDirName, eachAudioFileName)
+                await fs.rm(filePath, { force: true });
+            }
+        }))
+    }))
 }
