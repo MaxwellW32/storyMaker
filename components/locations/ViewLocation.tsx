@@ -14,7 +14,7 @@ export default function ViewLocation({ seenLocation, selectionAction }: { seenLo
             <p>description: {seenLocation.description}</p>
 
             <div className='container'>
-                <p>views:</p>
+                <h3>views:</h3>
 
                 <div className='gridColumns snap'>
                     {seenLocation.views.map(eachView => {

@@ -34,6 +34,8 @@ export default function ViewCharacter({ seenCharacter, selectionAction, viewAll 
                             {seenCharacter.appearances.map(eachAppearance => {
                                 return (
                                     <div key={eachAppearance.id}>
+                                        <h3>{eachAppearance.name}</h3>
+
                                         <Image alt={`${eachAppearance.file.fileName} image`} width={500} height={500} src={`/api/characters/images/download?characterId=${seenCharacter.id}&src=${eachAppearance.file.src}`} style={{ objectFit: "contain", width: "100%" }} />
                                     </div>
                                 )
