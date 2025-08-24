@@ -28,7 +28,7 @@ export default function ViewCharacter({ seenCharacter, selectionAction, viewAll 
                     <p>location: {seenCharacter.location}</p>
 
                     <div className='container'>
-                        <p>appearance:</p>
+                        <h3>appearances:</h3>
 
                         <div className='gridColumns snap'>
                             {seenCharacter.appearances.map(eachAppearance => {
