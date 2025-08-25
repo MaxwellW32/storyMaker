@@ -4,14 +4,11 @@ import styles from "./style.module.css"
 import Image from 'next/image'
 
 export default function ViewLocation({ seenLocation, selectionAction }: { seenLocation: locationType, selectionAction?: (eachLocation: locationType) => void }) {
-    //get tags
-    //get emotions
-    //get user
 
     return (
         <div className={`container ${styles.cont}`}>
-            <p>name: {seenLocation.name}</p>
-            <p>description: {seenLocation.description}</p>
+            <h5>{seenLocation.name}</h5>
+            <p>{seenLocation.description}</p>
 
             <div className='container'>
                 <h3>views:</h3>

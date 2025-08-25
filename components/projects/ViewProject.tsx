@@ -812,7 +812,7 @@ Scene Description:
                                                                 //refresh
                                                                 refreshProject(["activeLocationId"])
                                                             }}
-                                                        >{locationSelected ? "active" : "select location"}</button>
+                                                        >{locationSelected ? "active" : "select"}</button>
 
                                                         <ViewLocation seenLocation={eachLocationInProject.location} />
 
@@ -820,26 +820,28 @@ Scene Description:
                                                             <div className="container">
                                                                 <p>active view</p>
 
-                                                                <Select
-                                                                    name={`${eachLocationInProject.simpleId}ActiveViewId`}
-                                                                    value={`${activeView.name}____${activeView.locationVariationName}____${activeView.id}`}
-                                                                    valueOptions={eachLocationInProject.location.views.map(eachView => `${eachView.name}____${eachView.locationVariationName}____${eachView.id}`)}
-                                                                    onChange={async value => {
-                                                                        try {
-                                                                            const usableViewId = value.split("____")[2]
+                                                                <div className="container" style={{ overflow: "auto" }}>
+                                                                    <Select
+                                                                        name={`${eachLocationInProject.simpleId}ActiveViewId`}
+                                                                        value={`${activeView.name}____${activeView.locationVariationName}____${activeView.id}`}
+                                                                        valueOptions={eachLocationInProject.location.views.map(eachView => `${eachView.name}____${eachView.locationVariationName}____${eachView.id}`)}
+                                                                        onChange={async value => {
+                                                                            try {
+                                                                                const usableViewId = value.split("____")[2]
 
-                                                                            await updateLocationToProject({ locationId: eachLocationInProject.locationId, projectId: eachLocationInProject.projectId, locationToProjectObj: { activeViewId: usableViewId } })
-                                                                            toast.success("active view updated")
+                                                                                await updateLocationToProject({ locationId: eachLocationInProject.locationId, projectId: eachLocationInProject.projectId, locationToProjectObj: { activeViewId: usableViewId } })
+                                                                                toast.success("active view updated")
 
-                                                                            //refresh project from server
-                                                                            refreshFromServer.current = true
-                                                                            refreshProjectPath(seenProject.id)
+                                                                                //refresh project from server
+                                                                                refreshFromServer.current = true
+                                                                                refreshProjectPath(seenProject.id)
 
-                                                                        } catch (error) {
-                                                                            consoleAndToastError(error)
-                                                                        }
-                                                                    }}
-                                                                />
+                                                                            } catch (error) {
+                                                                                consoleAndToastError(error)
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>

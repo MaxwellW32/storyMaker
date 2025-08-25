@@ -96,6 +96,14 @@ h3 {
   text-transform: uppercase;
 }
 
+h5 {
+  font-family: var(--rubik);
+  font-size: var(--fontSizeR);
+  font-weight: 500;
+  color: var(--textC1);
+  text-transform: capitalize;
+}
+
 svg {
   width: var(--sizeR);
   aspect-ratio: 1/1;
