@@ -1,7 +1,7 @@
 import path from "path";
 import { cleanupOldFiles, ensureDirectoryExists } from "@/utility/manageFiles";
 import { audioDirName, charactersDirName, imagesDirName, locationsDirName, previewImagesDirName, projectsDirName, uploadedDataDir } from "@/lib/dirPaths";
-import { characterToProjectType, gptApiFunctionCallOptionsSchema, locationToProjectType, locationType, makeDialogueAudioBodySchema, makeDialogueAudioBodyType, makeDialogueAudioResponseType, makeSceneBackgroundImageBodySchema, makeSceneBackgroundImageBodyType, makeSceneBackgroundImageResponseType, makeTempImageBodySchema, makeTempImageBodyType, makeTempImageResponseType, viewType } from "@/types";
+import { characterToProjectType, characterType, gptApiFunctionCallOptionsSchema, locationToProjectType, locationType, makeSceneAudioBodySchema, makeSceneAudioBodyType, makeSceneAudioResponseType, makeSceneBackgroundImageBodySchema, makeSceneBackgroundImageBodyType, makeSceneBackgroundImageResponseType, makeTempImageBodySchema, makeTempImageBodyType, makeTempImageResponseType, viewType } from "@/types";
 import fs from "fs/promises";
 import fsSync from "fs";
 import { openai } from "@/lib/openai";
@@ -11,6 +11,7 @@ import { errorZodErrorAsString } from "@/useful/consoleErrorWithToast";
 import { toFile } from "openai";
 import { writeFilesToUploadDir } from "@/serverFunctions/handleDirectories";
 import { v4 as uuidV4 } from "uuid";
+import { getSpecificCharacter } from "@/serverFunctions/handleCharacters";
 
 export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -26,9 +27,9 @@ export async function POST(request: Request) {
             const makeSceneBackgroundImagesBody = makeSceneBackgroundImageBodySchema.parse(seenBody)
             return NextResponse.json(await makeSceneBackgroundImage(makeSceneBackgroundImagesBody))
 
-        } else if (functionCallOption === "makeDialogueAudio") {
-            const makeDialogueAudioBody = makeDialogueAudioBodySchema.parse(seenBody)
-            return NextResponse.json(await makeDialogueAudio(makeDialogueAudioBody))
+        } else if (functionCallOption === "makeSceneAudio") {
+            const makeDialogueAudioBody = makeSceneAudioBodySchema.parse(seenBody)
+            return NextResponse.json(await makeSceneAudio(makeDialogueAudioBody))
 
 
         } else if (functionCallOption === "makeTempImage") {
@@ -187,10 +188,33 @@ async function makeTempImage({ prompt, formData }: makeTempImageBodyType): Promi
     }
 }
 
-async function makeDialogueAudio({ character, line, projectId, dialogueId, variationIndex }: makeDialogueAudioBodyType): Promise<makeDialogueAudioResponseType> {
-    const audio = await elevenlabs.textToSpeech.convert(character.voiceId, {
-        text: line,
-        modelId: 'eleven_multilingual_v2',
+async function makeSceneAudio({ projectId, scene, variationIndex }: makeSceneAudioBodyType): Promise<makeSceneAudioResponseType> {
+    const characterInProject: characterType[] = []
+
+    const sceneAudioInputs = await Promise.all(scene.dialogue.map(async eachDialogue => {
+        const seeingCharacterId = characterInProject.find(eachCharacterInProject => eachCharacterInProject.id === eachDialogue.characterId) !== undefined
+        //add to array
+        if (!seeingCharacterId) {
+            const seenCharacter = await getSpecificCharacter(eachDialogue.characterId)
+            if (seenCharacter === undefined) throw new Error("not seeing seenCharacter")
+
+            //add character to array
+            characterInProject.push(seenCharacter)
+        }
+
+        const foundCharacter = characterInProject.find(eachCharacterInProject => eachCharacterInProject.id === eachDialogue.characterId)
+        if (foundCharacter === undefined) throw new Error("not seeing foundCharacter")
+
+        return {
+            text: `${eachDialogue.emotions !== null ? `[${eachDialogue.emotions}] ` : ""}${eachDialogue.sentence}`,
+            voiceId: foundCharacter.voiceId
+        }
+    }))
+
+    const audio = await elevenlabs.textToDialogue.convert({
+        inputs: [
+            ...sceneAudioInputs
+        ],
         outputFormat: 'mp3_44100_128',
     });
 
@@ -209,13 +233,13 @@ async function makeDialogueAudio({ character, line, projectId, dialogueId, varia
     }
     const buffer = Buffer.concat(chunks);
 
-    const audioFileName = `${dialogueId}__${variationIndex + 1}.mp3`
+    const audioFileName = `${scene.id}__${variationIndex + 1}.mp3`
     const audioFilePath = path.join(dirPath, audioFileName)
 
     await fs.writeFile(audioFilePath, buffer)
 
     // Return the image file in the response
     return {
-        dialogueAudioFileName: audioFileName
+        sceneAudioFileName: audioFileName
     }
 } 

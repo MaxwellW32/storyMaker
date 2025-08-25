@@ -2,7 +2,7 @@
 import ShowMore from "@/components/showMore/ShowMore"
 import { alterScene, makeDialogue, makeScenes, makeStory } from "@/serverFunctions/handleGpt"
 import { deleteSceneBackgroundImage, refreshProjectPath, updateProject } from "@/serverFunctions/handleProjects"
-import { activeAppearanceObjType, alterDialogueObjType, alterScenesObjType, characterType, appearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeDialogueAudioBodyType, makeDialogueAudioResponseSchema, characterToProjectType, locationToProjectType, locationType, viewType } from "@/types"
+import { activeAppearanceObjType, alterScenesObjType, characterType, appearanceType, dialogueSchema, dialogueType, downloadProjectBodySchema, downloadProjectBodyType, projectSchema, projectType, sceneSchema, sceneType, searchObjType, updateProjectSchema, uploadFileApiResponseSchema, makeSceneBackgroundImageBodyType, gptApiFunctionCallOptionsType, makeSceneBackgroundImageResponseSchema, makeSceneAudioBodyType, makeSceneAudioResponseSchema, characterToProjectType, locationToProjectType, locationType, viewType, alterDialogueObjType } from "@/types"
 import { consoleAndToastError } from "@/useful/consoleErrorWithToast"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
@@ -311,6 +311,9 @@ Scene Description:
             //finished loading
             makeScenesGenerateObj.current.loading = false
 
+            //reset
+            addingSceneIndex.current = undefined
+
             //refresh
             refreshProject(["scenes"])
 
@@ -427,12 +430,12 @@ Scene Description:
             audioEditable: true
         }
     }
-    function handleDialogueVariationSwitch(dialogueId: dialogueType["id"], option: "next" | "prev") {
-        if (project.current.alterDialogueObj[dialogueId] === undefined) throw new Error("not seeing alter dialogue obj for dialogue id")
-        const seenVariations = project.current.alterDialogueObj[dialogueId].audioFileNameArray
+    function handleDialogueVariationSwitch(sceneId: sceneType["id"], option: "next" | "prev") {
+        if (project.current.alterDialogueObj[sceneId] === undefined) throw new Error("not seeing alter dialogue obj for dialogue id")
+        const seenVariations = project.current.alterDialogueObj[sceneId].audioFileNameArray
 
         //get index
-        let seenIndex = project.current.alterDialogueObj[dialogueId].variationIndex
+        let seenIndex = project.current.alterDialogueObj[sceneId].variationIndex
 
         if (option === "next") {
             seenIndex++
@@ -452,11 +455,12 @@ Scene Description:
         }
 
         //update vriation index
-        project.current.alterDialogueObj[dialogueId].variationIndex = seenIndex
+        project.current.alterDialogueObj[sceneId].variationIndex = seenIndex
 
         refreshProject(["alterDialogueObj"])
     }
-    async function handleDialogueAudio(eachDialogue: dialogueType) {
+
+    async function handleSceneAudio(eachScene: sceneType) {
         //rate limit
         await audioRateLimit(async () => {
             await actualRun()
@@ -467,31 +471,26 @@ Scene Description:
 
         async function actualRun() {
             try {
-                const foundCharacterInProject: characterToProjectType | undefined = seenCharactersInProject.find(eachCharacterInProject => eachCharacterInProject.characterId === eachDialogue.characterId)
-                if (foundCharacterInProject === undefined || foundCharacterInProject.character === undefined) throw new Error("foundCharacterInProject/foundCharacterInProject.character undefined")
-
-                //start alterF=DialogueObj
-                if (project.current.alterDialogueObj[eachDialogue.id] === undefined) {
-                    project.current.alterDialogueObj[eachDialogue.id] = makeDefaultAlterDialogueObj()
+                //start alterDialogueObj
+                if (project.current.alterDialogueObj[eachScene.id] === undefined) {
+                    project.current.alterDialogueObj[eachScene.id] = makeDefaultAlterDialogueObj()
                 }
 
-                //ensure only generate audio for dialogue wanted
-                if (!project.current.alterDialogueObj[eachDialogue.id].audioEditable) {
+                //ensure only generate audio for dialogue wanted and available
+                if (!project.current.alterDialogueObj[eachScene.id].audioEditable || eachScene.dialogue.length === 0) {
                     return
                 }
 
                 //start loading
-                project.current.alterDialogueObj[eachDialogue.id].loading = true
+                project.current.alterDialogueObj[eachScene.id].loading = true
 
                 //what function to call
-                const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeDialogueAudio"
+                const gptApiFunctionCallOption: gptApiFunctionCallOptionsType = "makeSceneAudio"
                 //new body
-                const newMakeDialogueAudioBody: makeDialogueAudioBodyType = {
-                    line: eachDialogue.sentence,
+                const newMakeDialogueAudioBody: makeSceneAudioBodyType = {
                     projectId: seenProject.id,
-                    dialogueId: eachDialogue.id,
-                    character: foundCharacterInProject.character,
-                    variationIndex: project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length
+                    scene: eachScene,
+                    variationIndex: project.current.alterDialogueObj[eachScene.id].audioFileNameArray.length
                 }
 
                 //send off to gpt api
@@ -502,24 +501,26 @@ Scene Description:
                     },
                     body: JSON.stringify(newMakeDialogueAudioBody)
                 })
-                const makeDialogueAudioResponse = makeDialogueAudioResponseSchema.parse(await response.json())
+                const makeDialogueAudioResponse = makeSceneAudioResponseSchema.parse(await response.json())
+
+                console.log(`$makeDialogueAudioResponse`, makeDialogueAudioResponse);
 
                 //react refresh
                 project.current = { ...project.current }
                 project.current.alterDialogueObj = { ...project.current.alterDialogueObj }
-                project.current.alterDialogueObj[eachDialogue.id] = { ...project.current.alterDialogueObj[eachDialogue.id] }
+                project.current.alterDialogueObj[eachScene.id] = { ...project.current.alterDialogueObj[eachScene.id] }
 
                 //add on audio fileName
-                project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray = [...project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray, makeDialogueAudioResponse.dialogueAudioFileName]
+                project.current.alterDialogueObj[eachScene.id].audioFileNameArray = [...project.current.alterDialogueObj[eachScene.id].audioFileNameArray, makeDialogueAudioResponse.sceneAudioFileName]
 
                 //set variation Index to latest
-                project.current.alterDialogueObj[eachDialogue.id].variationIndex = project.current.alterDialogueObj[eachDialogue.id].audioFileNameArray.length - 1
+                project.current.alterDialogueObj[eachScene.id].variationIndex = project.current.alterDialogueObj[eachScene.id].audioFileNameArray.length - 1
 
                 //set audioEditable to false - ensures we don't overwrite if unecessary
-                project.current.alterDialogueObj[eachDialogue.id].audioEditable = false
+                project.current.alterDialogueObj[eachScene.id].audioEditable = false
 
                 //finish loading
-                project.current.alterDialogueObj[eachDialogue.id].loading = false
+                project.current.alterDialogueObj[eachScene.id].loading = false
 
                 //refresh
                 refreshProject(["alterDialogueObj"])
@@ -1008,7 +1009,7 @@ Scene Description:
                                                         </div>
 
 
-                                                        <h2>Make scenes</h2>
+                                                        <h2>make scenes</h2>
 
                                                         <ShowMore
                                                             label='generate'
@@ -1120,6 +1121,7 @@ Scene Description:
 
                                                                                 //reset
                                                                                 makeScenesManualObj.current = { ...initialMakeScenesManualObj }
+                                                                                addingSceneIndex.current = undefined
 
                                                                                 //refresh
                                                                                 refreshProject(["scenes"])
@@ -1160,9 +1162,7 @@ Scene Description:
 
                                     //call handle dialogue for all
                                     project.current.scenes.forEach(eachScene => {
-                                        eachScene.dialogue.forEach(eachDialogue => {
-                                            handleDialogueAudio(eachDialogue)
-                                        })
+                                        handleSceneAudio(eachScene)
                                     })
                                 }}
                             >generate audio</button>
@@ -1187,64 +1187,64 @@ Scene Description:
                             )}
                         </div>
 
-                        <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)", marginTop: "var(--spacingR)" }}>
+                        <div className="container gridColumns snap" style={{ gridAutoColumns: "min(500px, 90%)" }}>
                             {project.current.scenes.map((eachScene) => {
+                                const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachScene.id]
 
                                 return (
-                                    <div key={eachScene.id} className="container" style={{ overflow: "auto" }}>
+                                    <div key={eachScene.id} className="container" style={{ overflow: "auto", justifyItems: "center" }}>
                                         <h3>{eachScene.title}</h3>
 
-                                        {eachScene.dialogue.map(eachDialogue => {
-                                            //ensure audio id mapped to dialogue
-                                            const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[eachDialogue.id]
+                                        {seenAlterDialogueObj !== undefined ? (
+                                            <>
+                                                <button className="button2" style={{ justifySelf: "flex-end" }}
+                                                    onClick={async () => {
+                                                        if (project.current.alterDialogueObj[eachScene.id] === undefined) throw new Error("not seeing alter dialogue obj for scene id")
 
-                                            return (
-                                                <div key={eachDialogue.id} className="container" style={{ justifyItems: "center" }}>
-                                                    {seenAlterDialogueObj !== undefined ? (
-                                                        <>
-                                                            <button className="button2" style={{ justifySelf: "flex-end" }}
-                                                                onClick={async () => {
-                                                                    if (project.current.alterDialogueObj[eachDialogue.id] === undefined) throw new Error("not seeing alter dialogue obj for dialogue id")
+                                                        //switch
+                                                        project.current.alterDialogueObj[eachScene.id].audioEditable = !project.current.alterDialogueObj[eachScene.id].audioEditable
 
-                                                                    //switch
-                                                                    project.current.alterDialogueObj[eachDialogue.id].audioEditable = !project.current.alterDialogueObj[eachDialogue.id].audioEditable
+                                                        refreshProject(["alterDialogueObj"])
+                                                    }}
+                                                >{seenAlterDialogueObj.audioEditable ? "can edit" : "fixed"}</button>
 
-                                                                    refreshProject(["alterDialogueObj"])
-                                                                }}
-                                                            >{seenAlterDialogueObj.audioEditable ? "can edit" : "fixed"}</button>
+                                                <button className="button2" disabled={!seenAlterDialogueObj.audioEditable}
+                                                    onClick={async () => {
+                                                        toast.success("generating!")
 
-                                                            {/* <ViewDialogue dialogue={eachDialogue} /> */}
+                                                        await handleSceneAudio(eachScene)
+                                                    }}
+                                                >regenerate</button>
 
-                                                            <button className="button2" disabled={!seenAlterDialogueObj.audioEditable}
-                                                                onClick={async () => {
-                                                                    toast.success("generating!")
+                                                <ShowAudio seenAlterDialogueObj={seenAlterDialogueObj} seenProjectId={seenProject.id} />
 
-                                                                    await handleDialogueAudio(eachDialogue)
-                                                                }}
-                                                            >regenerate</button>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
+                                                    <button className="button2"
+                                                        onClick={() => {
+                                                            handleDialogueVariationSwitch(eachScene.id, "prev")
+                                                        }}
+                                                    >prev</button>
 
-                                                            <ShowAudio seenAlterDialogueObj={seenAlterDialogueObj} seenProjectId={seenProject.id} />
-
-                                                            <div style={{ display: "flex", alignItems: "center", gap: "var(--spacingS)" }}>
-                                                                <button className="button2"
-                                                                    onClick={() => {
-                                                                        handleDialogueVariationSwitch(eachDialogue.id, "prev")
-                                                                    }}
-                                                                >prev</button>
-
-                                                                <button className="button2"
-                                                                    onClick={() => {
-                                                                        handleDialogueVariationSwitch(eachDialogue.id, "next")
-                                                                    }}
-                                                                >next</button>
-                                                            </div>
-                                                        </>
-                                                    ) : (
-                                                        <p>Generate audio for dialogue</p>
-                                                    )}
+                                                    <button className="button2"
+                                                        onClick={() => {
+                                                            handleDialogueVariationSwitch(eachScene.id, "next")
+                                                        }}
+                                                    >next</button>
                                                 </div>
-                                            )
-                                        })}
+
+                                                <ul className="container">
+                                                    {eachScene.dialogue.map(eachDialogue => {
+                                                        return (
+                                                            <li key={eachDialogue.id} className="container">
+                                                                <ViewDialogue dialogue={eachDialogue} charactersInProject={seenCharactersInProject} />
+                                                            </li>
+                                                        )
+                                                    })}
+                                                </ul>
+                                            </>
+                                        ) : (
+                                            <p>Generate audio for scene</p>
+                                        )}
                                     </div>
                                 )
                             })}
@@ -1477,9 +1477,9 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
                         }
 
                         //make audio editable since dialogue changed
-                        const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[seenDialogueId]
+                        const seenAlterDialogueObj: alterDialogueObjType["key"] | undefined = project.current.alterDialogueObj[scene.id]
                         if (seenAlterDialogueObj !== undefined) {
-                            project.current.alterDialogueObj[seenDialogueId].audioEditable = true
+                            project.current.alterDialogueObj[scene.id].audioEditable = true
                         }
                     }
 
@@ -1623,6 +1623,9 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
 
             //finished loading
             makeDialogueGenerateObj.current.loading = false
+
+            //reset
+            addingDialogueIndex.current = undefined
 
             //refresh
             refreshProject(["scenes"])
@@ -2335,7 +2338,7 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
 
                                     {addingDialogueIndex.current === eachDialogueIndex + 1 && (
                                         <div className="container">
-                                            <h2>Make Dialogue</h2>
+                                            <h2>make dialogue</h2>
 
                                             <ShowMore
                                                 label='generate'
@@ -2443,6 +2446,7 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
 
                                                                 //reset
                                                                 makeDialogueNewManualObj.current = { ...initialMakeDialogueNewManualObj }
+                                                                addingDialogueIndex.current = undefined
 
                                                                 //refresh
                                                                 refreshProject(["scenes"])
@@ -2600,73 +2604,3 @@ function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProje
 
     return seenPrompt
 }
-// function addVariablesToPrompt(seenPrompt: string, variables: { charactersInProject: characterToProjectType[], locationsInProject: locationToProjectType[], scene?: sceneType, referencedScenes?: sceneType[], baseInstructions?: string, artStyle?: string, location?: { locationId: locationType["id"], viewId: viewType["id"] } }, atTop = true) {
-//     //add on characters
-//     const finalCharacters: characterType[] = deepClone(variables.charactersInProject).map(eachCharacterInProject => {
-//         if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
-
-//         const activeAppearance = eachCharacterInProject.character.appearances.find(eachAppearance => eachAppearance.id === eachCharacterInProject.activeAppearanceId)
-//         if (activeAppearance === undefined) throw new Error(`not seeing activeAppearance on character ${eachCharacterInProject.character.name}`)
-
-//         //assign singlevalue to appearances
-//         eachCharacterInProject.character.appearances = [activeAppearance]
-
-//         return eachCharacterInProject.character
-//     })
-//     const locations: locationType[] = variables.locationsInProject.map(eachLocationInProject => {
-//         if (eachLocationInProject.location === undefined) throw new Error("not seeing eachLocationInProject.location")
-
-//         return eachLocationInProject.location
-//     })
-//     //write
-//     seenPrompt = seenPrompt.replaceAll("[[characters]]", JSON.stringify(finalCharacters, null, 2))
-//     seenPrompt = seenPrompt.replaceAll("[[locations]]", JSON.stringify(locations, null, 2))
-
-//     if (variables.scene !== undefined) {
-//         //add on scene
-//         seenPrompt = seenPrompt.replaceAll("[[scene]]", JSON.stringify(variables.scene, null, 2))
-//     }
-
-//     if (variables.referencedScenes !== undefined) {
-//         //add on reference Scenes
-//         if (variables.referencedScenes.length > 0) {
-//             seenPrompt = seenPrompt.replaceAll("[[referencedScenes]]", JSON.stringify(variables.referencedScenes, null, 2))
-//         }
-//     }
-
-//     if (variables.baseInstructions !== undefined) {
-//         //prevent loop
-//         if (atTop) {
-//             //add on baseInstructions
-//             seenPrompt = seenPrompt.replaceAll("[[baseInstructions]]", addVariablesToPrompt(variables.baseInstructions, variables, false))
-//         }
-//     }
-
-//     if (variables.artStyle !== undefined) {
-//         //add on reference Scenes
-//         seenPrompt = seenPrompt.replaceAll("[[artStyle]]", variables.artStyle)
-//     }
-
-//     if (variables.location !== undefined) {
-//         //update location to only have active view
-//         const foundLocation: locationType | undefined = locations.find(eachLocation => {
-//             if (variables.location === undefined) throw new Error("variables.location undefined")
-
-//             return eachLocation.id === variables.location.locationId
-//         })
-//         if (foundLocation === undefined) throw new Error("foundLocation undefined")
-
-//         //ensure no cross reference
-//         const finalLocation = deepClone(foundLocation)
-//         finalLocation.views = finalLocation.views.filter(eachView => {
-//             if (variables.location === undefined) throw new Error("variables.location undefined")
-
-//             return eachView.id === variables.location.viewId
-//         })
-
-//         //add on location with educed views
-//         seenPrompt = seenPrompt.replaceAll("[[location]]", JSON.stringify(finalLocation, null, 2))
-//     }
-
-//     return seenPrompt
-// }

@@ -128,7 +128,7 @@ export type gptImagePromptInstructionsOuterObj = {
 
 
 //gpt api function - for concurrent multi use
-export const gptApiFunctionCallOptionsSchema = z.enum(["makeSceneBackgroundImage", "makeDialogueAudio", "makeTempImage"])
+export const gptApiFunctionCallOptionsSchema = z.enum(["makeSceneBackgroundImage", "makeSceneAudio", "makeTempImage"])
 export type gptApiFunctionCallOptionsType = z.infer<typeof gptApiFunctionCallOptionsSchema>
 
 export const makeSceneBackgroundImageBodySchema = z.object({
@@ -156,19 +156,32 @@ export const makeTempImageResponseSchema = z.object({
 })
 export type makeTempImageResponseType = z.infer<typeof makeTempImageResponseSchema>
 
-export const makeDialogueAudioBodySchema = z.object({
-    line: z.string().min(1),
-    projectId: z.lazy(() => projectSchema.shape.id),
-    dialogueId: z.lazy(() => dialogueSchema.shape.id),
-    variationIndex: z.number(),
-    character: z.lazy(() => characterSchema),
-})
-export type makeDialogueAudioBodyType = z.infer<typeof makeDialogueAudioBodySchema>
+// export const makeDialogueAudioBodySchema = z.object({
+//     line: z.string().min(1),
+//     projectId: z.lazy(() => projectSchema.shape.id),
+//     dialogueId: z.lazy(() => dialogueSchema.shape.id),
+//     variationIndex: z.number(),
+//     character: z.lazy(() => characterSchema),
+// })
+// export type makeDialogueAudioBodyType = z.infer<typeof makeDialogueAudioBodySchema>
 
-export const makeDialogueAudioResponseSchema = z.object({
-    dialogueAudioFileName: z.string().min(1)
+// export const makeDialogueAudioResponseSchema = z.object({
+//     dialogueAudioFileName: z.string().min(1)
+// })
+// export type makeDialogueAudioResponseType = z.infer<typeof makeDialogueAudioResponseSchema>
+
+
+export const makeSceneAudioBodySchema = z.object({
+    projectId: z.lazy(() => projectSchema.shape.id),
+    scene: z.lazy(() => sceneSchema),
+    variationIndex: z.number(),
 })
-export type makeDialogueAudioResponseType = z.infer<typeof makeDialogueAudioResponseSchema>
+export type makeSceneAudioBodyType = z.infer<typeof makeSceneAudioBodySchema>
+
+export const makeSceneAudioResponseSchema = z.object({
+    sceneAudioFileName: z.string().min(1)
+})
+export type makeSceneAudioResponseType = z.infer<typeof makeSceneAudioResponseSchema>
 
 
 

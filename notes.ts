@@ -1,4 +1,7 @@
 //To Do
+//post video
+//change alter dialogue to alter Scene dialogue - everything same
+//test
 //show button click loationg with toasts add/edit - make same components to interact with intructionsObj...
 //generate multiple descriptions at once - appearance - do it with regular gpt...
 //for each appearance generate images - responses api...
@@ -10,6 +13,8 @@
 //change previewImages folder
 //change api to all use same download function
 //use same upload function fileType checker - return file
+//improve when emotions are used
+//each add scene/dialogue resets the add popup
 
 //write to reusable project
 ////download file - utility

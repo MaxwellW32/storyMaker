@@ -51,31 +51,31 @@ export async function getProjects(filter: tableFilterTypes<projectType>, getWith
 
 //     const allProjects = await getProjects({})
 //     await Promise.all(allProjects.map(async eachProject => {
-//         eachProject.scenes = eachProject.scenes.map(eachScene => {
+//         eachProject.alterDialogueObj = {}
 
-//             const oldScene = eachScene as unknown as sceneOldType
+//         // eachProject.scenes = eachProject.scenes.map(eachScene => {
 
-//             const newScene: sceneType = {
-//                 ...oldScene,
-//                 locationId: "dummyData",
-//                 viewId: "dummyData",
-//             }
+//         //     const oldScene = eachScene as unknown as sceneOldType
 
-//             sceneSchema.parse(newScene)
+//         //     const newScene: sceneType = {
+//         //         ...oldScene,
+//         //         locationId: "dummyData",
+//         //         viewId: "dummyData",
+//         //     }
 
-//             return newScene
-//         })
+//         //     sceneSchema.parse(newScene)
+
+//         //     return newScene
+//         // })
 
 //         //update with new sceneObj
-//         await updateProject(eachProject.id, { scenes: eachProject.scenes })
+//         await updateProject(eachProject.id, { alterDialogueObj: eachProject.alterDialogueObj })
 //     }))
 // }
 
 export async function updateProject(projectId: projectType["id"], projectObj: Partial<updateProjectType>): Promise<projectType> {
     //validation
     projectSchema.partial().parse(projectObj)
-
-    console.log(`$projectObj`, JSON.stringify(projectObj, null, 2));
 
     //auth
     await ensureCanAccessResource("projects", projectId)

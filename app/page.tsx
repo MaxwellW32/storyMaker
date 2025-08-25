@@ -19,7 +19,7 @@ export default function Page() {
         <main className={styles.main}>
             {/* <UpdateOldValues
                 funcToRun={async () => {
-                    await updateScenesInProject()
+                    await updateOldScenesInProject()
                 }}
             /> */}
 
