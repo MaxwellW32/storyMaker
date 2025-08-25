@@ -45,8 +45,6 @@ export async function POST(request: Request) {
 }
 
 async function makeSceneBackgroundImage({ prompt, projectId, scene, charactersInProject, locationsInProject }: makeSceneBackgroundImageBodyType): Promise<makeSceneBackgroundImageResponseType> {
-    console.log(`$locationsInProject`, JSON.stringify(locationsInProject, null, 2))
-
     //viewImageInput
     const foundLocation: locationType | undefined = locationsInProject.map((eachLocationInProject: locationToProjectType) => {
         if (eachLocationInProject.location === undefined) throw new Error("eachLocationInProject.location is undefined")

@@ -15,6 +15,7 @@
 //use same upload function fileType checker - return file
 //improve when emotions are used
 //each add scene/dialogue resets the add popup
+//ensure proper responses are returned from api
 
 //write to reusable project
 ////download file - utility

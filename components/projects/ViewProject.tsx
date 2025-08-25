@@ -2105,56 +2105,60 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
             <ShowMore
                 label="scene location"
                 content={(
-                    <div className="container" style={{ overflow: "clip" }}>
+                    <div className="container">
                         {activeSceneLocation !== undefined ? (
                             <>
-                                <Select
-                                    name={`${scene.id}ActiveLocationId`}
-                                    value={`${activeSceneLocation.name}____${activeSceneLocation.id}`}
-                                    valueOptions={seenLocations.map(eachLocation => `${eachLocation.name}____${eachLocation.id}`)}
-                                    onChange={value => {
-                                        project.current.scenes = project.current.scenes.map(eachSceneMap => {
-                                            if (eachSceneMap.id === scene.id) {
-                                                //react refresh
-                                                eachSceneMap = { ...eachSceneMap }
+                                <div className="container" style={{ overflow: "auto" }}>
+                                    <Select
+                                        name={`${scene.id}ActiveLocationId`}
+                                        value={`${activeSceneLocation.name}____${activeSceneLocation.id}`}
+                                        valueOptions={seenLocations.map(eachLocation => `${eachLocation.name}____${eachLocation.id}`)}
+                                        onChange={value => {
+                                            project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                if (eachSceneMap.id === scene.id) {
+                                                    //react refresh
+                                                    eachSceneMap = { ...eachSceneMap }
 
-                                                const usableLocationId = value.split("____")[1]
-                                                eachSceneMap.locationId = usableLocationId
-                                            }
+                                                    const usableLocationId = value.split("____")[1]
+                                                    eachSceneMap.locationId = usableLocationId
+                                                }
 
-                                            return eachSceneMap
-                                        })
+                                                return eachSceneMap
+                                            })
 
-                                        //refresh
-                                        refreshProject(["scenes"])
-                                    }}
-                                />
+                                            //refresh
+                                            refreshProject(["scenes"])
+                                        }}
+                                    />
+                                </div>
 
                                 <label>location view</label>
 
                                 {activeSceneView !== undefined ? (
                                     <>
-                                        <Select
-                                            name={`${scene.id}ActiveViewId`}
-                                            value={`${activeSceneView.name}____${activeSceneView.locationVariationName}____${activeSceneView.id}`}
-                                            valueOptions={activeSceneLocation.views.map(eachView => `${eachView.name}____${eachView.locationVariationName}____${eachView.id}`)}
-                                            onChange={value => {
-                                                project.current.scenes = project.current.scenes.map(eachSceneMap => {
-                                                    if (eachSceneMap.id === scene.id) {
-                                                        //react refresh
-                                                        eachSceneMap = { ...eachSceneMap }
+                                        <div className="container" style={{ overflow: "auto" }}>
+                                            <Select
+                                                name={`${scene.id}ActiveViewId`}
+                                                value={`${activeSceneView.name}____${activeSceneView.locationVariationName}____${activeSceneView.id}`}
+                                                valueOptions={activeSceneLocation.views.map(eachView => `${eachView.name}____${eachView.locationVariationName}____${eachView.id}`)}
+                                                onChange={value => {
+                                                    project.current.scenes = project.current.scenes.map(eachSceneMap => {
+                                                        if (eachSceneMap.id === scene.id) {
+                                                            //react refresh
+                                                            eachSceneMap = { ...eachSceneMap }
 
-                                                        const usableViewId = value.split("____")[2]
-                                                        eachSceneMap.viewId = usableViewId
-                                                    }
+                                                            const usableViewId = value.split("____")[2]
+                                                            eachSceneMap.viewId = usableViewId
+                                                        }
 
-                                                    return eachSceneMap
-                                                })
+                                                        return eachSceneMap
+                                                    })
 
-                                                //refresh
-                                                refreshProject(["scenes"])
-                                            }}
-                                        />
+                                                    //refresh
+                                                    refreshProject(["scenes"])
+                                                }}
+                                            />
+                                        </div>
                                     </>
                                 ) : (
                                     <>
@@ -2282,21 +2286,23 @@ function EditScene({ scene, project, refreshProject, charactersInProject, locati
 
                                     {foundCharacterInProject !== undefined && foundCharacterInProject.character !== undefined ? (
                                         <>
-                                            <Select
-                                                name={`${eachDialogue.id}characterId`}
-                                                value={`${foundCharacterInProject.character.name}____${eachDialogue.characterId}`}
-                                                valueOptions={charactersInProject.map(eachCharacterInProject => {
-                                                    if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
+                                            <div className="container" style={{ overflow: "auto" }}>
+                                                <Select
+                                                    name={`${eachDialogue.id}characterId`}
+                                                    value={`${foundCharacterInProject.character.name}____${eachDialogue.characterId}`}
+                                                    valueOptions={charactersInProject.map(eachCharacterInProject => {
+                                                        if (eachCharacterInProject.character === undefined) throw new Error("not seeing eachCharacterInProject.character")
 
-                                                    return `${eachCharacterInProject.character.name}____${eachCharacterInProject.characterId}`
-                                                })}
-                                                style={{ fontWeight: "bold" }}
-                                                onChange={value => {
-                                                    const usableValue = value.split("____")
+                                                        return `${eachCharacterInProject.character.name}____${eachCharacterInProject.characterId}`
+                                                    })}
+                                                    style={{ fontWeight: "bold" }}
+                                                    onChange={value => {
+                                                        const usableValue = value.split("____")
 
-                                                    updateDialogue(usableValue[1], "characterId", eachDialogue.id)
-                                                }}
-                                            />
+                                                        updateDialogue(usableValue[1], "characterId", eachDialogue.id)
+                                                    }}
+                                                />
+                                            </div>
 
                                             <TextArea
                                                 name={`dialogueSentence${eachDialogue.id}`}
